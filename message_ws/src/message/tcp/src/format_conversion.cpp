@@ -1,0 +1,340 @@
+#include "ros/ros.h"
+#include <string>
+#include <vector>
+#include <sstream>
+#include <iostream>
+#include <map>
+#include "tcp/format_conversion.h"
+#include "tcp/ship_info.h"
+using namespace std;
+#include <geometry_msgs/PoseStamped.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <sensor_msgs/NavSatFix.h>
+
+
+FormatConversionClass::FormatConversionClass()
+{
+    m_valid_headers = "SPRKMXT";    // 协议中所有的合法帧头
+}
+
+/**
+  * @brief  分割一个包含不同帧头的字符串。只查找一次，不允许存在相同帧头
+  * @param  无
+  * @retval -1: 字符串中不存在合法帧头
+  */
+ int FormatConversionClass::SplitString(string s, vector<string>& sub_strings)
+{
+    size_t pos;
+    map<int, char> signs_in_strings;
+
+    /* 查找所有对应的符号 */
+    for (std::string::iterator it = m_valid_headers.begin(); it !=m_valid_headers.end(); it ++){
+        if ((pos = s.find(*it)) != string::npos)
+            signs_in_strings.insert(pair<int, char>(pos, *it));        /* 记录符号及对应的位置 */  
+    }
+    if (signs_in_strings.empty())    /* 如果没有找到对应的符号 */
+    {
+        return -1;
+    }
+    else    /* 根据key值，分割字符串*/
+    {
+        for (map<int, char>::iterator it = signs_in_strings.begin(); it != signs_in_strings.end(); it++)
+        {
+            map<int, char>::iterator next_it = std::next(it);
+            if (next_it != signs_in_strings.end())                                          // 如果该标识符不是最后一个标识符
+                sub_strings.push_back(s.substr(it->first, next_it->first - it->first));            // 将当前标识符与下一个标识符之间的字符作为字符串
+            else                                                                            // 如果该标识符为最后一个标识符
+                sub_strings.push_back(s.substr(it->first));                                 // 将最后一个标识符到结尾添加到字符串
+        }
+    }
+    
+    return 0;
+}
+
+vector<string> FormatConversionClass::get_value_from_string(std::string s, const char pattern)
+{
+    vector<std::string> string_values;
+    std::string string_value;
+    std::istringstream iss(s);
+
+    // split string
+    while (getline(iss, string_value, pattern))     // 将iss字符串按逗号分割，存储在string_value中
+    {
+        /* 两个逗号间没有数据做的处理 */
+        if (string_value == "")
+            string_value = "0";
+        string_values.push_back(string_value);
+    }
+
+    return string_values;
+}
+
+char FormatConversionClass::recognize_message(std::string s)
+{
+    /* 首先判断帧头、帧尾是否合法 */
+    if (m_valid_headers.find(s.front()) == std::string::npos)    /* 帧头不合法 */
+    {
+        ROS_INFO("recognize_message: The message tail '%c' is invalid!", s.front());
+        ROS_INFO("    Entire message: %s", s.c_str());
+        return '\0';
+    }
+
+    if (s.back() != ',')    /* 帧尾不合法 */
+    {
+        ROS_INFO("recognize_message: The message tail '%c' is invalid!", s.back());
+        ROS_INFO("    Entire message: %s", s.c_str());
+        return '\0';
+    }
+
+    return s.front();
+}
+
+/**
+     * @brief  处理s报文格式的数据
+     * @param  s: 接收的字符串
+     * @retval 
+     *     @arg: 0：返回成功
+     *     @arg: -1：帧头错误
+     */
+int FormatConversionClass::handle_header_S(std::string s)
+{
+    vector<string> string_values;
+
+    /* 首先判断帧头是否正确 */
+    if (s.front() != 'S')    /* 帧头错误 */
+    {
+        ROS_INFO("Handle header error: header is not 'S'!");
+        return -1;
+    }
+    
+    string_values = get_value_from_string(s, ',');
+
+    /* 接收对应的数据并记录 */
+    if (string_values.size() != 6)      // S帧一共有6个数据
+    {
+        return -2;
+    }
+    else
+    {
+        
+        if (string_values[1] == "1")  m_push_is_open = true;        /* 1为打开，0为关闭 */
+        else if (string_values[1] == "0")  m_push_is_open = false;
+        
+        if (string_values[2] == "3")  m_is_recieving = true;        /* 3为打开，2为关闭 */
+        else if (string_values[2] == "2")  m_is_recieving = false;
+        
+        if (string_values[3] == "q"||string_values[3] =="exit")  m_is_connecting = false;    /* q或exit为关闭 */
+        else m_is_connecting = true;
+
+        m_control_mode = (char)string_values[4][0];
+
+        if (string_values[5] == "1")  m_boat_keep_nav = true;        /* 1为打开，0为关闭 */
+        else if (string_values[5] == "0")  m_boat_keep_nav = false;             
+    }
+
+    return 0;
+}
+
+
+/**
+ * @brief  处理P报文格式的数据，将接收的点存放到类中
+ * @param  points_s: 接收的字符串
+ * @retval
+ *     @arg: 0：返回成功
+ *     @arg: -1：帧头错误
+ */
+int FormatConversionClass::handle_header_P(std::string points_s, std::vector<sensor_msgs::NavSatFix> &point_list)
+{
+    vector<string> string_values;
+    sensor_msgs::NavSatFix point;
+
+    if (points_s.front() != 'P')    /* 帧头错误 */
+    {
+        ROS_INFO("Handle header error: header is not 'P'!");
+        return -1;
+    }
+
+    string_values = get_value_from_string(points_s, ',');
+    string_values.erase(string_values.begin());      // 去掉'P'帧头
+
+    /* 将所有经纬度转为点集 */
+    for (size_t i = 0; i < string_values.size(); i++)
+    {
+        if (i % 2 == 0)
+            point.longitude = stof(string_values[i]);       // 经度
+        
+        if (i % 2 == 1)
+        {
+            point.latitude = stof(string_values[i]);                     // 纬度
+            point_list.push_back(point);
+        }
+    }       
+
+    return 0;
+}
+
+/**
+     * @brief  处理K报文格式的数据，将接收的键盘操控值存放到类中
+     * @param  s: 接收的字符串
+     * @retval
+     *     @arg: 0：返回成功
+     *     @arg: -1：帧头错误
+     */
+int FormatConversionClass::handle_header_K(std::string s)
+{
+    vector<string> string_values;
+
+    if (s.front() != 'K')    /* 帧头错误 */
+    {
+        ROS_INFO("Handle header error: header is not 'K'!");
+        return -1;
+    }
+
+    /* 接收键盘数据并记录 */
+    string_values = get_value_from_string(s, ',');
+    if (string_values.size() != 5)      // K帧一共有5个数据
+    {
+        return -2;
+    }
+    else
+    {
+        m_keyboard.W = (bool)(string_values[1][0] - '0');
+        m_keyboard.A = (bool)(string_values[2][0] - '0');
+        m_keyboard.S = (bool)(string_values[3][0] - '0');
+        m_keyboard.D = (bool)(string_values[4][0] - '0');
+    }
+
+    return 0;
+}
+
+/**
+     * @brief  处理M报文格式的数据，将接收的串口电压值存入类中
+     * @param  s: 接收的字符串
+     * @retval
+     *     @arg: 0：返回成功
+     *     @arg: -1：帧头错误
+     */
+int FormatConversionClass::handle_header_M(std::string s)    
+{
+    vector<string> string_values;
+
+    if (s.front() != 'M')    /* 帧头错误 */
+    {
+        ROS_INFO("Handle header error: header is not 'M'!");
+        return -1;
+    }
+
+    /* 接收对应的数据并记录 */
+    string_values = get_value_from_string(s, ',');
+    if (string_values.size() != 3)      // M帧一共有3个数据
+        return -2;
+    else
+    {
+        m_voltage_left_battery = stof(string_values[1]);
+        m_voltage_right_battery = stof(string_values[2]);
+    }
+
+    return 0;         
+}
+
+
+/**
+     * @brief  处理X报文格式的数据，将参数信息存入类中
+     * @param  s: 接收的字符串
+     * @retval
+     *     @arg: 0：返回成功
+     *     @arg: -1：帧头错误
+     *     @arg: -2：数据大小错误
+     */
+int FormatConversionClass::handle_header_X(std::string s, tcp::ship_info &ship_info)    
+{
+    vector<string> string_values;
+
+    if (s.front() != 'X')    /* 帧头错误 */
+    {
+        ROS_INFO("Handle header error: header is not 'X'!");
+        return -1;
+    }
+
+    /* 接收对应的数据并记录 */
+    string_values = get_value_from_string(s, ',');
+    if (string_values.size() != 26)      // X帧一共有26个数据
+        return -2;
+    else
+    {
+        /* PID */
+        ship_info.PID1.P = stof(string_values[1]);
+        ship_info.PID1.I = stof(string_values[2]);
+        ship_info.PID1.D = stof(string_values[3]);
+
+        ship_info.PID2.P = stof(string_values[4]);
+        ship_info.PID2.I = stof(string_values[5]);
+        ship_info.PID2.D = stof(string_values[6]);
+
+        ship_info.PID3.P = stof(string_values[7]);
+        ship_info.PID3.I = stof(string_values[8]);
+        ship_info.PID3.D = stof(string_values[9]);
+        /* 系统辨识 */
+        ship_info.system_identification.V = stof(string_values[10]);
+        ship_info.system_identification.K = stof(string_values[11]);
+        ship_info.system_identification.T = stof(string_values[12]);
+        ship_info.system_identification.Turn = stof(string_values[13]);
+        ship_info.system_identification.n3 = stof(string_values[14]);
+        ship_info.system_identification.theta_1 = stof(string_values[15]);
+        /* 滑模控制 */
+        ship_info.sliding_mode.epsilon = stof(string_values[16]);
+        ship_info.sliding_mode.c = stof(string_values[17]);
+        ship_info.sliding_mode.k = stof(string_values[18]);
+        ship_info.sliding_mode.q = stof(string_values[19]);
+        ship_info.sliding_mode.yaw = stof(string_values[20]);
+        ship_info.sliding_mode.omega = stof(string_values[21]);
+        ship_info.sliding_mode.omega_a = stof(string_values[22]);
+        ship_info.sliding_mode.dis = stof(string_values[23]);
+        ship_info.sliding_mode.v = stof(string_values[24]);
+        ship_info.sliding_mode.v_a = stof(string_values[25]);
+    }
+
+    return 0;         
+}
+
+bool FormatConversionClass::push_is_open(void)
+{
+    return m_push_is_open;
+}       
+
+bool FormatConversionClass::message_is_recieving(void)
+{
+    return m_is_recieving;
+}
+
+bool FormatConversionClass::tcp_is_connecting(void)
+{
+    return m_is_connecting;
+}
+
+char FormatConversionClass::control_mode(void)
+{
+    return m_control_mode;
+}
+
+bool FormatConversionClass::boat_keep_nav(void)
+{
+    return m_boat_keep_nav;
+}
+
+KeyboardStructure FormatConversionClass::keyboard(void)
+{
+    return m_keyboard;
+}
+
+float FormatConversionClass::get_voltage_left_battery(void)
+{
+    return m_voltage_left_battery;
+}
+
+float FormatConversionClass::get_voltage_right_battery(void)
+{
+    return m_voltage_right_battery;
+}

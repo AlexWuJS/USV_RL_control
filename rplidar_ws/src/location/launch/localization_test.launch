@@ -1,0 +1,78 @@
+<!-- 
+  Simulate a differential drive robot with the teb_local_planner in stage:
+  - stage
+  - map_server
+  - move_base
+  - static map
+  - amcl
+  - rviz view
+ -->
+<launch>
+
+        <!--  ************** Global Parameters ***************  -->
+        <param name="/use_sim_time" value="true"/>
+        <arg name="bag_filename" default="/home/peak/Downloads/ros_bag//2020-11-17/2020-11-17-18-34-01.bag"/>
+        <arg name="load_state_filename" default="/home/peak/Downloads/ros_bag/2020-10-20/2020-10-20-16-15-06.bag.pbstream"/>
+
+        <param name="robot_description"
+           textfile="$(find cartographer_ros)/urdf/backpack_2d_peak.urdf" />
+
+        <node name="robot_state_publisher" pkg="robot_state_publisher"
+           type="robot_state_publisher" />
+
+        <!--  ************** Stage Simulator ***************  -->
+	<!-- node pkg="stage_ros" type="stageros" name="stageros" args="$(find teb_local_planner_tutorials)/stage/maze_diff_drive.world">
+		<remap from="base_scan" to="scan"/>
+  	</node -->
+
+        <!--  ************** Navigation ***************  -->
+	<node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+  	  	<rosparam file="$(find teb_local_planner_tutorials)/cfg/diff_drive/costmap_common_params.yaml" command="load" ns="global_costmap" />
+  	 	<rosparam file="$(find teb_local_planner_tutorials)/cfg/diff_drive/costmap_common_params.yaml" command="load" ns="local_costmap" />
+  		<rosparam file="$(find teb_local_planner_tutorials)/cfg/diff_drive/local_costmap_params.yaml" command="load" />
+  		<rosparam file="$(find teb_local_planner_tutorials)/cfg/diff_drive/global_costmap_params.yaml" command="load" />
+  		<rosparam file="$(find teb_local_planner_tutorials)/cfg/diff_drive/teb_local_planner_params.yaml" command="load" />
+
+		<param name="base_global_planner" value="global_planner/GlobalPlanner" />
+		<param name="planner_frequency" value="0.0" />
+		<param name="planner_patience" value="5.0" />
+
+		<param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+		<param name="controller_frequency" value="5.0" />
+		<param name="controller_patience" value="15.0" />
+	</node>
+
+
+	<!--  ****** Maps *****  -->
+	<node name="map_server" pkg="map_server" type="map_server" args="$(find teb_local_planner_tutorials)/maps/agv.yaml" output="screen">
+                <param name="frame_id" value="map"/>
+	</node>
+
+	<!--node pkg="amcl" type="amcl" name="amcl" output="screen">
+		<rosparam file="$(find teb_local_planner_tutorials)/cfg/amcl_params.yaml" command="load" />
+
+	        <param name="initial_pose_x"            value="2"/>
+		<param name="initial_pose_y"            value="2"/>
+		<param name="initial_pose_a"            value="0"/>
+	</node-->
+
+          <node name="cartographer_node" pkg="cartographer_ros"
+               type="cartographer_node" args="
+                 -configuration_directory $(find cartographer_ros)/configuration_files
+                 -configuration_basename backpack_2d_localization_evaluation_agv.lua
+                 -configuration_basename_server backpack_2d_server.lua
+                 -load_state_filename $(arg load_state_filename)"
+               output="screen">
+             <remap from="scan" to="scan" />
+             <remap from="odom" to="odom" />
+             <remap from="imu" to="IMU" />
+          </node>
+
+          <!--node name="cartographer_occupancy_grid_node" pkg="cartographer_ros"
+              type="cartographer_occupancy_grid_node" args="-resolution 0.05" /-->
+
+	  <!--  **************** Visualisation ****************  -->
+	  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find teb_local_planner_tutorials)/cfg/rviz_navigation_agv.rviz"/>
+          <node name="playbag" pkg="rosbag" type="play"
+               args="--clock -r 2 $(arg bag_filename)" />
+</launch>

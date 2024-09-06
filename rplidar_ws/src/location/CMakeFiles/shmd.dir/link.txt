@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC  -Wl,-rpath=/home/xique/lidar/rplidar_ws/src/location  -shared -Wl,-soname,libshmd.so -o libshmd.so CMakeFiles/shmd.dir/src/sharedMemory.cpp.o  -L/home/xique/lidar/rplidar_ws/src/location 

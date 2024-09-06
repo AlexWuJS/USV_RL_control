@@ -1,0 +1,32 @@
+<launch>
+    <!-- *****GPT生成版***** 启动move_base节点 -->
+    <node pkg="move_base" type="move_base" name="move_base" output="screen">
+
+        <!-- move_base参数配置文件 -->
+        <rosparam file="$(find location)/config/common/move_base_params.yaml" command="load"/>
+        <!-- local_costmap参数配置文件 -->
+        <rosparam file="$(find location)/config/common/local_costmap_params.yaml" command="load"/>
+        <!-- global_costmap参数配置文件 -->
+        <rosparam file="$(find location)/config/common/global_costmap_params.yaml" command="load"/>
+        <!-- base_global_planner参数配置文件 -->
+        <rosparam file="$(find location)/config/common/base_global_planner_params.yaml" command="load"/>
+        <!-- costmap_common参数配置文件 -->
+        <rosparam file="$(find location)/config/costmap_common_params.yaml" command="load"/>
+        <!-- teb_local_planner参数配置文件 -->
+        <rosparam file="$(find location)/config/teb_local_planner_params.yaml" command="load"/>
+
+
+        <!-- 导航目标订阅话题 -->
+        <remap from="/move_base_simple/goal" to="/move_base/goal"/>
+
+        <!-- 路径发布话题 -->
+        <remap from="/move_base/NavfnROS/plan" to="/path"/>
+
+        <!-- 地图信息订阅话题 -->
+        <remap from="/move_base/local_costmap/footprint" to="/tracked_pose"/>
+
+        <!-- 里程计信息订阅话题 -->
+        <remap from="/move_base/global_costmap/footprint" to="/odom"/>
+
+    </node>
+</launch>

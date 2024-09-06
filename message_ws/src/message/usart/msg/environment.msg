@@ -1,0 +1,3 @@
+float64 voltage_left_battery
+float64 voltage_right_battery
+float64 temperature

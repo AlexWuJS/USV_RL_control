@@ -1,0 +1,1 @@
+/usr/bin/c++   -Wl,-rpath=/home/xique/lidar/rplidar_ws/src/location  -rdynamic CMakeFiles/SM.dir/src/useSM.cpp.o  -o SM  -L/home/xique/lidar/rplidar_ws/src/location -Wl,-rpath,/home/xique/lidar/rplidar_ws/src/location libshmd.so -lpthread 
