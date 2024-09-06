@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<robot name="USV_ship">
+
+    <!-- 1 -->
+    <link name="base_footprint">
+        <visual>
+            <geometry>
+                <sphere radius="0.001" />
+            </geometry>
+            <!-- <origin xyz="0 0 0" rpy="0 0 0" /> -->
+        </visual>
+    </link>
+
+    <!-- 1 -->
+    <link name="base_link">
+        <visual>
+            <geometry>
+            <!--1-->
+                <box size="0.5 0.2 0.1" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="base_color">
+                <color rgba="0.650 0.650 0.650 1" />
+            </material>
+        </visual>
+    </link>    
+
+    <!-- 1 -->
+    <link name="wheel_l">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="1.5705 0 0" />
+            <material name="wheel_color">
+                <color rgba="0.1 0.1 0.1 1" />
+            </material>
+        </visual>
+    </link>  
+
+    <link name="wheel_r">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="1.5705  0 0" />
+            <material name="wheel_color">
+                <color rgba="0.1 0.1 0.1 1" />
+            </material>
+        </visual>
+    </link>  
+     
+
+    <!-- 1 -->
+    <link name="front_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="0.025" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="black">
+                <color rgba="0.0 0.0 0.0 1.0" />
+            </material>
+        </visual>
+    </link>
+
+    <link name="back_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="0.025" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="black">
+                <color rgba="0.0 0.0 0.0 1.0" />
+            </material>
+        </visual>
+    </link>
+
+
+    <!--1-->
+    <link name="support">
+            <visual>
+                <geometry>
+                    <cylinder radius="0.02" length="0.05" />
+                </geometry>
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+                <material name="red">
+                    <color rgba="0.8 0.2 0.0 0.8" />
+                </material>
+            </visual>
+    </link>
+    <!-- 1 -->
+    <link name="laser">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="laser_color">
+                <color rgba="0.4 0.4 0.4 1" />
+            </material>
+        </visual>
+    </link> 
+
+
+    <!-- joint -->
+    <joint name="baselink2footprint" type="fixed">
+        <origin xyz="0 0 0.101" rpy="0 0 0"/>
+        <parent link="base_footprint" />
+        <child  link="base_link" />
+    </joint>
+
+    <!-- 1 -->
+    <joint name="wheell2base" type="fixed">
+        <origin xyz="0.0 -0.111 -0.05" rpy="0 0 0"/>
+        <parent link="base_link" />
+        <child  link="wheel_l" />
+    </joint>
+
+    <joint name="wheelr2base" type="fixed">
+        <origin xyz="0.0 0.111 -0.05" rpy="0 0 0"/>
+        <parent link="base_link" />
+        <child  link="wheel_r" />
+    </joint>
+
+    <!-- 1 -->
+    <joint name="front_wheel2base_link" type="fixed">
+        <parent link="base_link" />
+        <child link="front_wheel" />
+        <origin xyz="0.225 0 -0.075" />
+        <axis xyz="1 1 1" />
+    </joint>
+
+    <joint name="back_wheel2base_link" type="fixed">
+        <parent link="base_link" />
+        <child link="back_wheel" />
+        <origin xyz="-0.225 0 -0.075" />
+        <axis xyz="1 1 1" />
+    </joint>
+
+    <!--1-->
+    <joint name="support2base_link" type="fixed">
+        <parent link="base_link" />
+        <child link="support" />
+        <origin xyz="0 0 0.075" />
+    </joint>
+
+    <!-- 1 -->
+    <joint name="laser2support" type="fixed">
+        <origin xyz="0 0 0.111" rpy="0 0 0"/>
+        <parent link="base_link" />
+        <child  link="laser" />
+    </joint>
+
+</robot>
