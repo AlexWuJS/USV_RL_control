@@ -1,0 +1,15 @@
+.*
+**/devel/
+**/build/
+backup/
+carto/
+catkin_ws/
+imu_ws/src/imu_tools/**/.*
+localize/
+PointCloud/
+rblocal/
+record/
+ws_livox/
+rplidar_ws/teamviewer-host_15.44.4_arm64.deb
+
+!/.gitignore
