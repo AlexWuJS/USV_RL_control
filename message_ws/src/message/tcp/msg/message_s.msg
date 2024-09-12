@@ -1,1 +1,1 @@
-string[] data
+string[] str_s

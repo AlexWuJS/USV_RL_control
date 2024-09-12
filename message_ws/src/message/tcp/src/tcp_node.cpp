@@ -16,7 +16,7 @@
 #include <arpa/inet.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <map>
-
+#include "tcp/message_s.h"
 
 std::mutex tcp_send_mtx, tcp_recv_mtx;          // 定义互斥锁
 std::condition_variable tcp_send_cv;            // 条件变量
@@ -25,6 +25,7 @@ ros::Publisher tcp_message_pub, tcp_ori_message_pub;
 ros::Publisher rtk_point_pub;
 std_msgs::String tcp_recv_string;
 tcp::ship_info ship_information;
+tcp::message_s tcp_message;
 sensor_msgs::Imu imu;                        // 里程计信息
 sensor_msgs::NavSatFix rtk;                  // 里程计信息
 
@@ -51,7 +52,7 @@ void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
   */
 void Tcp_PubShipMessage_CallBack(const ros::TimerEvent &event)
 {
-    tcp_message_pub.publish(ship_information);
+    // tcp_message_pub.publish(ship_information);
 }
 
 /**
@@ -146,6 +147,7 @@ void Tcp_RecvMessage_Thread(int client_socket)
     FormatConversionClass FormatConversion_Tcp;
     vector<std::string> sub_strings;
     std::vector<sensor_msgs::NavSatFix> point_list;
+    std::vector<std::string> test = {"hello","world","!"};
 
     while (true)
     {
@@ -158,9 +160,17 @@ void Tcp_RecvMessage_Thread(int client_socket)
         if (bytes_received <= 0) {
             break;
         }
+
+        ori_message.data = tcp_rbuf;
+        tcp_ori_message_pub.publish(ori_message);
+
         tcp_recv_string.data = tcp_rbuf;
         /* convert to string */
         FormatConversion_Tcp.SplitString(tcp_recv_string.data, sub_strings);
+
+        tcp_message.str_s = sub_strings;
+        tcp_message_pub.publish(tcp_message);//
+
         for (vector<string>::iterator it = sub_strings.begin(); it != sub_strings.end(); it++) {
             switch (FormatConversion_Tcp.recognize_message(*it))
             {
@@ -214,8 +224,6 @@ void Tcp_RecvMessage_Thread(int client_socket)
             break;
             
             case 'T':
-                ori_message.data = *it;
-                tcp_ori_message_pub.publish(ori_message);
             break;
 
             case 'X':
@@ -276,7 +284,9 @@ int main(int argc, char* argv[])
 
     rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/tcp/rtk_point", 10000);
     tcp_ori_message_pub = nh.advertise<std_msgs::String>("/tcp/ori_message", 10000);
-    tcp_message_pub = nh.advertise<tcp::ship_info>("/tcp/message", 10000);
+
+    tcp_message_pub = nh.advertise<tcp::message_s>("/tcp/message", 10000);
+
     ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart_message", 1000, Tcp_SubUsartMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback);   
