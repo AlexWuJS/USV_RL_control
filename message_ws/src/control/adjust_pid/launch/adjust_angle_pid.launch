@@ -17,4 +17,5 @@
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
 
+    <!-- <include file="$(find your_package)/included.launch" /> -->
 </launch>

@@ -60,6 +60,7 @@ add_message_files(
   keyboard.msg
   system_identification.msg
   sliding_mode.msg
+  message_s.msg
 )
 
 ## Generate services in the 'srv' folder

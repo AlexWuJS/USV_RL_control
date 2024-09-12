@@ -11,9 +11,10 @@ using namespace std;
 #include <tf2/utils.h>
 #include <control/Motor.h>
 #include "tcp/format_conversion.h"
+#include "common.h"
 
 ros::Publisher controller_pub;
-control::Motor my_motor_msg;
+control::Motor thruster_msg;
 double desired_angle, heading_angle, pid_output;
 sensor_msgs::Imu imu;                        // 里程计信息
 PID myPid;
@@ -76,19 +77,32 @@ int main(int argc, char* argv[])
     ROS_INFO("adjust_angle_pid_node run success.");
 
     // 默认值1500
-    my_motor_msg.LMainMotor_PWM = 1500;
-    my_motor_msg.RMainMotor_PWM = 1500;
+    thruster_msg.left_thruster_pwm = 1500;
+    thruster_msg.right_thruster_pwm = 1500;
+
+    ros::Rate r(0.1);
     while (ros::ok())
     {
         /* 输出差速值 */
-        pid_output = myPid.PID_Calc(desired_angle, desired_angle-heading_angle); 
-        my_motor_msg.LMainMotor_PWM += pid_output;
-        my_motor_msg.RMainMotor_PWM -= pid_output;
-        /* 发布pwm消息 */
-        controller_pub.publish(my_motor_msg);
-        // ROS_WARN("cha:%f,   l:%f,   r:%f  output:%f",desired_angle-heading_angle,\
-         my_motor_msg.LMainMotor_PWM,my_motor_msg.RMainMotor_PWM,pid_output);
+        pid_output = myPid.PID_Calc(desired_angle, heading_angle); 
+        thruster_msg.left_thruster_pwm += pid_output;
+        thruster_msg.right_thruster_pwm -= pid_output;
 
+        /* 越界判断 */
+        if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)
+            thruster_msg.left_thruster_pwm = THRUSTER_MAX_PWM;
+        else if (thruster_msg.left_thruster_pwm < THRUSTER_MIN_PWM)
+            thruster_msg.left_thruster_pwm = THRUSTER_MIN_PWM;
+
+        if (thruster_msg.right_thruster_pwm > THRUSTER_MAX_PWM)
+            thruster_msg.right_thruster_pwm = THRUSTER_MAX_PWM;
+        else if (thruster_msg.right_thruster_pwm < THRUSTER_MIN_PWM)
+            thruster_msg.right_thruster_pwm = THRUSTER_MIN_PWM;
+
+        /* 发布pwm消息 */
+        controller_pub.publish(thruster_msg);
+        ROS_WARN("desired_angle:%f, heading_angle:%f    output:%f, maxOutput:%f,", desired_angle, heading_angle,pid_output, myPid.maxOutput);
+        r.sleep();
         ros::spinOnce();
     }
     return 0;

@@ -122,9 +122,9 @@ include_directories(
 include
   ${catkin_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}
-  ${CATKIN_DEVEL_PREFIX}/include
   ${CMAKE_SOURCE_DIR}/common
   ${CMAKE_SOURCE_DIR}/message/tcp/include
+  ${CATKIN_DEVEL_PREFIX}/include
 )
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}

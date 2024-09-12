@@ -9,6 +9,8 @@ double PID::PID_Calc(float reference,float feedback)
     lastError_=error_;
     error_=reference-feedback;
     
+        ROS_INFO("reference:%f, feedback:%f", reference, feedback);
+        
     float dout=(error_-lastError_)*kd_u;
     
     float pout=error_*kp_u;
