@@ -122,7 +122,7 @@ include_directories(
 include
   ${catkin_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/common
+  ${CMAKE_SOURCE_DIR}/common/inc
   ${CMAKE_SOURCE_DIR}/message/tcp/include
   ${CATKIN_DEVEL_PREFIX}/include
 )

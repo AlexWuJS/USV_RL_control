@@ -1,1 +1,1 @@
-string[] str_s
+string[] sub_strings

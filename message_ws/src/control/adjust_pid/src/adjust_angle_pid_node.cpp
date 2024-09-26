@@ -6,54 +6,65 @@ using namespace std;
 #include <sys/socket.h>
 #include <std_msgs/String.h>
 #include <string>
-// #include "tcp/Tcp.h"
 #include "adjust_pid/pid.h"
 #include <tf2/utils.h>
 #include <control/Motor.h>
 #include "tcp/format_conversion.h"
 #include "common.h"
+#include "tcp/message_s.h"
+#include "tcp/sendMessage.h"
+#include <cmath>
 
 ros::Publisher controller_pub;
 control::Motor thruster_msg;
 double desired_angle, heading_angle, pid_output;
 sensor_msgs::Imu imu;                        // 里程计信息
 PID myPid;
+ros::ServiceClient client;
 
-
-
+/**
+  * @brief  imu顺时针角度减少，逆时针角度增加
+  * @param  无
+  * @retval 无
+  */
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     imu = *msg;
 
-    heading_angle = tf2::getYaw(imu.orientation);  // 当前船体的航向角
+    heading_angle = tf2::getYaw(imu.orientation)*180/M_PI;  // 当前船体的航向角
 }
 
-void Tcp_SubOriMessage_CallBack(const std_msgs::String::ConstPtr& msg)
+void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
 {
     FormatConversionClass FormatConversion_;
-    std::string str = msg->data;
-    vector<string> string_values;
+    vector<std::string> sub_strings = msg->sub_strings;
 
-    switch (FormatConversion_.recognize_message(str))
+    ROS_WARN("Hello");
+    if (sub_strings[0] == "T" && sub_strings.size() == 5)      // T帧一共有5个数据
     {
-        case 'T':
-            /* 接收键盘数据并记录 */
-            string_values = FormatConversion_.get_value_from_string(str, ',');
-            if (string_values.size() == 5)      // T帧一共有5个数据
-            {
-                desired_angle = stof(string_values[1]);
-                myPid.kp_u = stof(string_values[2]);
-                myPid.ki_u = stof(string_values[3]);
-                myPid.kd_u = stof(string_values[4]);
-                ROS_INFO("pid:%f,%f,%f", myPid.kp_u,myPid.ki_u,myPid.kd_u);
-            }
-        break;
-
-        default:
-            ROS_INFO("Message recognize error: Please check the message, maybe the message is not fit for the protocol!");
-        break;
+            desired_angle = stof(sub_strings[1]);
+            myPid.kp_u = stof(sub_strings[2]);
+            myPid.ki_u = stof(sub_strings[3]);
+            myPid.kd_u = stof(sub_strings[4]);
+            ROS_INFO("pid:%f,%f,%f", myPid.kp_u,myPid.ki_u,myPid.kd_u);
     }
 }
 
+void TcpSend_Thread()
+{
+    tcp::sendMessage tcp_send_message;
+    char tcp_sbuf[100];
+
+    while (true)
+    {
+        sprintf(tcp_sbuf, "\npid:%f,%f,%f,%d,%d,\n",  desired_angle, heading_angle,desired_angle-heading_angle, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
+        // sprintf(tcp_sbuf, "angle_pid:%f,%f,\r\n", desired_angle, heading_angle);
+          
+        tcp_send_message.request.str = tcp_sbuf;
+
+        client.call(tcp_send_message);   
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
+    }
+}
 
 int main(int argc, char* argv[])
 {
@@ -64,9 +75,10 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_ori_message_sub = nh.subscribe<std_msgs::String>("/tcp/ori_message", 1000, Tcp_SubOriMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/message", 10000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
 
+    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
     //pid
     nh.getParam("/adjust_angle_pid_node/kp_u",myPid.kp_u);
     nh.getParam("/adjust_angle_pid_node/ki_u",myPid.ki_u);
@@ -76,17 +88,15 @@ int main(int argc, char* argv[])
 
     ROS_INFO("adjust_angle_pid_node run success.");
 
-    // 默认值1500
-    thruster_msg.left_thruster_pwm = 1500;
-    thruster_msg.right_thruster_pwm = 1500;
+    // 创建线程，传入线程函数
+    std::thread TcpSend(TcpSend_Thread); 
 
-    ros::Rate r(0.1);
     while (ros::ok())
     {
         /* 输出差速值 */
         pid_output = myPid.PID_Calc(desired_angle, heading_angle); 
-        thruster_msg.left_thruster_pwm += pid_output;
-        thruster_msg.right_thruster_pwm -= pid_output;
+        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output;
+        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + pid_output;
 
         /* 越界判断 */
         if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)
@@ -101,9 +111,11 @@ int main(int argc, char* argv[])
 
         /* 发布pwm消息 */
         controller_pub.publish(thruster_msg);
-        ROS_WARN("desired_angle:%f, heading_angle:%f    output:%f, maxOutput:%f,", desired_angle, heading_angle,pid_output, myPid.maxOutput);
-        r.sleep();
         ros::spinOnce();
     }
+
+    // 等待线程结束
+    TcpSend.join();
+
     return 0;
 }  

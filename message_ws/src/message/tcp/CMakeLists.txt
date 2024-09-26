@@ -67,6 +67,7 @@ add_message_files(
 add_service_files(
   FILES
   tcp_connection.srv
+  sendMessage.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -127,8 +128,6 @@ catkin_package(
 include_directories(
 include
   ${catkin_INCLUDE_DIRS}
-  
-
 )
 
 ## Declare a C++ library
@@ -150,6 +149,11 @@ add_executable(tcp_node
   src/format_conversion.cpp
 )
 
+add_executable(system_control_node 
+  src/system_control_node.cpp
+  src/Tcp.cpp
+  src/format_conversion.cpp
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -159,12 +163,16 @@ add_executable(tcp_node
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 add_dependencies(tcp_node ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(system_control_node ${PROJECT_NAME}_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(tcp_node
   ${catkin_LIBRARIES}
 )
 
+target_link_libraries(system_control_node
+  ${catkin_LIBRARIES}
+)
 #############
 ## Install ##
 #############

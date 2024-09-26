@@ -17,6 +17,7 @@ using namespace std;
 FormatConversionClass::FormatConversionClass()
 {
     m_valid_headers = "SPRKMXT";    // 协议中所有的合法帧头
+    m_is_connecting = true;
 }
 
 /**

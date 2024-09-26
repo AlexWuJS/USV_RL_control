@@ -15,14 +15,14 @@ fi
 if ls /dev/*lidar* 1> /dev/null 2>&1; then
     echo "检测到设备： lidar "
 else
-    echo "${RED}设备未接入： lidar \n${NC}"
+    echo "${RED}设备未接入： lidar${NC}"
 fi
 
 # 检查是否检测到设备：与 rtk 相关的设备
 if ls /dev/*rtk* 1> /dev/null 2>&1; then
     echo "检测到设备： rtk "
 else
-    echo "${RED}设备未接入： rtk \n${NC}"
+    echo "${RED}设备未接入： rtk${NC}"
 fi
 
 # 检查是否检测到设备：与 rtk 相关的设备

@@ -7,11 +7,17 @@ double PID::PID_Calc(float reference,float feedback)
 {
     double output;
     lastError_=error_;
-    error_=reference-feedback;
-    
-        ROS_INFO("reference:%f, feedback:%f", reference, feedback);
+
+    /* 角度误差映射 */
+    error_ = reference - feedback;
+    if (error_ > 180 && error_ < 360)
+        error_ -= 360;
+    else if (error_ < -180 && error_ > -360)
+        error_ += 360;
         
     float dout=(error_-lastError_)*kd_u;
+    
+    ROS_WARN("kd:%f",dout);
     
     float pout=error_*kp_u;
     

@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
     /* --- ROS send environmnet message ------------------------------------------------------------------*/
     ros::Timer timer_get_environment = nh.createTimer(ros::Duration(0.1), Usart_GetEnvironmentMessage);
     ros::Timer timer_pub_environment = nh.createTimer(ros::Duration(0.1), PubEnvironmentMessage_CallBack);
-    ros::Timer timer_send_to_stm32 = nh.createTimer(ros::Duration(0.1), SendToStm32_CallBack);
+    ros::Timer timer_send_to_stm32 = nh.createTimer(ros::Duration(0.05), SendToStm32_CallBack);
 
     ros::spin();
 
