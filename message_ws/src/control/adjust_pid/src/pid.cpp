@@ -17,7 +17,7 @@ double PID::PID_Calc(float reference,float feedback)
         
     float dout=(error_-lastError_)*kd_u;
     
-    ROS_WARN("kd:%f",dout);
+    ROS_WARN("lastError_:%f,error_:%f,kd:%f,kd_u:%f",lastError_,error_,dout,kd_u);
     
     float pout=error_*kp_u;
     
