@@ -22,7 +22,7 @@ void SendToStm32_CallBack(const ros::TimerEvent &event)
     char USART1_sbuf[100];
 
     /*--- Send motor pwm to stm32 ---*/
-    sprintf(USART1_sbuf,"M,%d,%d,%d,%d,", motor_msg.LMainMotor_PWM, motor_msg.RMainMotor_PWM, motor_msg.LSideMotor_PWM, motor_msg.RSideMotor_PWM);
+    sprintf(USART1_sbuf,"M,%d,%d,%d,%d,", motor_msg.left_thruster_pwm, motor_msg.right_thruster_pwm, motor_msg.LSideMotor_PWM, motor_msg.RSideMotor_PWM);
     USART1_SendString(USART1_sbuf); 
     ROS_INFO("Usart send to stm32:%s", USART1_sbuf);
 }
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
     /* --- ROS send environmnet message ------------------------------------------------------------------*/
     ros::Timer timer_get_environment = nh.createTimer(ros::Duration(0.1), Usart_GetEnvironmentMessage);
     ros::Timer timer_pub_environment = nh.createTimer(ros::Duration(0.1), PubEnvironmentMessage_CallBack);
-    ros::Timer timer_send_to_stm32 = nh.createTimer(ros::Duration(0.1), SendToStm32_CallBack);
+    ros::Timer timer_send_to_stm32 = nh.createTimer(ros::Duration(0.05), SendToStm32_CallBack);
 
     ros::spin();
 

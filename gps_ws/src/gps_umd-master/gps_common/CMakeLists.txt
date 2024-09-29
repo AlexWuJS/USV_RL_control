@@ -67,6 +67,12 @@ add_executable(odom_tf src/odom_tf.cpp)
 
 add_executable(fuse src/fuse.cpp)
 
+add_executable(pub_path src/pub_path_node.cpp)
+
+
+target_link_libraries(pub_path
+  ${catkin_LIBRARIES}
+)
 
 target_link_libraries(full_odom
   ${catkin_LIBRARIES}

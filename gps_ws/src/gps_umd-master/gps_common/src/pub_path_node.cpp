@@ -61,7 +61,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "pub_path_node");
     ros::NodeHandle nh;
 
-    goal_sub = nh.subscribe("/tcp/rtk_point", 1, rtk_point_callback);
+    goal_sub = nh.subscribe("/ship/rtk_point", 1, rtk_point_callback);
     waypoints_pub = nh.advertise<nav_msgs::Path>("/waypoints_path", 10);
 
     tf2_ros::TransformListener tfListener(tfBuffer);    // tf的转换监听器

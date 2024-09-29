@@ -66,25 +66,25 @@ int main(int argc, char* argv[])
             myKeyboard = myController.keyboard();
             if (myKeyboard.W == 1)      // 前进
             {
-                my_motor_msg.LMainMotor_PWM += KEYBOARD_ADD_PWM;
-                my_motor_msg.RMainMotor_PWM += KEYBOARD_ADD_PWM;
+                my_motor_msg.left_thruster_pwm += KEYBOARD_ADD_PWM;
+                my_motor_msg.right_thruster_pwm += KEYBOARD_ADD_PWM;
             }
             if (myKeyboard.S == 1)      // 后退
             {
-                my_motor_msg.LMainMotor_PWM -= KEYBOARD_ADD_PWM;
-                my_motor_msg.RMainMotor_PWM -= KEYBOARD_ADD_PWM;
+                my_motor_msg.left_thruster_pwm -= KEYBOARD_ADD_PWM;
+                my_motor_msg.right_thruster_pwm -= KEYBOARD_ADD_PWM;
             }
             if (myKeyboard.A == 1)      // 左转
             {
-                my_motor_msg.LMainMotor_PWM -= (KEYBOARD_LEFT_DIFF_MPWM/2);
-                my_motor_msg.RMainMotor_PWM += (KEYBOARD_LEFT_DIFF_MPWM/2);
+                my_motor_msg.left_thruster_pwm -= (KEYBOARD_LEFT_DIFF_MPWM/2);
+                my_motor_msg.right_thruster_pwm += (KEYBOARD_LEFT_DIFF_MPWM/2);
                 my_motor_msg.LSideMotor_PWM += KEYBOARD_LEFT_ADD_SMPWM;
                 my_motor_msg.RSideMotor_PWM += KEYBOARD_LEFT_ADD_SMPWM;
             }
             if (myKeyboard.D == 1)      // 右转
             {
-                my_motor_msg.LMainMotor_PWM -= (KEYBOARD_RIGHT_DIFF_MPWM/2);
-                my_motor_msg.RMainMotor_PWM += (KEYBOARD_RIGHT_DIFF_MPWM/2);
+                my_motor_msg.left_thruster_pwm -= (KEYBOARD_RIGHT_DIFF_MPWM/2);
+                my_motor_msg.right_thruster_pwm += (KEYBOARD_RIGHT_DIFF_MPWM/2);
                 my_motor_msg.LSideMotor_PWM -= KEYBOARD_RIGHT_ADD_SMPWM;
                 my_motor_msg.RSideMotor_PWM -= KEYBOARD_RIGHT_ADD_SMPWM;
             }
@@ -92,12 +92,12 @@ int main(int argc, char* argv[])
         /* 发布pwm消息 */
         controller_pub.publish(my_motor_msg);
 
-        cout << "keyboard" << my_motor_msg.LMainMotor_PWM << " " << my_motor_msg.LSideMotor_PWM << " " << my_motor_msg.RMainMotor_PWM << " " << my_motor_msg.RSideMotor_PWM << endl;
+        cout << "keyboard" << my_motor_msg.left_thruster_pwm << " " << my_motor_msg.LSideMotor_PWM << " " << my_motor_msg.right_thruster_pwm << " " << my_motor_msg.RSideMotor_PWM << endl;
 
         /* 发送完之后清0 */
-        my_motor_msg.LMainMotor_PWM = 1500;
+        my_motor_msg.left_thruster_pwm = 1500;
         my_motor_msg.LSideMotor_PWM = 1500;
-        my_motor_msg.RMainMotor_PWM = 1500;
+        my_motor_msg.right_thruster_pwm = 1500;
         my_motor_msg.RSideMotor_PWM = 1500;
 
         ros::spinOnce();
