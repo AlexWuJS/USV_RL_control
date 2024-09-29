@@ -123,7 +123,7 @@ include
   ${catkin_INCLUDE_DIRS}
   ${CMAKE_SOURCE_DIR}
   ${CATKIN_DEVEL_PREFIX}/include
-  ${CMAKE_SOURCE_DIR}/common
+  ${CMAKE_SOURCE_DIR}/common/inc
   ${CMAKE_SOURCE_DIR}/message/tcp/include
 )
 ## Declare a C++ library

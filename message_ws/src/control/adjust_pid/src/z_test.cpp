@@ -12,6 +12,12 @@
 #include <cmath>
 #include <vector>
 
+#include "tcp/message_s.h"
+#include "tcp/sendMessage.h"
+
+ros::Publisher controller_pub;
+double yaw, rudder, time;
+
 class SystemIdentification
 {
 private:
@@ -87,7 +93,7 @@ private:
         if (experiment_running_)
         {
             // 假设舵角与电机PWM成正比
-            double rudder_angle = (msg->LMainMotor_PWM - 1500) / 10.0; // 简化计算，实际需要根据硬件特性调整
+            double rudder_angle = (msg->left_thruster_pwm - 1500) / 10.0; // 简化计算，实际需要根据硬件特性调整
             rudder_data_.push_back(rudder_angle);                      // 存储舵角数据
         }
     }
@@ -138,8 +144,8 @@ private:
         start_time_ = ros::Time::now();
 
         control::Motor motor_msg;
-        motor_msg.LMainMotor_PWM = 1550; // 5度舵角
-        motor_msg.RMainMotor_PWM = 1450;
+        motor_msg.left_thruster_pwm = 1550; // 5度舵角
+        motor_msg.right_thruster_pwm = 1450;
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
@@ -166,13 +172,13 @@ private:
             if (i % 100 < 50)
             {
                 // 对于周期的前半部分（0-49%）
-                motor_msg.LMainMotor_PWM = 1500 + angle * 10;
-                motor_msg.RMainMotor_PWM = 1500 - angle * 10;
+                motor_msg.left_thruster_pwm = 1500 + angle * 10;
+                motor_msg.right_thruster_pwm = 1500 - angle * 10;
             }
             else
             {   // 对于周期的后半部分（50-100%）
-                motor_msg.LMainMotor_PWM = 1500 - angle * 10;
-                motor_msg.RMainMotor_PWM = 1500 + angle * 10;
+                motor_msg.left_thruster_pwm = 1500 - angle * 10;
+                motor_msg.right_thruster_pwm = 1500 + angle * 10;
             }
 
             motor_pub_.publish(motor_msg);
