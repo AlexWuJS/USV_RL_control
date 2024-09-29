@@ -262,7 +262,7 @@ private:
         // 更新ship_info中的系统辨识参数
         ship_info_.system_identification.K = K_;
         ship_info_.system_identification.T = T_;
-        ship_info_.system_identification.delta_r = delta_r_;
+        ship_info_.system_identification.theta_1 = delta_r_;
         ship_info_.system_identification.n3 = n3_;
 
         // 发布辨识结果
