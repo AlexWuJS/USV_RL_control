@@ -12,14 +12,43 @@
 #include <cmath>
 #include <vector>
 
+#include <thread>
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
 
 ros::Publisher controller_pub;
-double yaw, rudder, time;
+double yaw1, rudder;
+sensor_msgs::Imu imu;
+double jingdu, weidu;
+ros::ServiceClient client;
 
 class SystemIdentification
 {
+public:
+    int left_thruster_pwm;
+    int right_thruster_pwm;
+
+    SystemIdentification() : nh_("~"), current_experiment_(0), left_thruster_pwm(1500), right_thruster_pwm(1500)
+    {
+        // 初始化订阅者和发布者
+        imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
+        gps_sub_ = nh_.subscribe("/fix", 100, &SystemIdentification::gpsCallback, this);
+        motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
+        tcp_sub_ = nh_.subscribe("/tcp/message", 100, &SystemIdentification::tcpCallback, this);
+
+        motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
+        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/message", 100);
+
+        experiment_running_ = false;
+    }
+
+    // 运行实验
+    void runExperiment()
+    {
+        ROS_INFO("系统辨识实验准备就绪，等待指令");
+        ros::spin();
+    }
+
 private:
     ros::NodeHandle nh_;
     ros::Subscriber imu_sub_;
@@ -46,36 +75,13 @@ private:
 
     int current_experiment_; // 当前实验阶段
 
-public:
-    SystemIdentification() : nh_("~"), current_experiment_(0)
-    {
-        // 初始化订阅者和发布者
-        imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
-        gps_sub_ = nh_.subscribe("/fix", 100, &SystemIdentification::gpsCallback, this);
-        motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
-        tcp_sub_ = nh_.subscribe("/tcp/message", 100, &SystemIdentification::tcpCallback, this);
-
-        motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
-        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/message", 100);
-
-        experiment_running_ = false;
-    }
-
-    // 运行实验
-    void runExperiment()
-    {
-        ROS_INFO("系统辨识实验准备就绪，等待指令");
-        ros::spin();
-    }
-
-private:
     // IMU数据回调函数
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
     {
         if (experiment_running_)
         {
-            double yaw = tf2::getYaw(msg->orientation);                     // 获取偏航角
-            yaw_data_.push_back(yaw);                                       // 存储偏航角数据
+            yaw1 = tf2::getYaw(msg->orientation);                           // 获取偏航角
+            yaw_data_.push_back(yaw1);                                      // 存储偏航角数据
             time_data_.push_back((ros::Time::now() - start_time_).toSec()); // 存储时间数据
         }
     }
@@ -83,8 +89,10 @@ private:
     // GPS数据回调函数
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr &msg)
     {
-        ship_info_.latitude = msg->latitude;   // 存储纬度
+        ship_info_.latitude = msg->latitude; // 存储纬度
+        jingdu = ship_info_.latitude;
         ship_info_.longitude = msg->longitude; // 存储经度
+        weidu = ship_info_.longitude;
     }
 
     // 电机数据回调函数
@@ -94,37 +102,38 @@ private:
         {
             // 假设舵角与电机PWM成正比
             double rudder_angle = (msg->left_thruster_pwm - 1500) / 10.0; // 简化计算，实际需要根据硬件特性调整
-            rudder_data_.push_back(rudder_angle);                      // 存储舵角数据
+            rudder_data_.push_back(rudder_angle);                         // 存储舵角数据
         }
+        left_thruster_pwm = msg->left_thruster_pwm;
+        right_thruster_pwm = msg->right_thruster_pwm;
     }
 
-    // TCP消息回调函数
-    void tcpCallback(const std_msgs::String::ConstPtr &msg)
+    void tcpCallback(const tcp::message_s::ConstPtr &msg)
     {
-        std::string str = msg->data;
-        std::vector<std::string> string_values = format_conversion_.get_value_from_string(str, ',');
+        FormatConversionClass FormatConversion_;
+        std::vector<std::string> sub_strings = msg->sub_strings;
 
-        if (string_values.size() > 0)
+        if (sub_strings[0] == "S" && sub_strings.size() == 3) // T帧一共有5个数据
         {
-            if (string_values[0] == "step1")
+            if (sub_strings[1] == "1")
             {
                 ROS_INFO("开始定常回转试验");
                 current_experiment_ = 1;
                 performConstantTurnExperiment();
             }
-            else if (string_values[0] == "step2")
+            else if (sub_strings[1] == "2")
             {
                 ROS_INFO("开始Z10°/10°试验");
                 current_experiment_ = 2;
                 performZigzagExperiment(10);
             }
-            else if (string_values[0] == "step3")
+            else if (sub_strings[1] == "3")
             {
                 ROS_INFO("开始Z20°/20°试验");
                 current_experiment_ = 3;
                 performZigzagExperiment(20);
             }
-            else if (string_values[0] == "step4")
+            else if (sub_strings[1] == "4")
             {
                 ROS_INFO("计算并发布结果");
                 calculateAndPublishResults();
@@ -133,7 +142,6 @@ private:
             {
                 ROS_INFO("Message recognize error");
             }
-            
         }
     }
 
@@ -176,7 +184,7 @@ private:
                 motor_msg.right_thruster_pwm = 1500 - angle * 10;
             }
             else
-            {   // 对于周期的后半部分（50-100%）
+            { // 对于周期的后半部分（50-100%）
                 motor_msg.left_thruster_pwm = 1500 - angle * 10;
                 motor_msg.right_thruster_pwm = 1500 + angle * 10;
             }
@@ -212,7 +220,7 @@ private:
         }
 
         Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
-        
+
         K_ = x(0);
 
         delta_r_ = -x(1) / K_;
@@ -235,7 +243,7 @@ private:
                 peak_time = time_data_[i]; // 记录达到最大偏航速率时的时间
             }
         }
-    
+
         // 计算时间常数T_，假设最大偏航速率出现在响应曲线的峰值
         // 这里用峰值时间除以π，假设响应曲线为正弦波形
         T_ = peak_time / M_PI;
@@ -277,10 +285,36 @@ private:
     }
 };
 
-int main(int argc, char **argv)
+void TcpSend_Thread(SystemIdentification &system_identification)
 {
+    tcp::sendMessage tcp_send_message;
+    char tcp_sbuf[100];
+
+    while (true)
+    {
+        sprintf(tcp_sbuf, "\nyaw1:%f,jingdu:%f,weidu:%f,%d,%d,\n", yaw1, jingdu, weidu,
+                system_identification.left_thruster_pwm, system_identification.right_thruster_pwm);
+        tcp_send_message.request.str = tcp_sbuf;
+        client.call(tcp_send_message);
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    setlocale(LC_ALL, "");
     ros::init(argc, argv, "system_identification_node");
     SystemIdentification system_identification;
+
+    ros::NodeHandle nh;
+    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
+
+    // 创建线程，传入线程函数和system_identification对象的引用
+    std::thread TcpSend(TcpSend_Thread, std::ref(system_identification));
+
     system_identification.runExperiment();
+
+    // 等待线程结束
+    TcpSend.join();
     return 0;
 }
