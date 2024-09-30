@@ -8,8 +8,8 @@
 
   <!-- 启动雷达和imu   -->
   <!-- （启动2d雷达）  rplidar_ws/rplidar_ros/rplidar_s2.launch  -->
-  <include file="$(find rplidar_ros)/launch/rplidar_s2.launch">
-  </include>
+  <!-- <include file="$(find rplidar_ros)/launch/rplidar_s2.launch">
+  </include> -->
   <!-- (启动imu) Launch  imu_ws/sanchi_amov/imu_100D4.launch    -->
   <include file="$(find sanchi_amov)/launch/imu_100D4.launch">
   </include>

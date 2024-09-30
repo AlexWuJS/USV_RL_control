@@ -16,7 +16,7 @@
 #include "tcp/sendMessage.h"
 
 ros::Publisher controller_pub;
-double yaw, rudder, time;
+// double yaw, rudder, time;
 
 class SystemIdentification
 {
@@ -102,17 +102,17 @@ private:
     void tcpCallback(const std_msgs::String::ConstPtr &msg)
     {
         std::string str = msg->data;
-        std::vector<std::string> string_values = format_conversion_.get_value_from_string(str, ',');
 
+        std::vector<std::string> string_values = format_conversion_.get_value_from_string(str, ',');
         if (string_values.size() > 0)
         {
-            if (string_values[0] == "step1")
+            if (string_values[1] == "step1")
             {
                 ROS_INFO("开始定常回转试验");
                 current_experiment_ = 1;
                 performConstantTurnExperiment();
             }
-            else if (string_values[0] == "step2")
+            else if (string_values[1] == "step2")
             {
                 ROS_INFO("开始Z10°/10°试验");
                 current_experiment_ = 2;

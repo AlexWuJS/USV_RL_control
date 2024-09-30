@@ -1,0 +1,11 @@
+<launch>
+
+    <node pkg="adjust_pid" type="system_identification_node" name="system_identification_node" output="screen">
+
+    </node>
+
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+
+    <!-- <include file="$(find /sanchi_amov)/launch/imu_100D4.launch"/> -->
+</launch>
