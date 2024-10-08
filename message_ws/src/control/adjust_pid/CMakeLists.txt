@@ -145,11 +145,6 @@ add_executable(adjust_angle_pid_node
  ../../message/tcp/src/format_conversion.cpp
  )
 
- add_executable(system_identification_node
- src/z_test.cpp
- src/pid.cpp
- ../../message/tcp/src/format_conversion.cpp
- )
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -165,9 +160,7 @@ add_executable(adjust_angle_pid_node
 target_link_libraries(adjust_angle_pid_node 
   ${catkin_LIBRARIES}
 )
-target_link_libraries(system_identification_node 
-  ${catkin_LIBRARIES}
-)
+
 #############
 ## Install ##
 #############
