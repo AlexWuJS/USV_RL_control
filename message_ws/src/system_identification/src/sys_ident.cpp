@@ -5,23 +5,51 @@
 #include <std_msgs/String.h>
 #include <tcp/ship_info.h>
 #include <tcp/format_conversion.h>
-
 #include <tf2/utils.h>
-
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
-
 #include <thread>
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
 
+// 定义电机PWM范围和特性
+const int PWM_MIN = 1000;
+const int PWM_MAX = 2000;
+const int PWM_REVERSE_MAX = 1480; 
+const int PWM_FORWARD_MIN = 1510;
+const int PWM_NEUTRAL = 1500;
+
+// 全局变量
 ros::Publisher controller_pub;
 double yaw1, rudder;
 sensor_msgs::Imu imu;
 double jingdu, weidu;
-
 ros::ServiceClient client;
+
+/**
+ * @brief 计算舵角
+ * @param pwm 电机PWM值
+ * @return 舵角（度）
+ */
+double calculateRudderAngle(int pwm)
+{
+    if (pwm <= PWM_REVERSE_MAX)
+    {
+        // 反转范围
+        return -45.0 * (PWM_REVERSE_MAX - pwm) / (PWM_REVERSE_MAX - PWM_MIN);
+    }
+    else if (pwm >= PWM_FORWARD_MIN)
+    {
+        // 正转范围
+        return 45.0 * (pwm - PWM_FORWARD_MIN) / (PWM_MAX - PWM_FORWARD_MIN);
+    }
+    else
+    {
+        // 死区
+        return 0.0;
+    }
+}
 
 class SystemIdentification
 {
@@ -29,7 +57,7 @@ public:
     int left_thruster_pwm;
     int right_thruster_pwm;
 
-    SystemIdentification() : nh_("~"), current_experiment_(0), left_thruster_pwm(1500), right_thruster_pwm(1500)
+    SystemIdentification() : nh_("~"), current_experiment_(0), left_thruster_pwm(PWM_NEUTRAL), right_thruster_pwm(PWM_NEUTRAL)
     {
         // 初始化订阅者和发布者
         imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
@@ -59,63 +87,74 @@ private:
     ros::Publisher motor_pub_;
     ros::Publisher tcp_pub_;
 
-    FormatConversionClass format_conversion_; // 数据格式转换类实例
-    tcp::ship_info ship_info_;                // 船舶信息消息
+    FormatConversionClass format_conversion_;
+    tcp::ship_info ship_info_;
 
-    // 存储实验数据
-    std::vector<double> yaw_data_;    // 偏航角数据
-    std::vector<double> rudder_data_; // 舵角数据
-    std::vector<double> time_data_;   // 时间数据
+    std::vector<double> yaw_data_;
+    std::vector<double> rudder_data_;
+    std::vector<double> time_data_;
 
-    // 系统辨识参数
     double K_, T_, delta_r_, n3_, delta_r;
 
-    // 实验状态
-    bool experiment_running_; // 实验是否正在进行
-    ros::Time start_time_;    // 实验开始时间
+    bool experiment_running_;
+    ros::Time start_time_;
 
-    int current_experiment_; // 当前实验阶段
+    int current_experiment_;
 
-    // IMU数据回调函数
+    /**
+     * @brief IMU数据回调函数
+     * @param msg IMU消息
+     */
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
     {
         if (experiment_running_)
         {
-            yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;              // 获取偏航角
-            yaw_data_.push_back(yaw1);                                      // 存储偏航角数据
-            time_data_.push_back((ros::Time::now() - start_time_).toSec()); // 存储时间数据
+            yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
+            yaw_data_.push_back(yaw1);
+            time_data_.push_back((ros::Time::now() - start_time_).toSec());
         }
     }
 
-    // GPS数据回调函数
+    /**
+     * @brief GPS数据回调函数
+     * @param msg GPS消息
+     */
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr &msg)
     {
-        ship_info_.latitude = msg->latitude; // 存储纬度
+        ship_info_.latitude = msg->latitude;
         jingdu = ship_info_.latitude;
-        ship_info_.longitude = msg->longitude; // 存储经度
+        ship_info_.longitude = msg->longitude;
         weidu = ship_info_.longitude;
     }
 
-    // 电机数据回调函数
+    /**
+     * @brief 电机数据回调函数
+     * @param msg 电机控制消息
+     */
     void motorCallback(const control::Motor::ConstPtr &msg)
     {
         if (experiment_running_)
         {
-            // 假设舵角与电机PWM成正比
-            double rudder_angle = (msg->left_thruster_pwm - 1500) / 10.0; // 简化计算，实际需要根据硬件特性调整
-            rudder_data_.push_back(rudder_angle);                         // 存储舵角数据
+            double left_rudder_angle = calculateRudderAngle(msg->left_thruster_pwm);
+            double right_rudder_angle = calculateRudderAngle(msg->right_thruster_pwm);
+            double average_rudder_angle = (left_rudder_angle - right_rudder_angle) / 2.0;
+            rudder_data_.push_back(average_rudder_angle);
         }
         left_thruster_pwm = msg->left_thruster_pwm;
         right_thruster_pwm = msg->right_thruster_pwm;
     }
 
+    /**
+     * @brief TCP消息回调函数
+     * @param msg TCP消息
+     */
     void tcpCallback(const tcp::message_s::ConstPtr &msg)
     {
         FormatConversionClass FormatConversion_;
         std::vector<std::string> sub_strings = msg->sub_strings;
 
-        ROS_WARN("Hello");
-        if (sub_strings[0] == "T" && sub_strings.size() == 3) // T帧一共有5个数据
+        ROS_WARN("收到TCP消息");
+        if (sub_strings[0] == "T" && sub_strings.size() == 3)
         {
             if (sub_strings[1] == "1")
             {
@@ -142,25 +181,26 @@ private:
             }
             else
             {
-                ROS_INFO("Message recognize error");
+                ROS_INFO("消息识别错误");
             }
         }
     }
 
-    // 执行定常回转试验
+    /**
+     * @brief 执行定常回转试验
+     */
     void performConstantTurnExperiment()
     {
         experiment_running_ = true;
         start_time_ = ros::Time::now();
 
         control::Motor motor_msg;
-        motor_msg.left_thruster_pwm = 1550; // 5度舵角
-        motor_msg.right_thruster_pwm = 1450;
+        motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 50;
+        motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - 50;
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
-        { 
-            // 运行10秒
+        {
             motor_pub_.publish(motor_msg);
             rate.sleep();
         }
@@ -169,7 +209,10 @@ private:
         identifyKAndDeltaR();
     }
 
-    // 执行Z字试验
+    /**
+     * @brief 执行Z字试验
+     * @param angle Z字试验的角度
+     */
     void performZigzagExperiment(int angle)
     {
         experiment_running_ = true;
@@ -178,18 +221,20 @@ private:
         control::Motor motor_msg;
         ros::Rate rate(10); // 10Hz
 
+        int pwm_range = std::min(PWM_MAX - PWM_FORWARD_MIN, PWM_REVERSE_MAX - PWM_MIN);
+        int pwm_change = pwm_range * angle / 45; // 假设最大舵角为45度
+
         for (int i = 0; i < 200; ++i)
-        { // 运行20秒
+        {
             if (i % 100 < 50)
             {
-                // 对于周期的前半部分（0-49%）
-                motor_msg.left_thruster_pwm = 1500 + angle * 10;
-                motor_msg.right_thruster_pwm = 1500 - angle * 10;
+                motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
+                motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
             }
             else
-            { // 对于周期的后半部分（50-100%）
-                motor_msg.left_thruster_pwm = 1500 - angle * 10;
-                motor_msg.right_thruster_pwm = 1500 + angle * 10;
+            {
+                motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
+                motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
             }
 
             motor_pub_.publish(motor_msg);
@@ -208,10 +253,11 @@ private:
         }
     }
 
-    // 辨识K和delta_r参数
+    /**
+     * @brief 辨识K和delta_r参数
+     */
     void identifyKAndDeltaR()
     {
-        // 使用最小二乘法辨识K和delta_r
         Eigen::MatrixXd A(rudder_data_.size(), 2);
         Eigen::VectorXd b(rudder_data_.size());
 
@@ -225,16 +271,16 @@ private:
         Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
 
         K_ = x(0);
-
         delta_r_ = -x(1) / K_;
 
         ROS_INFO("辨识结果: K = %f, delta_r = %f", K_, delta_r_);
     }
 
-    // 辨识T参数
+    /**
+     * @brief 辨识T参数
+     */
     void identifyT()
     {
-        // 使用Z10°/10°试验数据辨识T
         double peak_time = 0;
         double max_yaw_rate = 0;
         for (size_t i = 1; i < yaw_data_.size(); ++i)
@@ -242,22 +288,21 @@ private:
             double yaw_rate = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]);
             if (std::abs(yaw_rate) > std::abs(max_yaw_rate))
             {
-                max_yaw_rate = yaw_rate;   // 更新最大偏航速率
-                peak_time = time_data_[i]; // 记录达到最大偏航速率时的时间
+                max_yaw_rate = yaw_rate;
+                peak_time = time_data_[i];
             }
         }
 
-        // 计算时间常数T_，假设最大偏航速率出现在响应曲线的峰值
-        // 这里用峰值时间除以π，假设响应曲线为正弦波形
         T_ = peak_time / M_PI;
 
         ROS_INFO("辨识结果: T = %f", T_);
     }
 
-    // 辨识n3参数
+    /**
+     * @brief 辨识n3参数
+     */
     void identifyN3()
     {
-        // 使用Z20°/20°试验数据辨识非线性参数n3
         Eigen::MatrixXd A(rudder_data_.size(), 1);
         Eigen::VectorXd b(rudder_data_.size());
 
@@ -273,21 +318,25 @@ private:
         ROS_INFO("辨识结果: n3 = %f", n3_);
     }
 
-    // 计算并发布结果
+    /**
+     * @brief 计算并发布辨识结果
+     */
     void calculateAndPublishResults()
     {
-        // 更新ship_info中的系统辨识参数
         ship_info_.system_identification.K = K_;
         ship_info_.system_identification.T = T_;
         ship_info_.system_identification.theta_1 = delta_r_;
         ship_info_.system_identification.n3 = n3_;
 
-        // 发布辨识结果
         tcp_pub_.publish(ship_info_);
         ROS_INFO("系统辨识结果已发布: K = %f, T = %f, delta_r = %f, n3 = %f", K_, T_, delta_r_, n3_);
     }
 };
 
+/**
+ * @brief TCP发送线程函数
+ * @param system_identification 系统辨识对象的引用
+ */
 void TcpSend_Thread(SystemIdentification &system_identification)
 {
     tcp::sendMessage tcp_send_message;
@@ -297,20 +346,18 @@ void TcpSend_Thread(SystemIdentification &system_identification)
 
     while (ros::ok())
     {
-        // 格式化字符串，包含更多船舶信息
         snprintf(tcp_sbuf, sizeof(tcp_sbuf),
                  "经度:%.6f,纬度:%.6f,偏航角:%.2f,左舵角:%.2f,右舵角:%.2f,L_PWM:%d,R_PWM:%d\n",
                  jingdu,
                  weidu,
                  yaw1,
-                 (system_identification.left_thruster_pwm - 1500) / 10.0,
-                 (system_identification.right_thruster_pwm - 1500) / 10.0,
+                 calculateRudderAngle(system_identification.left_thruster_pwm),
+                 calculateRudderAngle(system_identification.right_thruster_pwm),
                  system_identification.left_thruster_pwm,
                  system_identification.right_thruster_pwm);
 
         tcp_send_message.request.str = tcp_sbuf;
 
-        
         if (!client.call(tcp_send_message))
         {
             ROS_ERROR("发送TCP消息失败");
@@ -338,3 +385,4 @@ int main(int argc, char *argv[])
     TcpSend.join();
     return 0;
 }
+
