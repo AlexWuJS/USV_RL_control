@@ -53,10 +53,10 @@ public:
         imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
         gps_sub_ = nh_.subscribe("/fix", 100, &SystemIdentification::gpsCallback, this);
         motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
-        tcp_sub_ = nh_.subscribe("/tcp/message", 100, &SystemIdentification::tcpCallback, this);
+        tcp_sub_ = nh_.subscribe("/tcp/data", 100, &SystemIdentification::tcpCallback, this);
 
         motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
-        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/message", 100);
+        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/data", 100);
 
         experiment_running_ = false;
     }

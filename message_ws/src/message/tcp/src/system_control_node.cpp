@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart_message", 1000, SubUsartMessage_CallBack);
-    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/ori_message", 10000, SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
     ros::service::waitForService("/tcp/communication", -1);

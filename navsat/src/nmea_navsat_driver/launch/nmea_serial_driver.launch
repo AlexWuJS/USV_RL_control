@@ -8,6 +8,7 @@
   <arg name="use_GNSS_time" default="False" />
   <arg name="time_ref_source" default="gps" />
   <arg name="useRMC" default="False" />
+  <!-- <arg name="useRMC" default="True" /> -->
 
   <node name="nmea_serial_driver_node" pkg="nmea_navsat_driver" type="nmea_serial_driver" output="screen">
     <param name="port" value="$(arg port)"/>

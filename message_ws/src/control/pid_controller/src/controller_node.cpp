@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::ship_info>("/tcp/message", 1000, Tcp_SubShipMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::ship_info>("/tcp/data", 1000, Tcp_SubShipMessage_CallBack);
     ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
     // ros::Subscriber listener = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1000, GetAngle_CallBack);     // get eular angle from imu
 
@@ -78,27 +78,27 @@ int main(int argc, char* argv[])
             {
                 my_motor_msg.left_thruster_pwm -= (KEYBOARD_LEFT_DIFF_MPWM/2);
                 my_motor_msg.right_thruster_pwm += (KEYBOARD_LEFT_DIFF_MPWM/2);
-                my_motor_msg.LSideMotor_PWM += KEYBOARD_LEFT_ADD_SMPWM;
-                my_motor_msg.RSideMotor_PWM += KEYBOARD_LEFT_ADD_SMPWM;
+                my_motor_msg.left_sideThruster_pwm += KEYBOARD_LEFT_ADD_SMPWM;
+                my_motor_msg.right_sideThruster_pwm += KEYBOARD_LEFT_ADD_SMPWM;
             }
             if (myKeyboard.D == 1)      // 右转
             {
                 my_motor_msg.left_thruster_pwm -= (KEYBOARD_RIGHT_DIFF_MPWM/2);
                 my_motor_msg.right_thruster_pwm += (KEYBOARD_RIGHT_DIFF_MPWM/2);
-                my_motor_msg.LSideMotor_PWM -= KEYBOARD_RIGHT_ADD_SMPWM;
-                my_motor_msg.RSideMotor_PWM -= KEYBOARD_RIGHT_ADD_SMPWM;
+                my_motor_msg.left_sideThruster_pwm -= KEYBOARD_RIGHT_ADD_SMPWM;
+                my_motor_msg.right_sideThruster_pwm -= KEYBOARD_RIGHT_ADD_SMPWM;
             }
         }
         /* 发布pwm消息 */
         controller_pub.publish(my_motor_msg);
 
-        cout << "keyboard" << my_motor_msg.left_thruster_pwm << " " << my_motor_msg.LSideMotor_PWM << " " << my_motor_msg.right_thruster_pwm << " " << my_motor_msg.RSideMotor_PWM << endl;
+        cout << "keyboard" << my_motor_msg.left_thruster_pwm << " " << my_motor_msg.left_sideThruster_pwm << " " << my_motor_msg.right_thruster_pwm << " " << my_motor_msg.right_sideThruster_pwm << endl;
 
         /* 发送完之后清0 */
         my_motor_msg.left_thruster_pwm = 1500;
-        my_motor_msg.LSideMotor_PWM = 1500;
+        my_motor_msg.left_sideThruster_pwm = 1500;
         my_motor_msg.right_thruster_pwm = 1500;
-        my_motor_msg.RSideMotor_PWM = 1500;
+        my_motor_msg.right_sideThruster_pwm = 1500;
 
         ros::spinOnce();
     }

@@ -1,4 +1,4 @@
 int32 left_thruster_pwm
 int32 right_thruster_pwm
-int32 LSideMotor_PWM
-int32 RSideMotor_PWM
+int32 left_sideThruster_pwm
+int32 right_sideThruster_pwm

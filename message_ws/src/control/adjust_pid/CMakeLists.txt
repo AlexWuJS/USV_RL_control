@@ -145,6 +145,12 @@ add_executable(adjust_angle_pid_node
  ../../message/tcp/src/format_conversion.cpp
  )
 
+ add_executable(adjust_speed_pid_node
+ src/adjust_speed_pid_node.cpp
+ src/pid.cpp
+ ../../message/tcp/src/format_conversion.cpp
+ )
+
  add_executable(system_identification_node
  src/z_test.cpp
  src/pid.cpp
@@ -162,6 +168,9 @@ add_executable(adjust_angle_pid_node
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(adjust_angle_pid_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(adjust_speed_pid_node
   ${catkin_LIBRARIES}
 )
 

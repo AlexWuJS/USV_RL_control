@@ -18,7 +18,7 @@ using namespace std;
 ros::Publisher controller_pub;
 control::Motor thruster_msg;
 double desired_angle, heading_angle, pid_output;
-sensor_msgs::Imu imu;                        // 里程计信息
+sensor_msgs::Imu imu;                    
 PID myPid;
 ros::ServiceClient client;
 
@@ -26,7 +26,7 @@ ros::ServiceClient client;
 void Pid_Callback(const ros::TimerEvent &event)
 {
     /* 输出差速值 */
-    pid_output = myPid.PID_Calc(desired_angle, heading_angle); 
+    pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output;
     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + pid_output;
     // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output - THRUSTER_DEADAREA_PWM * (pid_output/std::fabs(pid_output));    //跳过死区
@@ -65,10 +65,10 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     if (sub_strings[0] == "T" && sub_strings.size() == 5)      // T帧一共有5个数据
     {
             desired_angle = stof(sub_strings[1]);
-            myPid.kp_u = stof(sub_strings[2]);
-            myPid.ki_u = stof(sub_strings[3]);
-            myPid.kd_u = stof(sub_strings[4]);
-            ROS_INFO("pid:%f,%f,%f", myPid.kp_u,myPid.ki_u,myPid.kd_u);
+            myPid.angle_kp = stof(sub_strings[2]);
+            myPid.angle_ki = stof(sub_strings[3]);
+            myPid.angle_kd = stof(sub_strings[4]);
+            ROS_INFO("pid:%f,%f,%f", myPid.angle_kp,myPid.angle_ki,myPid.angle_kd);
     }
 }
 
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/message", 10000, Tcp_SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
@@ -106,9 +106,9 @@ int main(int argc, char* argv[])
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
     //pid
-    nh.getParam("/adjust_angle_pid_node/kp_u",myPid.kp_u);
-    nh.getParam("/adjust_angle_pid_node/ki_u",myPid.ki_u);
-    nh.getParam("/adjust_angle_pid_node/kd_u",myPid.kd_u);
+    nh.getParam("/adjust_angle_pid_node/angle_kp",myPid.angle_kp);
+    nh.getParam("/adjust_angle_pid_node/angle_ki",myPid.angle_ki);
+    nh.getParam("/adjust_angle_pid_node/angle_kd",myPid.angle_kd);
     nh.getParam("/adjust_angle_pid_node/maxIntegral",myPid.maxIntegral);
     nh.getParam("/adjust_angle_pid_node/maxOutput",myPid.maxOutput);
 

@@ -1,0 +1,31 @@
+<launch>
+    <!-- 角度pid -->
+    <arg name="angle_kp" default="0.0" />
+    <arg name="angle_ki" default="0.0" />
+    <arg name="angle_kd" default="0.0" />
+    <!-- 线速度pid -->
+    <arg name="speed_kp" default="0.0" />
+    <arg name="speed_ki" default="0.0" />
+    <arg name="speed_kd" default="0.0" />
+
+    <arg name="maxIntegral" default="800.0" />
+    <arg name="maxOutput" default="1800.0" />
+
+    <node pkg="adjust_pid" type="adjust_speed_pid_node" name="adjust_speed_pid" output="screen">
+        <param name="angle_kp" value="$(arg angle_kp)" />
+        <param name="angle_ki" value="$(arg angle_ki)" />
+        <param name="angle_kd" value="$(arg angle_kd)" />
+        <param name="speed_kp" value="$(arg speed_kp)" />
+        <param name="speed_ki" value="$(arg speed_ki)" />
+        <param name="speed_kd" value="$(arg speed_kd)" />
+
+        <param name="maxIntegral" value="$(arg maxIntegral)" />
+        <param name="maxOutput" value="$(arg maxOutput)" />
+
+    </node>
+
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+
+    <!-- <include file="$(find /sanchi_amov)/launch/imu_100D4.launch"/> -->
+</launch>

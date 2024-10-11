@@ -195,9 +195,8 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-
-    tcp_ori_message_pub = nh.advertise<std_msgs::String>("/tcp/ori_message", 10000);
-    tcp_message_pub = nh.advertise<tcp::message_s>("/tcp/message", 10000);
+    tcp_ori_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10000);
+    tcp_message_pub = nh.advertise<tcp::message_s>("/tcp/data", 10000);
     ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10000, Tcp_GetShipInfo_CallBack);
 
     ros::ServiceServer service_connection = nh.advertiseService("/tcp/connection", Tcp_Get_Status_CallBack);
