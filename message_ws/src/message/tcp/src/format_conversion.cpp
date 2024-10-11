@@ -45,7 +45,7 @@ FormatConversionClass::FormatConversionClass()
         {
             map<int, char>::iterator next_it = std::next(it);
             if (next_it != signs_in_strings.end())                                          // 如果该标识符不是最后一个标识符
-                sub_strings.push_back(s.substr(it->first, next_it->first - it->first));            // 将当前标识符与下一个标识符之间的字符作为字符串
+                sub_strings.push_back(s.substr(it->first, next_it->first - it->first));     // 将当前标识符与下一个标识符之间的字符作为字符串
             else                                                                            // 如果该标识符为最后一个标识符
                 sub_strings.push_back(s.substr(it->first));                                 // 将最后一个标识符到结尾添加到字符串
         }

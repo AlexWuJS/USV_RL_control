@@ -20,6 +20,7 @@ ros::Publisher controller_pub;
 double yaw1, rudder;
 sensor_msgs::Imu imu;
 double jingdu, weidu;
+
 ros::ServiceClient client;
 
 class SystemIdentification
@@ -80,7 +81,7 @@ private:
     {
         if (experiment_running_)
         {
-            yaw1 = tf2::getYaw(msg->orientation);                           // 获取偏航角
+            yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;              // 获取偏航角
             yaw_data_.push_back(yaw1);                                      // 存储偏航角数据
             time_data_.push_back((ros::Time::now() - start_time_).toSec()); // 存储时间数据
         }
@@ -113,7 +114,8 @@ private:
         FormatConversionClass FormatConversion_;
         std::vector<std::string> sub_strings = msg->sub_strings;
 
-        if (sub_strings[0] == "S" && sub_strings.size() == 3) // T帧一共有5个数据
+        ROS_WARN("Hello");
+        if (sub_strings[0] == "T" && sub_strings.size() == 3) // T帧一共有5个数据
         {
             if (sub_strings[1] == "1")
             {
@@ -157,7 +159,8 @@ private:
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
-        { // 运行10秒
+        { 
+            // 运行10秒
             motor_pub_.publish(motor_msg);
             rate.sleep();
         }
@@ -288,15 +291,32 @@ private:
 void TcpSend_Thread(SystemIdentification &system_identification)
 {
     tcp::sendMessage tcp_send_message;
-    char tcp_sbuf[100];
+    char tcp_sbuf[200];
 
-    while (true)
+    ros::Rate rate(10); // 设置发送频率为10Hz
+
+    while (ros::ok())
     {
-        sprintf(tcp_sbuf, "\nyaw1:%f,jingdu:%f,weidu:%f,%d,%d,\n", yaw1, jingdu, weidu,
-                system_identification.left_thruster_pwm, system_identification.right_thruster_pwm);
+        // 格式化字符串，包含更多船舶信息
+        snprintf(tcp_sbuf, sizeof(tcp_sbuf),
+                 "经度:%.6f,纬度:%.6f,偏航角:%.2f,左舵角:%.2f,右舵角:%.2f,L_PWM:%d,R_PWM:%d\n",
+                 jingdu,
+                 weidu,
+                 yaw1,
+                 (system_identification.left_thruster_pwm - 1500) / 10.0,
+                 (system_identification.right_thruster_pwm - 1500) / 10.0,
+                 system_identification.left_thruster_pwm,
+                 system_identification.right_thruster_pwm);
+
         tcp_send_message.request.str = tcp_sbuf;
-        client.call(tcp_send_message);
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒
+
+        
+        if (!client.call(tcp_send_message))
+        {
+            ROS_ERROR("发送TCP消息失败");
+        }
+
+        rate.sleep();
     }
 }
 
