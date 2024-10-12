@@ -24,7 +24,7 @@ void SendToStm32_CallBack(const ros::TimerEvent &event)
     /*--- Send motor pwm to stm32 ---*/
     sprintf(USART1_sbuf,"M,%d,%d,%d,%d,", motor_msg.left_thruster_pwm, motor_msg.right_thruster_pwm, motor_msg.LSideMotor_PWM, motor_msg.RSideMotor_PWM);
     USART1_SendString(USART1_sbuf); 
-    ROS_INFO("Usart send to stm32:%s", USART1_sbuf);
+    //  ROS_INFO("Usart send to stm32:%s", USART1_sbuf);
 }
 
 /**

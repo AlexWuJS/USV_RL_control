@@ -16,8 +16,8 @@
 // 定义电机PWM范围和特性
 const int PWM_MIN = 1000;
 const int PWM_MAX = 2000;
-const int PWM_REVERSE_MAX = 1480; 
-const int PWM_FORWARD_MIN = 1510;
+const int PWM_REVERSE_MAX = 1450; 
+const int PWM_FORWARD_MIN = 1550;
 const int PWM_NEUTRAL = 1500;
 
 // 全局变量
@@ -26,6 +26,8 @@ double yaw1, rudder;
 sensor_msgs::Imu imu;
 double jingdu, weidu;
 ros::ServiceClient client;
+
+
 
 /**
  * @brief 计算舵角
@@ -62,7 +64,7 @@ public:
         // 初始化订阅者和发布者
         imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
         gps_sub_ = nh_.subscribe("/fix", 100, &SystemIdentification::gpsCallback, this);
-        motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
+        // motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
         tcp_sub_ = nh_.subscribe("/tcp/message", 100, &SystemIdentification::tcpCallback, this);
 
         motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
@@ -150,11 +152,13 @@ private:
      */
     void tcpCallback(const tcp::message_s::ConstPtr &msg)
     {
-        FormatConversionClass FormatConversion_;
+
+          FormatConversionClass FormatConversion_;
         std::vector<std::string> sub_strings = msg->sub_strings;
 
         ROS_WARN("收到TCP消息");
-        if (sub_strings[0] == "T" && sub_strings.size() == 3)
+        
+        if (sub_strings[0] == "T")
         {
             if (sub_strings[1] == "1")
             {
@@ -195,18 +199,31 @@ private:
         start_time_ = ros::Time::now();
 
         control::Motor motor_msg;
+
         motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - 50;
+        system_identification.left_thruster_pwm = PWM_FORWARD_MIN + 50;
+        motor_msg.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
+        system_identification.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
         {
             motor_pub_.publish(motor_msg);
+            ROS_INFO("motor:%d,%d", motor_msg.left_thruster_pwm, motor_msg.right_thruster_pwm);
             rate.sleep();
         }
 
+         identifyKAndDeltaR();
+
+         system_identification.left_thruster_pwm = 1500;
+         motor_msg.left_thruster_pwm = 1500;
+        system_identification.ringht_thruster_pwm= 1500;
+        motor_msg.right_thruster_pwm = 1500;
+
+         motor_pub_.publish(motor_msg);
+
         experiment_running_ = false;
-        identifyKAndDeltaR();
+       
     }
 
     /**
@@ -355,6 +372,9 @@ void TcpSend_Thread(SystemIdentification &system_identification)
                  calculateRudderAngle(system_identification.right_thruster_pwm),
                  system_identification.left_thruster_pwm,
                  system_identification.right_thruster_pwm);
+
+
+        // snprintf(tcp_sbuf, sizeof(tcp_sbuf), "接收：%s", sub_strings[0].c_str());
 
         tcp_send_message.request.str = tcp_sbuf;
 
