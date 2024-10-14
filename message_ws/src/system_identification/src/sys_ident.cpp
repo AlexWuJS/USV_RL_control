@@ -64,11 +64,13 @@ public:
         // 初始化订阅者和发布者
         imu_sub_ = nh_.subscribe("/imu/data", 100, &SystemIdentification::imuCallback, this);
         gps_sub_ = nh_.subscribe("/fix", 100, &SystemIdentification::gpsCallback, this);
-        // motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
-        tcp_sub_ = nh_.subscribe("/tcp/message", 100, &SystemIdentification::tcpCallback, this);
+
+        motor_sub_ = nh_.subscribe("/controller", 100, &SystemIdentification::motorCallback, this);
+
+        tcp_sub_ = nh_.subscribe("/tcp/data", 100, &SystemIdentification::tcpCallback, this);
 
         motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
-        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/message", 100);
+        tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/raw_data", 100);
 
         experiment_running_ = false;
     }
@@ -144,6 +146,8 @@ private:
         }
         left_thruster_pwm = msg->left_thruster_pwm;
         right_thruster_pwm = msg->right_thruster_pwm;
+       // ROS_INFO(":%s", "motorCallback");
+        
     }
 
     /**
@@ -152,8 +156,9 @@ private:
      */
     void tcpCallback(const tcp::message_s::ConstPtr &msg)
     {
+        ROS_INFO("tcp message :%lu substrings", msg->sub_strings.size());
 
-          FormatConversionClass FormatConversion_;
+        FormatConversionClass FormatConversion_;
         std::vector<std::string> sub_strings = msg->sub_strings;
 
         ROS_WARN("收到TCP消息");
@@ -197,13 +202,15 @@ private:
     {
         experiment_running_ = true;
         start_time_ = ros::Time::now();
-
+        int a = 80;
         control::Motor motor_msg;
 
-        motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        system_identification.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        motor_msg.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
-        system_identification.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
+        motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + a;
+        motor_msg.right_thruster_pwm = PWM_REVERSE_MAX -a;
+
+
+        left_thruster_pwm = PWM_FORWARD_MIN + a;
+        right_thruster_pwm = PWM_REVERSE_MAX - a;
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
@@ -215,11 +222,10 @@ private:
 
          identifyKAndDeltaR();
 
-         system_identification.left_thruster_pwm = 1500;
-         motor_msg.left_thruster_pwm = 1500;
-        system_identification.ringht_thruster_pwm= 1500;
+         left_thruster_pwm = 1500;
+        motor_msg.left_thruster_pwm = 1500;
+        right_thruster_pwm = 1500;
         motor_msg.right_thruster_pwm = 1500;
-
          motor_pub_.publish(motor_msg);
 
         experiment_running_ = false;
@@ -238,7 +244,7 @@ private:
         control::Motor motor_msg;
         ros::Rate rate(10); // 10Hz
 
-        int pwm_range = std::min(PWM_MAX - PWM_FORWARD_MIN, PWM_REVERSE_MAX - PWM_MIN);
+        int pwm_range = std::min(PWM_MAX - PWM_FORWARD_MIN, PWM_REVERSE_MAX - PWM_MIN); 
         int pwm_change = pwm_range * angle / 45; // 假设最大舵角为45度
 
         for (int i = 0; i < 200; ++i)
@@ -254,10 +260,18 @@ private:
                 motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
             }
 
+            ROS_INFO("motor:%d,%d", motor_msg.left_thruster_pwm, motor_msg.right_thruster_pwm);
             motor_pub_.publish(motor_msg);
+
             rate.sleep();
         }
 
+          left_thruster_pwm = 1500;
+        motor_msg.left_thruster_pwm = 1500;
+        right_thruster_pwm = 1500;
+        motor_msg.right_thruster_pwm = 1500;
+         motor_pub_.publish(motor_msg);
+         
         experiment_running_ = false;
 
         if (angle == 10)
@@ -363,8 +377,18 @@ void TcpSend_Thread(SystemIdentification &system_identification)
 
     while (ros::ok())
     {
-        snprintf(tcp_sbuf, sizeof(tcp_sbuf),
-                 "经度:%.6f,纬度:%.6f,偏航角:%.2f,左舵角:%.2f,右舵角:%.2f,L_PWM:%d,R_PWM:%d\n",
+        // snprintf(tcp_sbuf, sizeof(tcp_sbuf),
+        //          "经度:%.6f,纬度:%.6f,偏航角:%.2f,左舵角:%.2f,右舵角:%.2f,L_PWM:%d,R_PWM:%d\n",
+        //          jingdu,
+        //          weidu,
+        //          yaw1,
+        //          calculateRudderAngle(system_identification.left_thruster_pwm),
+        //          calculateRudderAngle(system_identification.right_thruster_pwm),
+        //          system_identification.left_thruster_pwm,
+        //          system_identification.right_thruster_pwm);
+
+       snprintf(tcp_sbuf, sizeof(tcp_sbuf),
+                 "Data:%.6f,%.6f,%.2f,%.2f,%.2f,%d,%d\n",
                  jingdu,
                  weidu,
                  yaw1,
@@ -372,7 +396,6 @@ void TcpSend_Thread(SystemIdentification &system_identification)
                  calculateRudderAngle(system_identification.right_thruster_pwm),
                  system_identification.left_thruster_pwm,
                  system_identification.right_thruster_pwm);
-
 
         // snprintf(tcp_sbuf, sizeof(tcp_sbuf), "接收：%s", sub_strings[0].c_str());
 
