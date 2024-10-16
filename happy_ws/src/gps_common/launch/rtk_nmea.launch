@@ -1,0 +1,18 @@
+<launch>
+
+  <!-- Launch nmea_topic_serial_reader node -->
+  <node name="nmea_topic_serial_reader_node" pkg="nmea_navsat_driver" type="nmea_topic_serial_reader" output="screen">
+    <param name="port" value="/dev/rtk" />
+    <param name="baud" value="115200" />
+    <param name="frame_id" value="gps" />
+    <!-- Additional parameters specific to nmea_topic_serial_reader if needed -->
+  </node>
+
+  <!-- Launch nmea_topic_driver node -->
+  <node name="nmea_topic_driver_node" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen">
+    <remap from="nmea_sentence" to="nmea_sentence" /> <!-- Remap to keep the original topic name -->
+    <param name="frame_id" value="gps" /> <!-- Set appropriate frame_id for NavSatFix messages -->
+    <!-- Additional parameters specific to nmea_topic_driver if needed -->
+  </node>
+
+</launch>
