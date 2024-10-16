@@ -14,27 +14,30 @@ using namespace std;
 double yaw, pitch, roll;
 static char* USART1_rbuf = new char(20);
 
-ros::Publisher environment_pub;
+ros::Publisher mcu_pub, toMcu_pub;
 control::Motor motor_msg;
 
 void SendToStm32_CallBack(const ros::TimerEvent &event)
 {
     char USART1_sbuf[100];
+    std_msgs::String toMcu;
 
     /*--- Send motor pwm to stm32 ---*/
     sprintf(USART1_sbuf,"M,%d,%d,%d,%d,", motor_msg.left_thruster_pwm, motor_msg.right_thruster_pwm, motor_msg.left_sideThruster_pwm, motor_msg.right_sideThruster_pwm);
-    USART1_SendString(USART1_sbuf); 
-    //  ROS_INFO("Usart send to stm32:%s", USART1_sbuf);
+    USART1_SendString(USART1_sbuf);
+    /* --- Publish data from nx to mcu  ---*/ 
+    toMcu.data = std::string(USART1_sbuf);
+    toMcu_pub.publish(toMcu);
 }
 
 /**
-  * @brief  每隔0.1s，从stm32中读取一帧环境信息
+  * @brief  每隔0.1s，从stm32中读取一帧信息
   * @param  无
   * @retval 无
   */
-void Usart_GetEnvironmentMessage(const ros::TimerEvent &event)
+void Usart_GetMcuMessage(const ros::TimerEvent &event)
 {
-    /*--- Get environment message from stm32 ---*/ 
+    /*--- Get mcu message from stm32 ---*/ 
     memset(USART1_rbuf, '\0', sizeof(USART1_rbuf));     // 接收前先清0，免得多出的数据没有被覆盖导致错误。
     USART_ReadString(USART1_rbuf, 20);
 }
@@ -45,39 +48,34 @@ void Usart_GetEnvironmentMessage(const ros::TimerEvent &event)
   * @param  无
   * @retval 无
   */
-void Get_MotorPwm_CallBack(const control::Motor::ConstPtr& msg)
+void Get_ThrusterPwm_CallBack(const control::Motor::ConstPtr& msg)
 {
     motor_msg = *msg;   // 得到pwm值
-
-    /* --- Get eular angle ----------------------------------*/
-    // tf::Quaternion quat;
-    // tf::quaternionMsgToTF(msg->pose.pose.orientation, quat);
-    // tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
 }
 
-void PubEnvironmentMessage_CallBack(const ros::TimerEvent &event)
+void PubMcuMessage_CallBack(const ros::TimerEvent &event)
 {
-    /* --- Publish environment message ---*/
-    static std_msgs::String environment_message;
+    /* --- Publish message from mcu ---*/
+    static std_msgs::String mcu_message;
 
     if (strcmp(USART1_rbuf, "") != 0)      // 如果数据不为空，更新数据
     {
-        environment_message.data = std::string(USART1_rbuf);
+        mcu_message.data = std::string(USART1_rbuf);
     }
-    environment_pub.publish(environment_message);
-    // ROS_INFO("Recieve info from Usart: %s\r\n", environment_message.data.c_str());
+    mcu_pub.publish(mcu_message);
 }
 
 int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
     /*--- ROS INIT ----------------------------------------------------------- */
-    ros::init(argc, argv, "usart_node");
+    ros::init(argc, argv, "usart");
 
     ros::NodeHandle nh;
 
-    environment_pub = nh.advertise<std_msgs::String>("/usart_message", 1000);
-    ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 1000, Get_MotorPwm_CallBack);
+    mcu_pub = nh.advertise<std_msgs::String>("/usart/rawData", 1000);
+    toMcu_pub = nh.advertise<std_msgs::String>("/usart/toMcu", 1000);
+    ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 1000, Get_ThrusterPwm_CallBack);
 
     /*--- USART1 INIT ------------------------------------------- */
     char* device_usart1 = USART1_PORT;
@@ -89,10 +87,10 @@ int main(int argc, char* argv[])
     ROS_INFO("usart1 node init success.");
     /*--- end of USART1 INIT ------------------------------------ */
 
-    /* --- ROS send environmnet message ------------------------------------------------------------------*/
-    ros::Timer timer_get_environment = nh.createTimer(ros::Duration(0.1), Usart_GetEnvironmentMessage);
-    ros::Timer timer_pub_environment = nh.createTimer(ros::Duration(0.1), PubEnvironmentMessage_CallBack);
-    ros::Timer timer_send_to_stm32 = nh.createTimer(ros::Duration(0.05), SendToStm32_CallBack);
+    /* --- ROS send mcu message ------------------------------------------------------------------*/
+    ros::Timer timer_get_mcu = nh.createTimer(ros::Duration(0.1), Usart_GetMcuMessage);
+    ros::Timer timer_pub_mcu = nh.createTimer(ros::Duration(0.1), PubMcuMessage_CallBack);
+    ros::Timer timer_send_to_mcu = nh.createTimer(ros::Duration(0.05), SendToStm32_CallBack);
 
     ros::spin();
 

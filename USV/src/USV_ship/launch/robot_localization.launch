@@ -3,16 +3,16 @@
     1)rtk串口读取：nmea_navsat_driver->nmea_topic_serial_reader 
     2）rtk中NMEA字符串解析为ROS_GPS信息：nmea_navsat_driver->nmea_topic_driver 
      -->
-  <include file="$(find gps_common)/launch/rtk_nmea.launch">
-  </include>
+  <!-- <include file="$(find gps_common)/launch/rtk_nmea.launch">
+  </include> -->
 
   <!-- 启动雷达和imu   -->
   <!-- （启动2d雷达）  rplidar_ws/rplidar_ros/rplidar_s2.launch  -->
   <!-- <include file="$(find rplidar_ros)/launch/rplidar_s2.launch">
   </include> -->
   <!-- (启动imu) Launch  imu_ws/sanchi_amov/imu_100D4.launch    -->
-  <include file="$(find sanchi_amov)/launch/imu_100D4.launch">
-  </include>
+  <!-- <include file="$(find sanchi_amov)/launch/imu_100D4.launch">
+  </include> -->
 
 
   <!-- robot_localization方案 -->
@@ -21,8 +21,8 @@
   </include> -->
 
   <!-- 加载地图 -->
-   <arg name="map_file" default="$(find bringup)/maps/ttt.yaml"/>
-   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>  
+   <!-- <arg name="map_file" default="$(find bringup)/maps/ttt.yaml"/>
+   <node pkg="map_server" name="map_server" type="map_server" args="$(arg map_file)"/>   -->
 
     <!-- 启动rviz -->
     <!-- <arg name="rviz_config" default="$(find lidar)/rviz/0926.rviz" />
@@ -31,7 +31,9 @@
 
   <!-- 启动 map和odom_local之间的tf变换 -->
   <node pkg="tf" type="static_transform_publisher" name="tf_map2odom" args="0 0 0 0 0 0  map /odom_local 100"/>
-  
+  <!-- 启动map 和 basefootprint 转换 -->
+  <node pkg="tf" type="static_transform_publisher" name="tf_odom2basefootprint" args="0 0 0 0 0 0  odom_local /basefootprint 100"/>
+
     <!-- ship_model -->
   <include file="$(find USV_description)/launch/ship_model.launch"> 
   </include>  

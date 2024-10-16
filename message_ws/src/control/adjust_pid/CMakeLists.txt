@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   tf2_ros
   tf2_geometry_msgs
+
+  tcp
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +110,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES adjust_pid
-#  CATKIN_DEPENDS roscpp sensor_msgs std_msgs
+ CATKIN_DEPENDS roscpp sensor_msgs std_msgs tcp
 #  DEPENDS system_lib
 )
 
@@ -160,6 +162,8 @@ add_executable(adjust_angle_pid_node
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(adjust_angle_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(adjust_speed_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(adjust_angle_pid_node
