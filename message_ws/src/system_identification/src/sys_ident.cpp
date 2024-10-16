@@ -202,8 +202,8 @@ private:
 
         motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 50;
         system_identification.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        motor_msg.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
-        system_identification.ringht_thruster_pwm = PWM_FORWARD_MIN + 50;
+        motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + 50;
+        system_identification.right_thruster_pwm = PWM_FORWARD_MIN + 50;
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
