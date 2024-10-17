@@ -5,9 +5,9 @@ bool tcp_is_connecting
 char control_mode
 bool boat_keep_nav
 # 'M'报文
-char boat_is_active
-char boat_is_running
-char boat_is_smart_mode
+bool boat_is_active
+bool boat_is_running
+bool boat_is_smart_mode
 # 'P'报文
 
 # 'R'报文

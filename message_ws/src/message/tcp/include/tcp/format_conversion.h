@@ -36,8 +36,7 @@ public:
     int handle_header_S(std::string s);
     int handle_header_P(std::string points_s, std::vector<sensor_msgs::NavSatFix> &point_list);
     int handle_header_K(std::string s);
-    int handle_header_M(std::string s);
-    int handle_header_X(std::string s, tcp::ship_info &ship_info);
+    // int handle_header_X(std::string s, tcp::ship_info &ship_info);
 
     bool push_is_open(void);
     bool message_is_recieving(void);

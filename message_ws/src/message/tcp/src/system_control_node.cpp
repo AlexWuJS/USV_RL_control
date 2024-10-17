@@ -20,7 +20,7 @@ ros::ServiceClient client;
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     imu = *msg;
 
-    ship_information.heading_angle = tf2::getYaw(imu.orientation);  // 当前船体的航向角
+    ship_information.heading_angle = tf2::getYaw(imu.orientation)*180/M_PI;  // 当前船体的航向角
 }
 
 
@@ -29,7 +29,6 @@ void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
 
     ship_information.latitude = rtk.latitude;       // 当前船体经度
     ship_information.longitude = rtk.longitude;     // 当前船体纬度
-    
 }
 
 void TcpSend_Thread()
@@ -78,7 +77,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
     }
 
     for (vector<string>& recv_strings : raw_recv_strings){
-        vector<string> sub_strings = get_value_from_string(s, ',');
+        vector<string> sub_strings = get_value_from_string(recv_strings, ',');
         if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
@@ -92,6 +91,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
     }
 }
+
 
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
@@ -140,7 +140,7 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             case 'X':
-                FormatConversion_Tcp.handle_header_X(*it, ship_information);
+                // FormatConversion_Tcp.handle_header_X(*it, ship_information);
             break;
 
             default:

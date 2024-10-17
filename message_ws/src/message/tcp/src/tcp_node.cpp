@@ -18,7 +18,7 @@
 std::mutex tcp_send_mtx, tcp_recv_mtx;          // 定义互斥锁
 std::condition_variable tcp_send_cv;            // 条件变量
 bool enable_send_tcp, ready_send_tcp;           // 条件变量的条件      
-ros::Publisher tcp_message_pub, tcp_ori_message_pub;
+ros::Publisher tcp_message_pub, tcp_raw_message_pub, tcp_GroundData_pub;
 std::string tcp_sub_string;
 std_msgs::String tcp_recv_string;
 
@@ -103,8 +103,8 @@ void Tcp_SendMessage_Thread(int client_socket)
 
             if (tcp_send_flag < 0)      // 发送失败
                 break;
-            // else
-            // ROS_INFO("Tcp server send tcp_sbuf: %s", tcp_sbuf);        
+            else
+                tcp_GroundData_pub.publish(tcp_recv_string);    // 发送至上位机 
         }
         lock.unlock(); // 解锁
 
@@ -137,7 +137,7 @@ void Tcp_RecvMessage_Thread(int client_socket)
         }
 
         tcp_recv_string.data = tcp_rbuf;
-        tcp_ori_message_pub.publish(tcp_recv_string);
+        tcp_raw_message_pub.publish(tcp_recv_string);
         /* convert to string */
         FormatConversion_Tcp.SplitString(tcp_recv_string.data, raw_sstrings);
         for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++) {
@@ -195,8 +195,9 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    tcp_ori_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10000);
+    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10000);
     tcp_message_pub = nh.advertise<tcp::message_s>("/tcp/data", 10000);
+    tcp_GroundData_pub = nh.advertise<std_msgs::String>("/tcp/GroundData", 1000);
     ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10000, Tcp_GetShipInfo_CallBack);
 
     ros::ServiceServer service_connection = nh.advertiseService("/tcp/connection", Tcp_Get_Status_CallBack);

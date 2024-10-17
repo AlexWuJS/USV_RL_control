@@ -219,56 +219,56 @@ int FormatConversionClass::handle_header_K(std::string s)
      *     @arg: -1：帧头错误
      *     @arg: -2：数据大小错误
      */
-int FormatConversionClass::handle_header_X(std::string s, tcp::ship_info &ship_info)    
-{
-    vector<string> string_values;
+// int FormatConversionClass::handle_header_X(std::string s, tcp::ship_info &ship_info)    
+// {
+//     vector<string> string_values;
 
-    if (s.front() != 'X')    /* 帧头错误 */
-    {
-        ROS_INFO("Handle header error: header is not 'X'!");
-        return -1;
-    }
+//     if (s.front() != 'X')    /* 帧头错误 */
+//     {
+//         ROS_INFO("Handle header error: header is not 'X'!");
+//         return -1;
+//     }
 
-    /* 接收对应的数据并记录 */
-    string_values = get_value_from_string(s, ',');
-    if (string_values.size() != 26)      // X帧一共有26个数据
-        return -2;
-    else
-    {
-        /* PID */
-        ship_info.PID1.P = stof(string_values[1]);
-        ship_info.PID1.I = stof(string_values[2]);
-        ship_info.PID1.D = stof(string_values[3]);
+//     /* 接收对应的数据并记录 */
+//     string_values = get_value_from_string(s, ',');
+//     if (string_values.size() != 26)      // X帧一共有26个数据
+//         return -2;
+//     else
+//     {
+//         /* PID */
+//         ship_info.PID1.P = stof(string_values[1]);
+//         ship_info.PID1.I = stof(string_values[2]);
+//         ship_info.PID1.D = stof(string_values[3]);
 
-        ship_info.PID2.P = stof(string_values[4]);
-        ship_info.PID2.I = stof(string_values[5]);
-        ship_info.PID2.D = stof(string_values[6]);
+//         ship_info.PID2.P = stof(string_values[4]);
+//         ship_info.PID2.I = stof(string_values[5]);
+//         ship_info.PID2.D = stof(string_values[6]);
 
-        ship_info.PID3.P = stof(string_values[7]);
-        ship_info.PID3.I = stof(string_values[8]);
-        ship_info.PID3.D = stof(string_values[9]);
-        /* 系统辨识 */
-        ship_info.system_identification.V = stof(string_values[10]);
-        ship_info.system_identification.K = stof(string_values[11]);
-        ship_info.system_identification.T = stof(string_values[12]);
-        ship_info.system_identification.Turn = stof(string_values[13]);
-        ship_info.system_identification.n3 = stof(string_values[14]);
-        ship_info.system_identification.theta_1 = stof(string_values[15]);
-        /* 滑模控制 */
-        ship_info.sliding_mode.epsilon = stof(string_values[16]);
-        ship_info.sliding_mode.c = stof(string_values[17]);
-        ship_info.sliding_mode.k = stof(string_values[18]);
-        ship_info.sliding_mode.q = stof(string_values[19]);
-        ship_info.sliding_mode.yaw = stof(string_values[20]);
-        ship_info.sliding_mode.omega = stof(string_values[21]);
-        ship_info.sliding_mode.omega_a = stof(string_values[22]);
-        ship_info.sliding_mode.dis = stof(string_values[23]);
-        ship_info.sliding_mode.v = stof(string_values[24]);
-        ship_info.sliding_mode.v_a = stof(string_values[25]);
-    }
+//         ship_info.PID3.P = stof(string_values[7]);
+//         ship_info.PID3.I = stof(string_values[8]);
+//         ship_info.PID3.D = stof(string_values[9]);
+//         /* 系统辨识 */
+//         ship_info.system_identification.V = stof(string_values[10]);
+//         ship_info.system_identification.K = stof(string_values[11]);
+//         ship_info.system_identification.T = stof(string_values[12]);
+//         ship_info.system_identification.Turn = stof(string_values[13]);
+//         ship_info.system_identification.n3 = stof(string_values[14]);
+//         ship_info.system_identification.theta_1 = stof(string_values[15]);
+//         /* 滑模控制 */
+//         ship_info.sliding_mode.epsilon = stof(string_values[16]);
+//         ship_info.sliding_mode.c = stof(string_values[17]);
+//         ship_info.sliding_mode.k = stof(string_values[18]);
+//         ship_info.sliding_mode.q = stof(string_values[19]);
+//         ship_info.sliding_mode.yaw = stof(string_values[20]);
+//         ship_info.sliding_mode.omega = stof(string_values[21]);
+//         ship_info.sliding_mode.omega_a = stof(string_values[22]);
+//         ship_info.sliding_mode.dis = stof(string_values[23]);
+//         ship_info.sliding_mode.v = stof(string_values[24]);
+//         ship_info.sliding_mode.v_a = stof(string_values[25]);
+//     }
 
-    return 0;         
-}
+//     return 0;         
+// }
 
 bool FormatConversionClass::push_is_open(void)
 {
