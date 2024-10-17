@@ -1,12 +1,37 @@
 <launch>
+      <node pkg="sanchi_amov"
+        name="imu"
+        type="sanchi_amov"
+        output="screen">
+    <param name="port" value="/dev/imu"/>
+    <param name="model" value="100D4"/>
+    <param name="baud" value="115200"/>
+  </node>
+
+     <!-- Launch nmea_topic_serial_reader node -->
+  <node name="nmea_topic_serial_reader_node" pkg="nmea_navsat_driver" type="nmea_topic_serial_reader" output="screen">
+    <param name="port" value="/dev/rtk" />
+    <param name="baud" value="115200" />
+    <param name="frame_id" value="gps" />
+    <!-- Additional parameters specific to nmea_topic_serial_reader if needed -->
+  </node>
 
     <node pkg="system_identification" type="system_identification_node" name="system_identification_node" output="screen">
-
-
     </node>
 
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
 
     <!-- <include file="$(find your_package)/included.launch" /> -->
+
+  <!-- Launch nmea_topic_driver node -->
+  <node name="nmea_topic_driver_node" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen">
+    <remap from="nmea_sentence" to="nmea_sentence" /> <!-- Remap to keep the original topic name -->
+    <param name="frame_id" value="gps" /> <!-- Set appropriate frame_id for NavSatFix messages -->
+    <!-- Additional parameters specific to nmea_topic_driver if needed -->
+  </node>
+
+
+
 </launch>
