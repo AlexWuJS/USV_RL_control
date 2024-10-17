@@ -141,11 +141,12 @@ include
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/system_identification_node.cpp)
-#  add_executable(system_identification_node
-#  src/sys_ident.cpp
-# #  src/pid.cpp
-#   ../message/tcp/src/format_conversion.cpp
-#  )
+ 
+add_executable(system_identification_node
+ src/sys_ident.cpp
+#  src/pid.cpp
+  ../message/tcp/src/format_conversion.cpp
+ )
 
 
 ## Rename C++ executable without prefix
@@ -163,9 +164,9 @@ include
 #   ${catkin_LIBRARIES}
 # )
 
-# target_link_libraries(system_identification_node 
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(system_identification_node 
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##

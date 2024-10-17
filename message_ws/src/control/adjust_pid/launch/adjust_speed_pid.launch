@@ -26,6 +26,9 @@
 
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-zz
+
     <!-- <include file="$(find /sanchi_amov)/launch/imu_100D4.launch"/> -->
+      <include file="$(find sanchi_amov)/launch/imu_100D4.launch" />
+    <include file="$(find gps_common)/launch/rtk_nmea.launch" />
+    
 </launch>
