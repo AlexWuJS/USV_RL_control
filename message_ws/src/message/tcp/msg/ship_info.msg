@@ -4,6 +4,10 @@ bool ship_is_sending
 bool tcp_is_connecting
 char control_mode
 bool boat_keep_nav
+# 'M'报文
+char boat_is_active
+char boat_is_running
+char boat_is_smart_mode
 # 'P'报文
 
 # 'R'报文
@@ -18,10 +22,10 @@ float64 temperature
 tcp/keyboard keyboard
 
 # 'X'报文
-tcp/pid PID1
-tcp/pid PID2
-tcp/pid PID3
+# tcp/pid PID1
+# tcp/pid PID2
+# tcp/pid PID3
 
-tcp/system_identification system_identification # 系统辨识
+# tcp/system_identification system_identification # 系统辨识
 
-tcp/sliding_mode sliding_mode     # 滑模控制
+# tcp/sliding_mode sliding_mode     # 滑模控制

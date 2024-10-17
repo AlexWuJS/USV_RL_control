@@ -124,13 +124,13 @@ void Tcp_RecvMessage_Thread(int client_socket)
 {
     char tcp_rbuf[100];
     FormatConversionClass FormatConversion_Tcp;
-    vector<std::string> ori_sub_strings;
+    vector<std::string> raw_sstrings;
 
     while (true)
     {
         // std::lock_guard<std::mutex> lock(tcp_recv_mtx);     // 上锁，自动释放锁
         memset(tcp_rbuf, '\0', sizeof(tcp_rbuf));               // 接收数据前，清空缓存区
-        ori_sub_strings.clear();
+        raw_sstrings.clear();
         ssize_t bytes_received = Tcp_Server_Read(client_socket, tcp_rbuf);       // 线程安全函数
         if (bytes_received <= 0) {      //读取Tcp数据失败
             break;
@@ -139,8 +139,8 @@ void Tcp_RecvMessage_Thread(int client_socket)
         tcp_recv_string.data = tcp_rbuf;
         tcp_ori_message_pub.publish(tcp_recv_string);
         /* convert to string */
-        FormatConversion_Tcp.SplitString(tcp_recv_string.data, ori_sub_strings);
-        for (vector<string>::iterator it = ori_sub_strings.begin(); it != ori_sub_strings.end(); it++) {
+        FormatConversion_Tcp.SplitString(tcp_recv_string.data, raw_sstrings);
+        for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++) {
 
             vector<std::string> sub_strings = FormatConversion_Tcp.get_value_from_string((*it), ',');
 

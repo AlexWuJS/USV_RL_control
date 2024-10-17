@@ -69,27 +69,27 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
 void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
     FormatConversionClass FormatConversion_usart;
-    vector<std::string> sub_strings;
+    vector<std::string> raw_recv_strings;
 
     /* convert to string */
-    int flag = FormatConversion_usart.SplitString(msg->data, sub_strings);
+    int flag = FormatConversion_usart.SplitString(msg->data, raw_recv_strings);
     if (flag == -1){
         cout << "Tcp_SubUsart split string " << msg->data << ": find headers error! String does not fit for transmit protocol." << endl;
     }
 
-    for (vector<string>::iterator it = sub_strings.begin(); it != sub_strings.end(); it++) {
-        switch (FormatConversion_usart.recognize_message(*it))
+    for (vector<string>& recv_strings : raw_recv_strings){
+        vector<string> sub_strings = get_value_from_string(s, ',');
+        if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
         {
-            case 'M':
-                FormatConversion_usart.handle_header_M(*it);
-                ship_information.voltage_left_battery = FormatConversion_usart.get_voltage_left_battery();
-                ship_information.voltage_right_battery = FormatConversion_usart.get_voltage_right_battery();
-            break;
-
-            default:
-                ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
-            break;
+            ship_information.voltage_left_battery = stof(sub_strings[1]);
+            ship_information.voltage_right_battery = stof(sub_strings[2]);
+            ship_information.boat_is_active = stof(sub_strings[3]);
+            ship_information.boat_is_running = stof(sub_strings[4]);
+            ship_information.boat_is_smart_mode = stof(sub_strings[5]);
+            ROS_INFO("recv success");
         }
+        else
+            ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
     }
 }
 

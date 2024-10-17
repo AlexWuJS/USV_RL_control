@@ -210,36 +210,6 @@ int FormatConversionClass::handle_header_K(std::string s)
     return 0;
 }
 
-/**
-     * @brief  处理M报文格式的数据，将接收的串口电压值存入类中
-     * @param  s: 接收的字符串
-     * @retval
-     *     @arg: 0：返回成功
-     *     @arg: -1：帧头错误
-     */
-int FormatConversionClass::handle_header_M(std::string s)    
-{
-    vector<string> string_values;
-
-    if (s.front() != 'M')    /* 帧头错误 */
-    {
-        ROS_INFO("Handle header error: header is not 'M'!");
-        return -1;
-    }
-
-    /* 接收对应的数据并记录 */
-    string_values = get_value_from_string(s, ',');
-    if (string_values.size() != 3)      // M帧一共有3个数据
-        return -2;
-    else
-    {
-        m_voltage_left_battery = stof(string_values[1]);
-        m_voltage_right_battery = stof(string_values[2]);
-    }
-
-    return 0;         
-}
-
 
 /**
      * @brief  处理X报文格式的数据，将参数信息存入类中
