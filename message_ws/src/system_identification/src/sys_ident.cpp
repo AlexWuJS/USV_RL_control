@@ -205,19 +205,12 @@ private:
         int a = 80;
         control::Motor motor_msg;
 
-<<<<<<< HEAD
         motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + a;
         motor_msg.right_thruster_pwm = PWM_REVERSE_MAX -a;
 
 
         left_thruster_pwm = PWM_FORWARD_MIN + a;
         right_thruster_pwm = PWM_REVERSE_MAX - a;
-=======
-        motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        system_identification.left_thruster_pwm = PWM_FORWARD_MIN + 50;
-        motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + 50;
-        system_identification.right_thruster_pwm = PWM_FORWARD_MIN + 50;
->>>>>>> master
 
         ros::Rate rate(10); // 10Hz
         for (int i = 0; i < 100; ++i)
