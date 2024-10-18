@@ -107,13 +107,22 @@ private:
 
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
    {
-       yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
-       if (experiment_running_ && (ros::Time::now() - last_record_time_).toSec() >= 0.1)  // 每0.1秒记录一次
-       {
-           yaw_data_.push_back(yaw1);
-           time_data_.push_back((ros::Time::now() - start_time_).toSec());
-           last_record_time_ = ros::Time::now();
-       }
+    //    yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
+    yaw1 = tf2::getYaw(msg->orientation);
+  
+        if (experiment_running_)
+        {
+            yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
+            yaw_data_.push_back(yaw1);
+            time_data_.push_back((ros::Time::now() - start_time_).toSec());
+        }
+
+    // if (experiment_running_ && (ros::Time::now() - last_record_time_).toSec() >= 0.01) // 每0.1秒记录一次
+    // {
+    //     yaw_data_.push_back(yaw1);
+    //     time_data_.push_back((ros::Time::now() - start_time_).toSec());
+    //     last_record_time_ = ros::Time::now();
+    //    }
    }
 
 
@@ -254,25 +263,41 @@ private:
         }
     }
 
-    void identifyKAndDeltaR()
+  void identifyKAndDeltaR()
+{
+    // 计算航向角速度
+    std::vector<double> yaw_rate;
+    for (size_t i = 1; i < yaw_data_.size(); ++i)
     {
-        Eigen::MatrixXd A(rudder_data_.size(), 2);
-        Eigen::VectorXd b(rudder_data_.size());
-
-        for (size_t i = 0; i < rudder_data_.size(); ++i)
-        {
-            A(i, 0) = rudder_data_[i];
-            A(i, 1) = 1;
-            b(i) = yaw_data_[i];
-        }
-
-        Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
-
-        K_ = x(0);
-        delta_r_ = -x(1) / K_;
-
-        ROS_INFO("辨识结果: K = %f, delta_r = %f", K_, delta_r_);
+        double rate = (yaw_data_[i] - yaw_data_[i-1]) / (time_data_[i] - time_data_[i-1]);
+        yaw_rate.push_back(rate);
     }
+
+    // 构建最小二乘法矩阵
+    Eigen::MatrixXd A(yaw_rate.size(), 2);
+    Eigen::VectorXd b(yaw_rate.size());
+
+    for (size_t i = 0; i < yaw_rate.size(); ++i)
+    {
+        A(i, 0) = 1;
+        A(i, 1) = yaw_rate[i];
+        b(i) = rudder_data_[i];
+    }
+
+    // 求解最小二乘问题
+    Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
+
+    // 计算K和delta_r
+    delta_r_ = -x(0);
+    K_ = 1.0 / x(1);
+
+    ROS_INFO("辨识结果: K = %f, delta_r = %f", K_, delta_r_);
+    // 打印一些原始数据，用于调试
+    ROS_INFO("数据样本：");
+    for (size_t i = 0; i < std::min(size_t(10), rudder_data_.size()); ++i) {
+        ROS_INFO("舵角: %f, 艏向角: %f", rudder_data_[i], yaw_data_[i]);
+    }
+}
 
     void identifyT()
     {
