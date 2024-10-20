@@ -25,7 +25,7 @@ sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
 PID myPid;
 ros::ServiceClient client;
-Eigen::Vector2d desired_speed, course_speed, filtered_speed;
+Eigen::Vector2d desired_speed, course_speed, filtered_speed, unfilter_speed;
 
 const int BUFFER_SIZE = 10;
 std::deque<Eigen::Vector2d> speed_buffer;
@@ -86,8 +86,8 @@ void Pid_Callback(const ros::TimerEvent &event)
     speed_pid_output = myPid.PID_SpeedCalc(desired_speed(1), course_speed(1));
 
     ROS_WARN("speed_pid_output:%f", speed_pid_output);
-    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output;
-    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output;
+    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
+    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
 
     // 越界判断
     thruster_msg.left_thruster_pwm = std::max(THRUSTER_MIN_PWM, std::min(THRUSTER_MAX_PWM, thruster_msg.left_thruster_pwm));
@@ -107,7 +107,7 @@ void rtkSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 
     Eigen::Vector2d current_speed;
     current_speed(0) = std::atan2(rtk_speed.twist.linear.y, rtk_speed.twist.linear.x) * 180 / M_PI;
-    current_speed(1) = sqrt(pow(rtk_speed.twist.linear.x, 2) + pow(rtk_speed.twist.linear.y, 2));
+    unfilter_speed(1) = current_speed(1) = sqrt(pow(rtk_speed.twist.linear.x, 2) + pow(rtk_speed.twist.linear.y, 2));
 
     static Eigen::Vector2d prev_filtered_speed = Eigen::Vector2d::Zero();
     Eigen::Vector2d low_pass_filtered = lowPassFilter(current_speed, prev_filtered_speed, 0.1);
@@ -178,7 +178,7 @@ void TcpSend_Thread()
     while (ros::ok())
     {
         snprintf(tcp_sbuf, sizeof(tcp_sbuf), "\nspeed_pid:%f,%f,%f,%d,%d,%f,%f\n",
-                 desired_speed(1), course_speed(1), desired_speed(1) - course_speed(1),
+                 desired_speed(1), course_speed(1), unfilter_speed(1),
                  thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm,
                  course_speed(0), heading_angle);
 
