@@ -17,7 +17,7 @@ using namespace std;
 
 ros::Publisher controller_pub;
 control::Motor thruster_msg;
-double desired_angle, heading_angle, pid_output;
+double desired_angle, heading_angle, location_pid_output, angle_pid_output;
 sensor_msgs::Imu imu;                    
 PID myPid;
 ros::ServiceClient client;
@@ -30,8 +30,19 @@ void Pid_Callback(const ros::TimerEvent &event)
     /* 输出差速值 */
     location_pid_output = myPid.PID_LocationCalc(0, heading_angle); 
     angle_pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
-    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - location_pid_output * 0.5 - angle_pid_output * 0.5;
-    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output * 0.5 + angle_pid_output * 0.5;
+    // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - location_pid_output * 0.5 - angle_pid_output * 0.5;
+    // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output * 0.5 + angle_pid_output * 0.5;
+
+    if (desired_angle -heading_angle > 0.5 || desired_angle -heading_angle < -0.5)
+    {
+        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output;
+        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output;
+    }
+    else
+    {
+        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+    }
 
     /* 越界判断 */
     if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)

@@ -36,7 +36,6 @@ public:
     int handle_header_S(std::string s);
     int handle_header_P(std::string points_s, std::vector<sensor_msgs::NavSatFix> &point_list);
     int handle_header_K(std::string s);
-    // int handle_header_X(std::string s, tcp::ship_info &ship_info);
 
     bool push_is_open(void);
     bool message_is_recieving(void);
@@ -45,6 +44,8 @@ public:
     bool boat_keep_nav(void);
     std::string handle_R_string(void);
     KeyboardStructure keyboard(void);
+    float get_voltage_left_battery(void);
+    float get_voltage_right_battery(void);
 
 private:
     bool m_push_is_open;
@@ -52,6 +53,8 @@ private:
     bool m_is_connecting;
     char m_control_mode;
     bool m_boat_keep_nav;
+    float m_voltage_left_battery;
+    float m_voltage_right_battery;
     KeyboardStructure m_keyboard;
     std::string m_valid_headers;
 };

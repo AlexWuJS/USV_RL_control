@@ -76,8 +76,8 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
         cout << "Tcp_SubUsart split string " << msg->data << ": find headers error! String does not fit for transmit protocol." << endl;
     }
 
-    for (vector<string>& recv_strings : raw_recv_strings){
-        vector<string> sub_strings = get_value_from_string(recv_strings, ',');
+    for (std::string& recv_strings : raw_recv_strings){
+        vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
         if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
