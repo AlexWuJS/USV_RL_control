@@ -20,7 +20,7 @@ ros::ServiceClient client;
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     imu = *msg;
 
-    ship_information.heading_angle = tf2::getYaw(imu.orientation);  // 当前船体的航向角
+    ship_information.heading_angle = tf2::getYaw(imu.orientation)*180/M_PI;  // 当前船体的航向角
 }
 
 
@@ -29,7 +29,6 @@ void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
 
     ship_information.latitude = rtk.latitude;       // 当前船体经度
     ship_information.longitude = rtk.longitude;     // 当前船体纬度
-    
 }
 
 void TcpSend_Thread()
@@ -69,29 +68,30 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
 void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
     FormatConversionClass FormatConversion_usart;
-    vector<std::string> sub_strings;
+    vector<std::string> raw_recv_strings;
 
     /* convert to string */
-    int flag = FormatConversion_usart.SplitString(msg->data, sub_strings);
+    int flag = FormatConversion_usart.SplitString(msg->data, raw_recv_strings);
     if (flag == -1){
         cout << "Tcp_SubUsart split string " << msg->data << ": find headers error! String does not fit for transmit protocol." << endl;
     }
 
-    for (vector<string>::iterator it = sub_strings.begin(); it != sub_strings.end(); it++) {
-        switch (FormatConversion_usart.recognize_message(*it))
+    for (std::string& recv_strings : raw_recv_strings){
+        vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
+        if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
         {
-            case 'M':
-                FormatConversion_usart.handle_header_M(*it);
-                ship_information.voltage_left_battery = FormatConversion_usart.get_voltage_left_battery();
-                ship_information.voltage_right_battery = FormatConversion_usart.get_voltage_right_battery();
-            break;
-
-            default:
-                ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
-            break;
+            ship_information.voltage_left_battery = stof(sub_strings[1]);
+            ship_information.voltage_right_battery = stof(sub_strings[2]);
+            ship_information.boat_is_active = stof(sub_strings[3]);
+            ship_information.boat_is_running = stof(sub_strings[4]);
+            ship_information.boat_is_smart_mode = stof(sub_strings[5]);
         }
+        else
+            // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
+        ;
     }
 }
+
 
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
@@ -140,7 +140,7 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             case 'X':
-                FormatConversion_Tcp.handle_header_X(*it, ship_information);
+                // FormatConversion_Tcp.handle_header_X(*it, ship_information);
             break;
 
             default:
@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
-    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/rawData", 1000, SubUsartMessage_CallBack);
+    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
     ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");

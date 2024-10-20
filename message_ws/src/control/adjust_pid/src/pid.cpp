@@ -59,3 +59,30 @@ double PID::PID_SpeedCalc(float reference,float feedback)
 
     return output;
 }
+
+
+double PID::PID_LocationCalc(float reference,float feedback)
+{
+    double output, error, integral;
+    static double lastError;
+
+    lastError=error;
+    
+    error = reference - feedback;
+
+    float dout=(error-lastError)*location_kd;
+    
+    float pout=error*location_kp;
+    
+    integral+=error*location_ki;
+    
+    if(integral > maxIntegral) integral=maxIntegral;
+    else if(integral < -maxIntegral) integral=-maxIntegral;
+    
+    output=pout+dout+integral;
+    
+    if(output > maxOutput) output=maxOutput;
+    else if(output < -maxOutput) output=-maxOutput;
+
+    return output;
+}

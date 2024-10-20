@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <node pkg="control" type="controller_node" name="control" output="screen"/>
+</launch>

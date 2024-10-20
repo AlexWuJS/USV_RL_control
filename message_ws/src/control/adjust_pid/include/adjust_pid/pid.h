@@ -5,13 +5,18 @@ class PID{
 public:
     double PID_AngleCalc(float reference,float feedback);
     double PID_SpeedCalc(float reference,float feedback);
-
+    double PID_LocationCalc(float reference,float feedback);
+    
     double angle_kp;
     double angle_ki;
     double angle_kd;
     double speed_kp;
     double speed_ki;
     double speed_kd;
+
+    double location_kp;
+    double location_ki;
+    double location_kd;
 
     double maxIntegral;
     double maxOutput;

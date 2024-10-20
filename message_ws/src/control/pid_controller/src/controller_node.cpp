@@ -45,7 +45,7 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::ship_info>("/tcp/data", 1000, Tcp_SubShipMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubShipMessage_CallBack);
     ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
     // ros::Subscriber listener = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1000, GetAngle_CallBack);     // get eular angle from imu
 
