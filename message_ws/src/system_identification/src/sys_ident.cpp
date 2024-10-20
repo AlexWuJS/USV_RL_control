@@ -16,8 +16,8 @@
 // 定义电机PWM范围和特性
 const int PWM_MIN = 1000;
 const int PWM_MAX = 2000;
-const int PWM_REVERSE_MAX = 1750; 
-const int PWM_FORWARD_MIN = 1750;
+const int PWM_REVERSE_MAX = 1450;
+const int PWM_FORWARD_MIN = 1550;
 const int PWM_NEUTRAL = 1500;
 
 // 全局变量
@@ -30,19 +30,19 @@ ros::ServiceClient client;
 /**
  * @brief 计算舵角
  * @param pwm 电机PWM值
- * @return 舵角（度）
+ * @return 舵角（弧度）
  */
 double calculateRudderAngle(int pwm)
 {
     if (pwm <= PWM_REVERSE_MAX)
     {
         // 反转范围
-        return -45.0 * (PWM_REVERSE_MAX - pwm) / (PWM_REVERSE_MAX - PWM_MIN);
+        return -M_PI_4 * (PWM_REVERSE_MAX - pwm) / (PWM_REVERSE_MAX - PWM_MIN);
     }
     else if (pwm >= PWM_FORWARD_MIN)
     {
         // 正转范围
-        return 45.0 * (pwm - PWM_FORWARD_MIN) / (PWM_MAX - PWM_FORWARD_MIN);
+        return M_PI_4 * (pwm - PWM_FORWARD_MIN) / (PWM_MAX - PWM_FORWARD_MIN);
     }
     else
     {
@@ -92,8 +92,10 @@ private:
     std::vector<double> yaw_data_;
     std::vector<double> rudder_data_;
     std::vector<double> time_data_;
+    std::vector<int> left_thruster_pwm_;
+    std::vector<int> right_thruster_pwm_;
 
-    double K_, T_, delta_r_, n3_, delta_r;
+    double K_, T_, delta_r_, n3_;
 
     bool experiment_running_;
     ros::Time start_time_;
@@ -106,25 +108,15 @@ private:
     int experiment_duration_;
 
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
-   {
-    //    yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
-    yaw1 = tf2::getYaw(msg->orientation);
-  
+    {
+        yaw1 = tf2::getYaw(msg->orientation);
+
         if (experiment_running_)
         {
-            yaw1 = tf2::getYaw(msg->orientation) * 180 / M_PI;
             yaw_data_.push_back(yaw1);
             time_data_.push_back((ros::Time::now() - start_time_).toSec());
         }
-
-    // if (experiment_running_ && (ros::Time::now() - last_record_time_).toSec() >= 0.01) // 每0.1秒记录一次
-    // {
-    //     yaw_data_.push_back(yaw1);
-    //     time_data_.push_back((ros::Time::now() - start_time_).toSec());
-    //     last_record_time_ = ros::Time::now();
-    //    }
-   }
-
+    }
 
     void gpsCallback(const sensor_msgs::NavSatFix::ConstPtr &msg)
     {
@@ -152,7 +144,7 @@ private:
         ROS_INFO("tcp message :%lu substrings", msg->sub_strings.size());
         std::vector<std::string> sub_strings = msg->sub_strings;
         ROS_WARN("收到TCP消息");
-        
+
         if (sub_strings[0] == "T")
         {
             if (sub_strings[1] == "1")
@@ -194,46 +186,55 @@ private:
         yaw_data_.clear();
         rudder_data_.clear();
         time_data_.clear();
+        left_thruster_pwm_.clear();
+        right_thruster_pwm_.clear();
     }
 
-    void experimentTimerCallback(const ros::TimerEvent&)
+    void experimentTimerCallback(const ros::TimerEvent &)
     {
-        if (!experiment_running_) return;
+        if (!experiment_running_)
+            return;
 
         control::Motor motor_msg;
-        
+
         if (current_experiment_ == 1) // 定常回转试验
         {
-            int a = 100;
-            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + a;
-            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - a;
+            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 150;
+            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - 150;
         }
         else if (current_experiment_ == 2 || current_experiment_ == 3) // Z字试验
         {
             int angle = (current_experiment_ == 2) ? 10 : 20;
-            int pwm_range = std::min(PWM_MAX - PWM_FORWARD_MIN, PWM_REVERSE_MAX - PWM_MIN);
-            int pwm_change = pwm_range * angle / 45;
-
-            if (experiment_counter_ % 100 < 50)
-            {
-                motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-                motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-            }
-            else
-            {
-                motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-                motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-            }
+            performZManeuver(angle, motor_msg);
         }
 
         motor_pub_.publish(motor_msg);
         left_thruster_pwm = motor_msg.left_thruster_pwm;
         right_thruster_pwm = motor_msg.right_thruster_pwm;
+        left_thruster_pwm_.push_back(left_thruster_pwm);
+        right_thruster_pwm_.push_back(right_thruster_pwm);
 
         experiment_counter_++;
         if (experiment_counter_ >= experiment_duration_)
         {
             endExperiment();
+        }
+    }
+
+    void performZManeuver(int angle, control::Motor &motor_msg)
+    {
+        int pwm_range = PWM_FORWARD_MIN - PWM_REVERSE_MAX;
+        int pwm_change = pwm_range * angle / 45;
+
+        if (experiment_counter_ % 100 < 50)
+        {
+            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
+            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
+        }
+        else
+        {
+            motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
+            motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
         }
     }
 
@@ -243,7 +244,7 @@ private:
         control::Motor motor_msg;
         motor_msg.left_thruster_pwm = PWM_NEUTRAL;
         motor_msg.right_thruster_pwm = PWM_NEUTRAL;
-        
+
         motor_pub_.publish(motor_msg);
 
         left_thruster_pwm = PWM_NEUTRAL;
@@ -263,74 +264,103 @@ private:
         }
     }
 
-  void identifyKAndDeltaR()
-{
-    // 计算航向角速度
-    std::vector<double> yaw_rate;
-    for (size_t i = 1; i < yaw_data_.size(); ++i)
+    void identifyKAndDeltaR()
     {
-        double rate = (yaw_data_[i] - yaw_data_[i-1]) / (time_data_[i] - time_data_[i-1]);
-        yaw_rate.push_back(rate);
+        size_t n = yaw_data_.size();
+        std::vector<double> psi_dot(n - 1);
+        std::vector<double> delta(n - 1);
+
+        for (size_t i = 1; i < n; ++i)
+        {
+            psi_dot[i - 1] = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]);
+
+            delta[i - 1] = calculateRudderAngle((left_thruster_pwm_[i] + right_thruster_pwm_[i]) / 2);
+        }
+
+        Eigen::MatrixXd A(2, 2);
+        
+        Eigen::VectorXd b(2);
+
+        double sum_1 = n - 1;
+        double sum_psi_dot = 0, sum_psi_dot_squared = 0, sum_delta = 0, sum_delta_psi_dot = 0;
+
+        for (size_t i = 0; i < n - 1; ++i)
+        {
+            sum_psi_dot += psi_dot[i];
+            sum_psi_dot_squared += psi_dot[i] * psi_dot[i];
+            sum_delta += delta[i];
+            sum_delta_psi_dot += delta[i] * psi_dot[i];
+        }
+
+        A << sum_1, sum_psi_dot,
+            sum_psi_dot, sum_psi_dot_squared;
+        b << sum_delta, sum_delta_psi_dot;
+
+        Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
+
+        double a0 = x(0);
+        double a1 = x(1);
+
+        K_ = 1.0 / a1;
+        delta_r_ = -a0;
+
+        ROS_INFO("辨识结果: K = %f, delta_r = %f rad (%f deg)", K_, delta_r_, delta_r_ * 180 / M_PI);
     }
-
-    // 构建最小二乘法矩阵
-    Eigen::MatrixXd A(yaw_rate.size(), 2);
-    Eigen::VectorXd b(yaw_rate.size());
-
-    for (size_t i = 0; i < yaw_rate.size(); ++i)
-    {
-        A(i, 0) = 1;
-        A(i, 1) = yaw_rate[i];
-        b(i) = rudder_data_[i];
-    }
-
-    // 求解最小二乘问题
-    Eigen::Vector2d x = A.colPivHouseholderQr().solve(b);
-
-    // 计算K和delta_r
-    delta_r_ = -x(0);
-    K_ = 1.0 / x(1);
-
-    ROS_INFO("辨识结果: K = %f, delta_r = %f", K_, delta_r_);
-    // 打印一些原始数据，用于调试
-    ROS_INFO("数据样本：");
-    for (size_t i = 0; i < std::min(size_t(10), rudder_data_.size()); ++i) {
-        ROS_INFO("舵角: %f, 艏向角: %f", rudder_data_[i], yaw_data_[i]);
-    }
-}
 
     void identifyT()
     {
-        double peak_time = 0;
-        double max_yaw_rate = 0;
-        for (size_t i = 1; i < yaw_data_.size(); ++i)
+        size_t M = yaw_data_.size();
+        double h = time_data_[1] - time_data_[0];
+
+        std::vector<double> y(M - 1);
+        for (size_t k = 0; k < M - 1; ++k)
         {
-            double yaw_rate = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]);
-            if (std::abs(yaw_rate) > std::abs(max_yaw_rate))
-            {
-                max_yaw_rate = yaw_rate;
-                peak_time = time_data_[i];
-            }
+            y[k] = yaw_data_[k + 1] - yaw_data_[k];
         }
 
-        T_ = peak_time / M_PI;
+        Eigen::VectorXd Y(M - 3);
+        for (size_t k = 1; k < M - 2; ++k)
+        {
+            Y(k - 1) = y[k + 1] - y[k];
+        }
+
+        Eigen::VectorXd A(M - 3);
+        for (size_t k = 1; k < M - 2; ++k)
+        {
+            double delta_k = calculateRudderAngle((left_thruster_pwm_[k] + right_thruster_pwm_[k]) / 2);
+            A(k - 1) = K_ * h * h * (delta_k + delta_r_) - h * y[k];
+        }
+
+        T_ = ((Y.transpose() * Y).inverse() * (Y.transpose() * A))(0, 0);
 
         ROS_INFO("辨识结果: T = %f", T_);
     }
 
     void identifyN3()
     {
-        Eigen::MatrixXd A(rudder_data_.size(), 1);
-        Eigen::VectorXd b(rudder_data_.size());
+        size_t M = yaw_data_.size();
+        double h = time_data_[1] - time_data_[0];
 
-        for (size_t i = 0; i < rudder_data_.size(); ++i)
+        std::vector<double> y(M - 1);
+        for (size_t k = 0; k < M - 1; ++k)
         {
-            A(i, 0) = std::pow(rudder_data_[i], 3);
-            b(i) = yaw_data_[i] - K_ * rudder_data_[i];
+            y[k] = yaw_data_[k + 1] - yaw_data_[k];
         }
 
-        Eigen::VectorXd x = A.colPivHouseholderQr().solve(b);
-        n3_ = x(0);
+        Eigen::VectorXd Q(M - 3);
+        for (size_t k = 1; k < M - 2; ++k)
+        {
+            Q(k - 1) = std::pow(y[k], 3) / h;
+        }
+
+        Eigen::VectorXd C(M - 3);
+        for (size_t k = 1; k < M - 2; ++k)
+        {
+            double delta_k = calculateRudderAngle((left_thruster_pwm_[k] + right_thruster_pwm_[k]) / 2);
+            C(k - 1) = K_ * h * h * (delta_k + delta_r_) - h * y[k] - T_ * (y[k + 1] - y[k]);
+        }
+
+        n3_ = ((Q.transpose() * Q).inverse() * (Q.transpose() * C))(0, 0);
 
         ROS_INFO("辨识结果: n3 = %f", n3_);
     }
@@ -355,25 +385,13 @@ void TcpSend_Thread(SystemIdentification &system_identification)
 
     while (ros::ok())
     {
-
-        
-                // snprintf(tcp_sbuf, sizeof(tcp_sbuf),
-        //          "经度:%.6f,纬度:%.6f,偏航角:%.2f,左舵角:%.2f,右舵角:%.2f,L_PWM:%d,R_PWM:%d\n",
-        //          jingdu,
-        //          weidu,
-        //          yaw1,
-        //          calculateRudderAngle(system_identification.left_thruster_pwm),
-        //          calculateRudderAngle(system_identification.right_thruster_pwm),
-        //          system_identification.left_thruster_pwm,
-        //          system_identification.right_thruster_pwm);
-
         snprintf(tcp_sbuf, sizeof(tcp_sbuf),
                  "Data:%.6f,%.6f,%.2f,%.2f,%.2f,%d,%d\n",
                  jingdu,
                  weidu,
-                 yaw1,
-                 calculateRudderAngle(system_identification.left_thruster_pwm),
-                 calculateRudderAngle(system_identification.right_thruster_pwm),
+                 yaw1 * 180 / M_PI,                                                           // 转换为角度
+                 calculateRudderAngle(system_identification.left_thruster_pwm) * 180 / M_PI,  // 转换为角度
+                 calculateRudderAngle(system_identification.right_thruster_pwm) * 180 / M_PI, // 转换为角度
                  system_identification.left_thruster_pwm,
                  system_identification.right_thruster_pwm);
 
