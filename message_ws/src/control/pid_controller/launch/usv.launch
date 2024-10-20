@@ -1,0 +1,20 @@
+<launch>
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <!-- 运行imu -->
+    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    <!-- 运行rtk -->
+    <include file="$(find gps_common)/launch/rtk_nmea.launch"/>
+    <!-- 启动slam建图 -->
+    <!-- <include file="$(find rplidar_ros)/launch/rplidar_s2.launch"/>     -->
+    <!-- <include file="$(find rplidar_ros)/launch/karto.launch"/>     -->   
+    <!-- gps的NavSatFix转换为UTM坐标系的odom -->
+    <include file="$(find gps_common)/launch/utm_odometry.launch"/>
+    <!-- 运行两个tf和里程计 -->
+    <node pkg="gps_common" type="odom_tf" name="odom_tf" output="screen"/>
+    <node pkg="gps_common" type="fuse" name="fuse" output="screen"/>
+    <!-- 启用船体模型 -->
+<!-- <include file="$(find USV_description)/launch/ship_model.launch"/>             -->
+<!-- <include file="$(find USV_description)/launch/move_base.launch"/>             -->
+</launch>

@@ -21,7 +21,17 @@ double desired_angle, heading_angle, location_pid_output, angle_pid_output;
 sensor_msgs::Imu imu;                    
 PID myPid;
 ros::ServiceClient client;
+tcp::ship_info boat_status;
 
+/**
+  * @brief  从节点中读取上位机发送的参数等信息
+  * @param  msg: ship_info类型的消息
+  * @retval 无
+  */
+void Tcp_SubBoatMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
+{
+    boat_status = *msg;
+}
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
@@ -114,6 +124,7 @@ int main(int argc, char* argv[])
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
+    ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 

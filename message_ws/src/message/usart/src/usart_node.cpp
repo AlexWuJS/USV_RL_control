@@ -12,7 +12,7 @@ using namespace std;
 #define USART1_PORT		(char* )"/dev/32port"
 
 double yaw, pitch, roll;
-static char* USART1_rbuf = new char(20);
+static char USART1_rbuf[100];
 
 ros::Publisher mcu_pub, toMcu_pub;
 control::Motor motor_msg;
@@ -39,7 +39,7 @@ void Usart_GetMcuMessage(const ros::TimerEvent &event)
 {
     /*--- Get mcu message from stm32 ---*/ 
     memset(USART1_rbuf, '\0', sizeof(USART1_rbuf));     // 接收前先清0，免得多出的数据没有被覆盖导致错误。
-    USART_ReadString(USART1_rbuf, 20);
+    USART_ReadString(USART1_rbuf, 100);
 }
 
 
@@ -60,6 +60,7 @@ void PubMcuMessage_CallBack(const ros::TimerEvent &event)
 
     if (strcmp(USART1_rbuf, "") != 0)      // 如果数据不为空，更新数据
     {
+        mcu_message.data.clear();
         mcu_message.data = std::string(USART1_rbuf);
     }
     mcu_pub.publish(mcu_message);
@@ -73,7 +74,7 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    mcu_pub = nh.advertise<std_msgs::String>("/usart/rawData", 1000);
+    mcu_pub = nh.advertise<std_msgs::String>("/usart/data", 1000);
     toMcu_pub = nh.advertise<std_msgs::String>("/usart/toMcu", 1000);
     ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 1000, Get_ThrusterPwm_CallBack);
 

@@ -85,10 +85,10 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             ship_information.boat_is_active = stof(sub_strings[3]);
             ship_information.boat_is_running = stof(sub_strings[4]);
             ship_information.boat_is_smart_mode = stof(sub_strings[5]);
-            ROS_INFO("recv success");
         }
         else
-            ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
+            // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
+        ;
     }
 }
 
@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
-    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/rawData", 1000, SubUsartMessage_CallBack);
+    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
     ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
