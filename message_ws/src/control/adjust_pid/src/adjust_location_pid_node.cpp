@@ -14,11 +14,13 @@ using namespace std;
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
 #include <cmath>
+#include <nav_msgs/Odometry.h>
+
 
 ros::Publisher controller_pub;
 control::Motor thruster_msg;
-double desired_angle, heading_angle, location_pid_output, angle_pid_output;
-sensor_msgs::Imu imu;                    
+double desired_angle, heading_angle, desired_position_x, desired_position_y, location_pid_output, angle_pid_output;
+geometry_msgs::Point boat_position;                
 PID myPid;
 ros::ServiceClient client;
 tcp::ship_info boat_status;
@@ -36,9 +38,10 @@ void Tcp_SubBoatMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
 void Pid_Callback(const ros::TimerEvent &event)
 {
     /* 将经纬度转换为角度、位置误差 */
-
+    double desired_angle = atan2(desired_position_y - boat_position.y, desired_position_x - boat_position.x) * 180 / M_PI;
+    double distance = sqrt(pow(desired_position_x - boat_position.x, 2) + pow(desired_position_y - boat_position.y, 2)); // 两点之间的距离
     /* 输出差速值 */
-    location_pid_output = myPid.PID_LocationCalc(0, heading_angle); 
+    location_pid_output = myPid.PID_LocationCalc(0, distance); 
     angle_pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
     // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - location_pid_output * 0.5 - angle_pid_output * 0.5;
     // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output * 0.5 + angle_pid_output * 0.5;
@@ -75,10 +78,12 @@ void Pid_Callback(const ros::TimerEvent &event)
   * @param  无
   * @retval 无
   */
-void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
-    imu = *msg;
+void odomCallback(const nav_msgs::Odometry::ConstPtr &msg) {
+    heading_angle = tf2::getYaw(msg->pose.pose.orientation)*180/M_PI;  // 当前船体的航向角
 
-    heading_angle = tf2::getYaw(imu.orientation)*180/M_PI;  // 当前船体的航向角
+    boat_position.x = msg->pose.pose.position.x;
+    boat_position.y = msg->pose.pose.position.y;
+
 }
 
 void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
@@ -86,12 +91,13 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     FormatConversionClass FormatConversion_;
     vector<std::string> sub_strings = msg->sub_strings;
 
-    if (sub_strings[0] == "T" && sub_strings.size() == 5)      // T帧一共有5个数据
+    if (sub_strings[0] == "T" && sub_strings.size() == 6)      // T帧一共有5个数据
     {
-        desired_angle = stof(sub_strings[1]);
-        myPid.location_kp = stof(sub_strings[2]);
-        myPid.location_ki = stof(sub_strings[3]);
-        myPid.location_kd = stof(sub_strings[4]);
+        desired_position_x = stof(sub_strings[1]);
+        desired_position_y = stof(sub_strings[2]);
+        myPid.location_kp = stof(sub_strings[3]);
+        myPid.location_ki = stof(sub_strings[4]);
+        myPid.location_kd = stof(sub_strings[5]);
         ROS_INFO("pid:%f,%f,%f", myPid.location_kp,myPid.location_ki,myPid.location_kd);
     }
 }
@@ -123,7 +129,7 @@ int main(int argc, char* argv[])
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10000, Tcp_SubMessage_CallBack);
-    ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
+    ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1, odomCallback);
     ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
