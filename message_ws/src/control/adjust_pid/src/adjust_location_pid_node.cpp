@@ -19,7 +19,7 @@ using namespace std;
 
 ros::Publisher controller_pub;
 control::Motor thruster_msg;
-double desired_angle, heading_angle, desired_position_x, desired_position_y, location_pid_output, angle_pid_output;
+double desired_angle, heading_angle, boat_distance, desired_position_x, desired_position_y, location_pid_output, angle_pid_output;
 geometry_msgs::Point boat_position;                
 PID myPid;
 ros::ServiceClient client;
@@ -38,25 +38,34 @@ void Tcp_SubBoatMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
 void Pid_Callback(const ros::TimerEvent &event)
 {
     /* 将经纬度转换为角度、位置误差 */
-    double desired_angle = atan2(desired_position_y - boat_position.y, desired_position_x - boat_position.x) * 180 / M_PI;
-    double distance = sqrt(pow(desired_position_x - boat_position.x, 2) + pow(desired_position_y - boat_position.y, 2)); // 两点之间的距离
+    desired_angle = atan2(desired_position_x - boat_position.x, desired_position_y - boat_position.y) * 180 / M_PI;
+    boat_distance = sqrt(pow(desired_position_x - boat_position.x, 2) + pow(desired_position_y - boat_position.y, 2)); // 两点之间的距离
     /* 输出差速值 */
-    location_pid_output = myPid.PID_LocationCalc(0, distance); 
+    location_pid_output = myPid.PID_LocationCalc(0, boat_distance); 
     angle_pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
     // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - location_pid_output * 0.5 - angle_pid_output * 0.5;
     // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output * 0.5 + angle_pid_output * 0.5;
 
-    if (desired_angle -heading_angle > 0.5 || desired_angle -heading_angle < -0.5)
-    {
-        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output;
-        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output;
-    }
-    else
-    {
-        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
-        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
-    }
+    /* ----------方法一：先控角度再控位置--------------------------------------------------*/
+    // if (desired_angle -heading_angle > 0.5 || desired_angle -heading_angle < -0.5)
+    // {
+    //     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output;
+    //     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output;
+    // }
+    // else
+    // {
+    //     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+    //     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+    // }
+    /* ----------方法一：先控角度再控位置--------------------------------------------------*/
+    /* ----------方法二：串级pid------------------------------------------------------------------------------*/
+    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + location_pid_output * 0.5;
+    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + location_pid_output * 0.5;
+    /* ----------方法二：串级pid------------------------------------------------------------------------------*/
 
+    /* ----------方法三：直接调距离------------------------------------------------------------------------------*/
+    // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+    // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
     /* 越界判断 */
     if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)
         thruster_msg.left_thruster_pwm = THRUSTER_MAX_PWM;
@@ -97,6 +106,7 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
         desired_position_y = stof(sub_strings[2]);
         myPid.location_kp = stof(sub_strings[3]);
         myPid.location_ki = stof(sub_strings[4]);
+
         myPid.location_kd = stof(sub_strings[5]);
         ROS_INFO("pid:%f,%f,%f", myPid.location_kp,myPid.location_ki,myPid.location_kd);
     }
@@ -109,10 +119,10 @@ void TcpSend_Thread()
 
     while (true)
     {
-        sprintf(tcp_sbuf, "\npid:%f,%f,%f,%d,%d,\n",  desired_angle, heading_angle,desired_angle-heading_angle, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-        // sprintf(tcp_sbuf, "location_pid:%f,%f,\r\n", desired_angle, heading_angle);
-          
-        tcp_send_message.request.str = tcp_sbuf;
+        // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
+        //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
+        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%f,\n", heading_angle-desired_angle, heading_angle, desired_angle,boat_distance);
+       tcp_send_message.request.str = tcp_sbuf;
 
         client.call(tcp_send_message);   
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
@@ -137,6 +147,9 @@ int main(int argc, char* argv[])
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
     //pid
+    nh.getParam("/adjust_location_pid_node/angle_kp",myPid.angle_kp);
+    nh.getParam("/adjust_location_pid_node/angle_ki",myPid.angle_ki);
+    nh.getParam("/adjust_location_pid_node/angle_kd",myPid.angle_kd);
     nh.getParam("/adjust_location_pid_node/location_kp",myPid.location_kp);
     nh.getParam("/adjust_location_pid_node/location_ki",myPid.location_ki);
     nh.getParam("/adjust_location_pid_node/location_kd",myPid.location_kd);
@@ -144,6 +157,7 @@ int main(int argc, char* argv[])
     nh.getParam("/adjust_location_pid_node/maxOutput",myPid.maxOutput);
 
     ROS_INFO("adjust_location_pid_node run success.");
+
 
     // 创建线程，传入线程函数
     std::thread TcpSend(TcpSend_Thread); 

@@ -43,7 +43,7 @@ void gpsOdomCallback(const nav_msgs::Odometry::ConstPtr& gps_odom) {
 
     // 更新局部里程计--
     odom_local.pose.pose.position.x = dx;
-    odom_local.pose.pose.position.y = dy;
+    odom_local.pose.pose.position.y = -dy;
     odom_local.pose.pose.position.z = dz;
 
     odom_local.header = gps_odom->header;
