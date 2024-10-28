@@ -4,6 +4,7 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 #include <sensor_msgs/Imu.h>
+#include <nav_msgs/Path.h>
 
 double origin_x = 0.0;
 double origin_y = 0.0;
@@ -12,16 +13,18 @@ double last_x = 0.0;
 double last_y = 0.0;
 double last_z = 0.0;
 
-ros::Publisher odom_pub;
+ros::Publisher odom_pub, motion_path_pub;
 nav_msgs::Odometry odom_local;
 ros::CallbackQueue myQueue;
-
+nav_msgs::Path motion_path;
+geometry_msgs::PoseStamped pose_msg;
 // void callback(const nav_msgs::Odometry::ConstPtr& gps_odom, const sensor_msgs::Imu::ConstPtr& imu_data){
 //     odom_local.pose.pose.position = gps_odom->pose.pose.position;
 //     odom_local.pose.pose.orientation = imu_data->orientation;
 
 //     odom_pub.publish(odom_local);
 // }
+
 
 void gpsOdomCallback(const nav_msgs::Odometry::ConstPtr& gps_odom) {
     // 处理gpsOdom
@@ -54,6 +57,15 @@ void gpsOdomCallback(const nav_msgs::Odometry::ConstPtr& gps_odom) {
     last_y = gps_odom->pose.pose.position.y;
     last_z = gps_odom->pose.pose.position.z;
 
+    // 发布无人艇的运行轨迹
+    motion_path.header = odom_local.header;            // 指定消息或数据的参考坐标系，position就是在这个坐标系下的
+
+    pose_msg.header = odom_local.header;  
+    pose_msg.pose.position = odom_local.pose.pose.position; 
+    pose_msg.pose.orientation = odom_local.pose.pose.orientation; 
+    motion_path.poses.push_back(pose_msg);
+    motion_path_pub.publish(motion_path);   
+
 }
 void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_data) {
     // 处理IMU数据:直接读取四元数
@@ -74,6 +86,7 @@ int main(int argc, char** argv){
     ros::Subscriber imu_sub = nh.subscribe("/imu/data", 10, imuCallback);
 
     odom_pub = nh.advertise<nav_msgs::Odometry>("/odom_local", 1);
+    motion_path_pub = nh.advertise<nav_msgs::Path>("/robot_path", 1);
 
     // 循环调用自定义回调函数
     ros::Rate loop_rate(10);        // 每秒10次
