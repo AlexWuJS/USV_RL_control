@@ -151,7 +151,7 @@ private:
             {
                 ROS_INFO("开始定常回转试验");
                 current_experiment_ = 1;
-                startExperiment(10); // 20秒的实验时间
+                startExperiment(20); // 20秒的实验时间
             }
             else if (sub_strings[1] == "2")
             {
@@ -199,8 +199,8 @@ private:
 
         if (current_experiment_ == 1) // 定常回转试验
         {
-            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 120;
-            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - 120;
+            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + 150;
+            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - 150;
         }
         else if (current_experiment_ == 2 || current_experiment_ == 3) // Z字试验
         {
