@@ -270,7 +270,7 @@ int main(int argc, char** argv)
 
   ROS_WARN("Baudrate set to %d", baud);
   
-  n.param("frame_id", frame_id, string("world"));
+  n.param("frame_id", frame_id, string("imu"));
 
   double delay;
   n.param("delay", delay, 0.0);

@@ -22,7 +22,7 @@
 
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
-    <!-- 运行imu -->
-    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    <!-- <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/> -->
+    <include file="$(find gps_common)/launch/odom_local.launch"/>
+
 </launch>

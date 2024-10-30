@@ -1,0 +1,12 @@
+<launch>
+    <!-- 运行imu -->
+    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    <!-- 运行rtk -->
+    <include file="$(find gps_common)/launch/rtk_nmea.launch"/>
+    <!-- rtk数据转成utm坐标 -->
+    <include file="$(find gps_common)/launch/utm_odometry.launch"/>
+    <!-- imu、utm坐标数据融合为里程计 -->
+    <node pkg="gps_common" type="fuse" name="fuse" output="screen"/>
+    <!-- 发布坐标变换 -->
+    <node pkg="gps_common" type="odom_tf" name="odom_tf" output="screen"/>
+</launch>

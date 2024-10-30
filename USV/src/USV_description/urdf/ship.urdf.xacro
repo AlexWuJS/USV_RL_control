@@ -103,6 +103,48 @@
         </visual>
     </link> 
 
+        <!-- imu -->
+    <link name="imu">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="imu_color">
+                <color rgba="0.4 0.4 0.4 1" />
+            </material>
+        </visual>
+    </link> 
+
+        <!-- rtk -->
+    <link name="gps">
+         <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.02" />
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="gps_color">
+                <color rgba="0.4 0.4 0.4 1" />
+            </material>
+        </visual>
+    </link> 
+
+    <joint name="gps2base" type="fixed">
+        <axis xyz="0 0 1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="gps"/>
+    </joint>
+
+
+
+    <!-- imu -->
+    <joint name="imu2base" type="fixed">
+        <axis xyz="0 0 1"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="imu"/>
+    </joint>
 
     <!-- joint -->
     <joint name="baselink2footprint" type="fixed">
