@@ -7,6 +7,7 @@
     <param name="port" value="/dev/imu"/>
     <param name="model" value="100D4"/>
     <param name="baud" value="115200"/>
+    <param name="frame_id" value="imu"/>    <!-- 若修改，需要catkin_make -->
   </node>
 
 </launch>
