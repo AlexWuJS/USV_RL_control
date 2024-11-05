@@ -1,0 +1,49 @@
+<launch>
+    <!-- 启动rtk
+    1)rtk串口读取：nmea_navsat_driver->nmea_topic_serial_reader 
+    2）rtk中NMEA字符串解析为ROS_GPS信息：nmea_navsat_driver->nmea_topic_driver 
+     -->
+  <include file="$(find gps_common)/launch/rtk_nmea.launch">
+  </include>
+
+  <!-- 启动雷达和imu   -->
+  <!-- （启动2d雷达）  rplidar_ws/rplidar_ros/rplidar_s2.launch  -->
+  <include file="$(find rplidar_ros)/launch/rplidar_s2.launch">
+  </include>
+  <!-- (启动imu) Launch  imu_ws/sanchi_amov/imu_100D4.launch    -->
+  <include file="$(find sanchi_amov)/launch/imu_100D4.launch">
+  </include>
+
+    <!-- 转换GPS信息为里程格式gpsOdom:根据/fix的经纬高信息,转为utm坐标下的里程计格式话题/gpsOdom -->
+  <include file="$(find gps_common)/launch/utm_odometry.launch">
+  </include>
+
+    <!-- 启动fuse.cpp和odom_tf.cpp -->
+  <node pkg="gps_common" name="fuse_node" type="fuse" output = "screen"/> 
+  <node pkg="gps_common" name="odom_tf_node" type="odom_tf" output = "screen"/> 
+
+  <!-- (建图算法)Launch rplidar_ros ->karto.launch   -->
+  <include file="$(find rplidar_ros)/launch/hector.launch">
+  </include>
+  <!-- 或者加载地图 -->
+   <arg name="map_file" default="$(find bringup)/maps/ttt.yaml"/>
+
+
+
+    <!-- 启动rviz -->
+    <!-- <arg name="rviz_config" default="$(find lidar)/rviz/0926.rviz" />
+    <node pkg="rviz" type="rviz"
+    name="haique_visualization" args="-d $(arg rviz_config)" /> -->
+
+    <!-- ship_model -->
+  <include file="$(find USV_description)/launch/ship_model.launch">
+  </include>  
+
+
+
+
+  <!-- 启动 move_base -->
+  <include file="$(find USV_nav)/launch/move_base.launch">
+  </include>
+
+</launch>

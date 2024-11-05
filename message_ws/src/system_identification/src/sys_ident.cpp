@@ -418,10 +418,10 @@ private:
 
     void calculateAndPublishResults()
     {
-        ship_info_.system_identification.K = K_;
-        ship_info_.system_identification.T = T_;
-        ship_info_.system_identification.theta_1 = delta_r_;
-        ship_info_.system_identification.n3 = n3_;
+        // ship_info_.system_identification.K = K_;
+        // ship_info_.system_identification.T = T_;
+        // ship_info_.system_identification.theta_1 = delta_r_;
+        // ship_info_.system_identification.n3 = n3_;
 
         tcp_pub_.publish(ship_info_);
         ROS_INFO("系统辨识最终结果:");

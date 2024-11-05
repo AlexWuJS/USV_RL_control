@@ -1,0 +1,26 @@
+<launch>
+
+	<!-- 标签 -->
+	<arg name="map_file" default="map.yaml"/>
+
+	<!-- 启动船，包含底盘，雷达 -->
+	<include file="$(find USV_ship)/launch/bringup.launch" >
+		<arg name="use_pose_ekf"      value="true"/>
+		<arg name="use_lidar"         value="true"/>
+	</include>
+
+	<!-- 启动Map server功能包，发布地图 -->
+	<node name="map_server" pkg="map_server" type="map_server" args="$(find USV_nav)/map/$(arg map_file)" />
+	
+	<!-- 启动AMCL 自适应蒙特卡洛定位功能 -->
+	<include file="$(find USV_nav)/launch/amcl.launch">
+		<arg name="odom_frame"       value="odom"/>
+		<arg name="base_frame"       value="base_footprint"/>
+		<arg name="global_frame"     value="map"/>
+		<arg name="odom_model_type"  value="omni-corrected"/>
+	</include>
+
+	<!-- 启动move_base路径规划功能 -->
+	<include file="$(find USV_nav)/launch/move_base.launch"  />
+
+</launch>
