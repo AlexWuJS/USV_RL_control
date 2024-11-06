@@ -124,7 +124,6 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                     rtk_point_pub.publish(*point_ptr);
                     ROS_WARN("pub %d point.",++i);
                 }
-
             break;
 
             case 'K':
@@ -171,7 +170,6 @@ int main(int argc, char* argv[])
     ros::service::waitForService("/tcp/communication", -1);
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
-    // ros::Timer timer_tcp_send = nh.createTimer(ros::Duration(1), SendTcpMessage_CallBack);
 
     // 创建线程，传入线程函数
     std::thread TcpSend(TcpSend_Thread);    

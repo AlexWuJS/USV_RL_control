@@ -25,6 +25,25 @@ PID myPid;
 ros::ServiceClient client;
 tcp::ship_info boat_status;
 
+
+/**
+  * @brief  角度映射到-180~180度的范围。
+  * @param  angle: 映射前的角度。
+  * @retval map_angle：映射前的角度。
+  */
+double angleMap(double angle)
+{
+    double map_angle;
+    if (angle > 180 && angle < 360)
+        map_angle = angle - 360;
+    else if (angle < -180 && angle > -360)
+        map_angle = angle + 360;
+    else
+        map_angle = angle;
+
+    return map_angle;
+}
+
 /**
   * @brief  从节点中读取上位机发送的参数等信息
   * @param  msg: ship_info类型的消息
@@ -37,35 +56,35 @@ void Tcp_SubBoatMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
-    /* 将经纬度转换为角度、位置误差 */
-    desired_angle = atan2(desired_position_x - boat_position.x, desired_position_y - boat_position.y) * 180 / M_PI;
-    boat_distance = sqrt(pow(desired_position_x - boat_position.x, 2) + pow(desired_position_y - boat_position.y, 2)); // 两点之间的距离
+    /* 到达目的地附近 */
+    if (boat_distance < 1.5) // 1.5
+    {
+        /* 如果目标点在船身后,那么后退 */
+        if ((desired_angle < angleMap(heading_angle - 90)) && (desired_angle > angleMap(heading_angle + 90)))
+        {
+            if (desired_angle != 0)
+            {
+                desired_angle = angleMap(desired_angle - 180 * desired_angle/abs(desired_angle));
+            }
+            boat_distance = -boat_distance;
+        }
+    }
     /* 输出差速值 */
     location_pid_output = myPid.PID_LocationCalc(0, boat_distance); 
     angle_pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
-    // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - location_pid_output * 0.5 - angle_pid_output * 0.5;
-    // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output * 0.5 + angle_pid_output * 0.5;
 
-    /* ----------方法一：先控角度再控位置--------------------------------------------------*/
-    // if (desired_angle -heading_angle > 0.5 || desired_angle -heading_angle < -0.5)
+    // if (boat_distance < 0.2 && boat_distance > -0.2)
     // {
-    //     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output;
-    //     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output;
+    //     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM;
+    //     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM;
     // }
     // else
     // {
-    //     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
-    //     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+        thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + location_pid_output * 0.5;
+        thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + location_pid_output * 0.5;
     // }
-    /* ----------方法一：先控角度再控位置--------------------------------------------------*/
-    /* ----------方法二：串级pid------------------------------------------------------------------------------*/
-    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + location_pid_output * 0.5;
-    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + location_pid_output * 0.5;
-    /* ----------方法二：串级pid------------------------------------------------------------------------------*/
 
-    /* ----------方法三：直接调距离------------------------------------------------------------------------------*/
-    // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
-    // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + location_pid_output;
+
     /* 越界判断 */
     if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)
         thruster_msg.left_thruster_pwm = THRUSTER_MAX_PWM;
@@ -93,6 +112,9 @@ void odomCallback(const nav_msgs::Odometry::ConstPtr &msg) {
     boat_position.x = msg->pose.pose.position.x;
     boat_position.y = msg->pose.pose.position.y;
 
+    /* 将经纬度转换为角度、位置误差 */
+    desired_angle = atan2(desired_position_x - boat_position.x, desired_position_y - boat_position.y) * 180 / M_PI;
+    boat_distance = sqrt(pow(desired_position_x - boat_position.x, 2) + pow(desired_position_y - boat_position.y, 2)); // 两点之间的距离
 }
 
 void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
@@ -121,7 +143,7 @@ void TcpSend_Thread()
     {
         // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
         //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%f,\n", heading_angle-desired_angle, heading_angle, desired_angle,boat_distance);
+        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,0,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
        tcp_send_message.request.str = tcp_sbuf;
 
         client.call(tcp_send_message);   
