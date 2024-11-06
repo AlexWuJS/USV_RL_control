@@ -14,10 +14,9 @@
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
 
-
-std::mutex tcp_send_mtx, tcp_recv_mtx;          // 定义互斥锁
-std::condition_variable tcp_send_cv;            // 条件变量
-bool enable_send_tcp, ready_send_tcp;           // 条件变量的条件      
+std::mutex tcp_send_mtx, tcp_recv_mtx; // 定义互斥锁
+std::condition_variable tcp_send_cv;   // 条件变量
+bool enable_send_tcp, ready_send_tcp;  // 条件变量的条件
 ros::Publisher tcp_message_pub, tcp_raw_message_pub, tcp_GroundData_pub;
 std::string tcp_sub_string;
 std_msgs::String tcp_recv_string;
@@ -25,49 +24,49 @@ std_msgs::String tcp_recv_string;
 tcp::message_s tcp_message;
 
 /**
-  * @brief  查看Tcp的状态信息，根据状态信息进行处理
-  * @param  无
-  * @retval 无
-  */
+ * @brief  查看Tcp的状态信息，根据状态信息进行处理
+ * @param  无
+ * @retval 无
+ */
 bool Tcp_Get_Status_CallBack(tcp::tcp_connection::Request &req, tcp::tcp_connection::Response &resp)
 {
-    std::lock_guard<std::mutex> lock(tcp_send_mtx);     // 上锁，自动释放锁   
-    if (req.tcp_is_connected != true)       // 关闭TCP服务器通信
+    std::lock_guard<std::mutex> lock(tcp_send_mtx); // 上锁，自动释放锁
+    if (req.tcp_is_connected != true)               // 关闭TCP服务器通信
     {
         ROS_INFO("Tcp connection closed: recieve command from client.");
         // Tcp_Server_Close();
         // enable_send_tcp = false;             // 条件变量改变，禁止Tcp发送
-        tcp_send_cv.notify_all();           // 通知所有线程        
+        tcp_send_cv.notify_all(); // 通知所有线程
     }
 
-   return true;
+    return true;
 }
 
-void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr& msg)
+void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr &msg)
 {
     if (msg->tcp_is_connecting == false)
-    {  
+    {
         // 断开Tcp连接
         // ROS_INFO("Handle header P: close server.");
         // Tcp_Server_Close(client_socket);
     }
     if (msg->ship_is_sending == false)
     {
-        enable_send_tcp = false;         // 条件变量改变，禁止Tcp发送
-        tcp_send_cv.notify_all();       // 通知所有线程
+        enable_send_tcp = false;  // 条件变量改变，禁止Tcp发送
+        tcp_send_cv.notify_all(); // 通知所有线程
     }
     else
     {
-        enable_send_tcp = true;         // 条件变量改变，允许Tcp发送
-        tcp_send_cv.notify_all();       // 通知所有线程                    
+        enable_send_tcp = true;   // 条件变量改变，允许Tcp发送
+        tcp_send_cv.notify_all(); // 通知所有线程
     }
 }
 
 /**
-  * @brief  Tcp开启服务通信，其他话题通过此函数发送Tcp信息
-  * @param  无
-  * @retval 无
-  */
+ * @brief  Tcp开启服务通信，其他话题通过此函数发送Tcp信息
+ * @param  无
+ * @retval 无
+ */
 bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessage::Response &resp)
 {
     std::unique_lock<std::mutex> lock(tcp_send_mtx); // 上锁
@@ -81,10 +80,10 @@ bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessag
 }
 
 /**
-  * @brief  服务器发送船体信息至上位机，间隔为0.1s
-  * @param  无
-  * @retval 无
-  */
+ * @brief  服务器发送船体信息至上位机，间隔为0.1s
+ * @param  无
+ * @retval 无
+ */
 void Tcp_SendMessage_Thread(int client_socket)
 {
     char tcp_sbuf[100];
@@ -99,27 +98,26 @@ void Tcp_SendMessage_Thread(int client_socket)
             ready_send_tcp = false;
 
             strcpy(tcp_sbuf, tcp_sub_string.c_str());
-            int tcp_send_flag = Tcp_Server_Send(client_socket, tcp_sbuf);   
+            int tcp_send_flag = Tcp_Server_Send(client_socket, tcp_sbuf);
 
-            if (tcp_send_flag < 0)      // 发送失败
+            if (tcp_send_flag < 0) // 发送失败
                 break;
             else
-                tcp_GroundData_pub.publish(tcp_recv_string);    // 发送至上位机 
+                tcp_GroundData_pub.publish(tcp_recv_string); // 发送至上位机
         }
         lock.unlock(); // 解锁
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 在线程中延时 0.1 秒
     }
 
     ROS_INFO("close send thread,socket: %d", client_socket);
 }
 
-
 /**
-  * @brief  Tcp接收上位机发送的信息。
-  * @param  无
-  * @retval 无
-  */
+ * @brief  Tcp接收上位机发送的信息。
+ * @param  无
+ * @retval 无
+ */
 void Tcp_RecvMessage_Thread(int client_socket)
 {
     char tcp_rbuf[100];
@@ -129,10 +127,11 @@ void Tcp_RecvMessage_Thread(int client_socket)
     while (true)
     {
         // std::lock_guard<std::mutex> lock(tcp_recv_mtx);     // 上锁，自动释放锁
-        memset(tcp_rbuf, '\0', sizeof(tcp_rbuf));               // 接收数据前，清空缓存区
+        memset(tcp_rbuf, '\0', sizeof(tcp_rbuf)); // 接收数据前，清空缓存区
         raw_sstrings.clear();
-        ssize_t bytes_received = Tcp_Server_Read(client_socket, tcp_rbuf);       // 线程安全函数
-        if (bytes_received <= 0) {      //读取Tcp数据失败
+        ssize_t bytes_received = Tcp_Server_Read(client_socket, tcp_rbuf); // 线程安全函数
+        if (bytes_received <= 0)
+        { // 读取Tcp数据失败
             break;
         }
 
@@ -140,14 +139,14 @@ void Tcp_RecvMessage_Thread(int client_socket)
         tcp_raw_message_pub.publish(tcp_recv_string);
         /* convert to string */
         FormatConversion_Tcp.SplitString(tcp_recv_string.data, raw_sstrings);
-        for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++) {
+        for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++)
+        {
 
             vector<std::string> sub_strings = FormatConversion_Tcp.get_value_from_string((*it), ',');
-
+            // sub_strings[0] 通常包含报文类型标识符（S/M/R/K/X等）
             tcp_message.sub_strings = sub_strings;
             tcp_message_pub.publish(tcp_message);
         }
-
     }
     ROS_WARN("close socket:%d", client_socket);
     Tcp_Server_Close(client_socket);
@@ -166,7 +165,7 @@ void ServerAccept_Thread()
         memset(&ClientAddr, 0, sizeof(ClientAddr));
 
         /* 等待客户端接收 */
-        int client_socket = accept(server_local_sockfd, (struct sockaddr* )&ClientAddr, &ClientAddr_len);
+        int client_socket = accept(server_local_sockfd, (struct sockaddr *)&ClientAddr, &ClientAddr_len);
         if (-1 == client_socket)
         {
             perror("server accept failed");
@@ -182,14 +181,14 @@ void ServerAccept_Thread()
             std::thread receive_thread(Tcp_RecvMessage_Thread, client_socket);
             std::thread send_thread(Tcp_SendMessage_Thread, client_socket);
             receive_thread.detach();
-            send_thread.detach(); 
+            send_thread.detach();
         }
     }
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    setlocale(LC_ALL, " ");     
+    setlocale(LC_ALL, " ");
     /*--- ROS INIT ----------------------------------------------------------- */
     ros::init(argc, argv, "tcp_node");
 
@@ -205,7 +204,7 @@ int main(int argc, char* argv[])
     /*--- End of ROS INIT ----------------------------------------------------------- */
 
     // 创建线程，传入线程函数
-    std::thread ServerAccept(ServerAccept_Thread);    /*--- Tcp Server Init ---*/
+    std::thread ServerAccept(ServerAccept_Thread); /*--- Tcp Server Init ---*/
 
     ros::spin();
 

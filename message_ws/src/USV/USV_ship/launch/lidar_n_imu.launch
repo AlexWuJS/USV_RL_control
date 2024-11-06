@@ -1,0 +1,18 @@
+<launch>
+
+  <!-- Launch rplidar_ros ->rplidar_s2.launch（启动2d雷达）   -->
+  <include file="$(find rplidar_ros)/launch/rplidar_s2.launch">
+  </include>
+
+  <!-- Launch rplidar_ros ->karto.launch(建图算法)   -->
+  
+  <!-- <include file="$(find rplidar_ros)/launch/hector.launch">
+  </include> -->
+
+  <!-- Launch  imu_ws -> sanchi_amov ->imu_100D4.launch (启动imu)   -->
+    <include file="$(find sanchi_amov)/launch/imu_100D4.launch">
+  </include>
+
+
+
+</launch>
