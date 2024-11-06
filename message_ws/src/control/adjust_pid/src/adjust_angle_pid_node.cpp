@@ -9,7 +9,6 @@ using namespace std;
 #include "adjust_pid/pid.h"
 #include <tf2/utils.h>
 #include <control/Motor.h>
-#include "tcp/format_conversion.h"
 #include "common.h"
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
@@ -59,7 +58,6 @@ void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
 
 void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
 {
-    FormatConversionClass FormatConversion_;
     vector<std::string> sub_strings = msg->sub_strings;
 
     if (sub_strings[0] == "T" && sub_strings.size() == 5)      // T帧一共有5个数据

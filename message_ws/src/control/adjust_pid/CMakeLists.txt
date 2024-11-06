@@ -144,7 +144,6 @@ include
 add_executable(adjust_angle_pid_node
  src/adjust_angle_pid_node.cpp
  src/pid.cpp
- ../../message/tcp/src/format_conversion.cpp
  )
 
  add_executable(adjust_speed_pid_node

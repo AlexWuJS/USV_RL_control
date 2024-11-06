@@ -5,6 +5,8 @@
 #include <tf/transform_listener.h>
 #include <sensor_msgs/Imu.h>
 #include <nav_msgs/Path.h>
+#include "tf2_ros/static_transform_broadcaster.h"
+#include "tf2/LinearMath/Quaternion.h"
 
 double origin_x = 0.0;
 double origin_y = 0.0;
@@ -55,12 +57,13 @@ void gpsOdomCallback(const nav_msgs::Odometry::ConstPtr& gps_odom) {
     // 保留本次UTM坐标位置，以便下次循环时计算
     last_x = gps_odom->pose.pose.position.x;
     last_y = gps_odom->pose.pose.position.y;
-    last_z = gps_odom->pose.pose.position.z;
+    last_z = gps_odom->pose.pose.position.z; 
 
     // 发布无人艇的运行轨迹
     motion_path.header = odom_local.header;            // 指定消息或数据的参考坐标系，position就是在这个坐标系下的
 
-    pose_msg.header = odom_local.header;  
+    pose_msg.header.frame_id = "map"; 
+    pose_msg.header.stamp = ros::Time::now();
     pose_msg.pose.position = odom_local.pose.pose.position; 
     pose_msg.pose.orientation = odom_local.pose.pose.orientation; 
     motion_path.poses.push_back(pose_msg);
@@ -81,7 +84,7 @@ int main(int argc, char** argv){
     ros::init(argc, argv, "odom_processor");
     ros::NodeHandle nh;
 
-    void callback(const nav_msgs::Odometry::ConstPtr& gps_odom, const sensor_msgs::Imu::ConstPtr& imu_data);
+    tf2_ros::StaticTransformBroadcaster tf_broadcaster_;
     ros::Subscriber gps_odom_sub = nh.subscribe("/gpsOdom", 10, gpsOdomCallback);
     ros::Subscriber imu_sub = nh.subscribe("/imu/data", 10, imuCallback);
 
@@ -92,6 +95,27 @@ int main(int argc, char** argv){
     ros::Rate loop_rate(10);        // 每秒10次
     while (ros::ok()) {
         combinedCallback();
+
+            // 发布odom_local到utm的静态坐标变换
+        // 创建坐标系信息
+        geometry_msgs::TransformStamped utm_tf;
+        //----设置头信息
+        utm_tf.header.seq = 100;
+        utm_tf.header.stamp = ros::Time::now();
+        utm_tf.header.frame_id = "odom_local";
+        //----设置子级坐标系
+        utm_tf.child_frame_id = "utm";
+        //----设置子级相对于父级的偏移量
+        utm_tf.transform.translation.x = origin_x;
+        utm_tf.transform.translation.y = origin_y;
+        utm_tf.transform.translation.z = origin_z;
+        utm_tf.transform.rotation.x = 0.0;
+        utm_tf.transform.rotation.y = 0.0;
+        utm_tf.transform.rotation.z = 0.0;
+        utm_tf.transform.rotation.w = 1.0;
+        // 广播器发布坐标系信息
+        tf_broadcaster_.sendTransform(utm_tf);   
+        
         ros::spinOnce();
         loop_rate.sleep();
     }

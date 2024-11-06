@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<!-- Example of ROS localization using the example haique with sensors -->
+<launch>
+  <!-- ekf_localization_node是扩展卡尔曼滤波器的实现。
+  它使用全向运动模型来及时预测状态，并使用感知的传感器数据纠正预测的估计 -->
+  <!-- 
+  接受：1）/haique/sensors/imu/imu/data和  2）/haique/robot_localization/odometry/gps
+  发出：1）odometry/filtered (nav_msgs/Odometry)； 即/haique/robot_localization/odometry/filtered；前面的是ns
+  -->
+
+  <!-- Kalman filter fusing imu and gps into combined odometry/tf -->
+  <node ns="haique/robot_localization" pkg="robot_localization" type="ekf_localization_node"
+        name="ekf_localization" clear_params="false">
+    <param name="sensor_timeout" value="2.0"/>
+    <param name="two_d_mode" value="false"/>
+    <param name="map_frame" value="map"/>
+    <param name="odom_frame" value="odom"/>
+    <param name="base_link_frame" value="base_link"/>
+    <param name="world_frame" value="odom"/>
+    <param name="publish_tf" value="true"/>               <!--是否发布从world_frame到base_link_frame的变换-->
+    <param name="frequency" value="60"/>
+    <param name="imu0" value="/imu/data"/>
+    <!-- IMU measures orientation, angular velocity, and linear acceleration -->
+    <rosparam param="imu0_config">[false, false, false,
+                                   true,  true,  true,
+                                   false,  false,  false,
+                                   true,  true,  true,
+                                   true,  true,  true]</rosparam>
+    <param name="imu0_differential" value="false"/> 
+    <param name="gravitational_acceleration" value="false"/> 
+
+    <param name="dynamic_process_noise_covariance" value="true"/>   <!-- 好像有那么点用，累计变慢了 -->
+
+    <!-- 来自navsat_node的gps信息 -->
+    <param name="odom0" value="/haique/robot_localization/odometry/gps"/>
+    <!-- GPS only reliably measures absolute position -->
+    <rosparam param="odom0_config">[true,  true,  true,
+                                   false, false, false,
+                                   true, true, true,
+                                   false, false, false,
+                                   false, false, false]</rosparam>
+
+    <param name="odom0_differential" value="false"/>
+    <param name="smooth_lagged_data" value="true"/>
+  </node>
+
+    <node name="odom2map" pkg="tf2_ros" type="static_transform_publisher" args="0 0 0 0 0 0  /map /odom"/>
+
+  <!-- navsat_transform_node将nav_msgs/Odometry消息（通常是ekf_localization_node或ukf_localization_node的输出）、
+  包含机器人航向准确估计的sensor_msgs/Imu以及包含 GPS 数据的sensor_msgs/NavSatFix消息作为输入。
+  它会在与机器人的世界坐标系一致的坐标中生成里程计消息。该值可以直接融合到您的状态估计中。 -->
+
+  <!-- Produces local odometry from GPS to be used in Kalman filter -->
+  <node ns="haique/robot_localization" pkg="robot_localization" type="navsat_transform_node"
+        name="navsat_transform_node" respawn="true" output="screen">      
+    <param name="tf_prefix" value="haique"/> 
+    <param name="frequency" value="60"/>
+    <param name="magnetic_declination_radians" value="0"/>
+    <param name="broadcast_utm_transform" value="true"/>
+    <param name="wait_for_datum" value="true"/>
+    <!-- 如果true ， navsat_transform_node将不会从 IMU 数据中获取其航向，而是从输入里程计消息中获取。 -->
+    <param name="use_odometry_yaw" value="true"/>
+    <!-- datum经纬度 广工基准点-->
+    <rosparam param="datum">[23.037435548333335, 113.39059767166667]</rosparam>
+    <!-- <rosparam param="datum">[30.0036502755, 107.2670214147]</rosparam> -->
+    <!-- <rosparam param="datum">[-33.727, 150.675]</rosparam> -->
+    <param name="yaw_offset" value="0"/>
+    <param name="publish_filtered_gps" value="true"/>
+    <!-- 传一个话题 /haique/robot_localization/odometry/gps-->
+    <remap to="/fix" from="/haique/robot_localization/gps/fix" />
+  </node>
+</launch>
