@@ -1,5 +1,0 @@
-<launch>
-
-	<node name="ship_node" pkg="USV_ship" type="ship_node" output="screen" />
-
-</launch>
