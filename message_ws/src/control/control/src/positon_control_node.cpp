@@ -22,26 +22,26 @@ PID myPid;
 ros::ServiceClient client;
 
 
+/**
+  * @brief  角度映射到-180~180度的范围。
+  * @param  angle: 映射前的角度。
+  * @retval map_angle：映射前的角度。
+  */
+double angleMap(double angle)
+{
+    double map_angle;
+    if (angle > 180 && angle < 360)
+        map_angle = angle - 360;
+    else if (angle < -180 && angle > -360)
+        map_angle = angle + 360;
+    else
+        map_angle = angle;
+
+    return map_angle;
+}
+
 void Pid_Callback(const ros::TimerEvent &event)
 {
-    /* 输出差速值 */
-    pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
-    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output;
-    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + pid_output;
-    // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output - THRUSTER_DEADAREA_PWM * (pid_output/std::fabs(pid_output));    //跳过死区
-    // thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + pid_output + THRUSTER_DEADAREA_PWM * (pid_output/std::fabs(pid_output));    //跳过死区
-
-    /* 越界判断 */
-    if (thruster_msg.left_thruster_pwm > THRUSTER_MAX_PWM)
-        thruster_msg.left_thruster_pwm = THRUSTER_MAX_PWM;
-    else if (thruster_msg.left_thruster_pwm < THRUSTER_MIN_PWM)
-        thruster_msg.left_thruster_pwm = THRUSTER_MIN_PWM;
-
-    if (thruster_msg.right_thruster_pwm > THRUSTER_MAX_PWM)
-        thruster_msg.right_thruster_pwm = THRUSTER_MAX_PWM;
-    else if (thruster_msg.right_thruster_pwm < THRUSTER_MIN_PWM)
-        thruster_msg.right_thruster_pwm = THRUSTER_MIN_PWM;
-
     /* 发布pwm消息 */
     controller_pub.publish(thruster_msg);
 }
@@ -102,15 +102,6 @@ int main(int argc, char* argv[])
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
-  
- 
-
-    //pid
-    nh.getParam("/adjust_angle_pid_node/angle_kp",myPid.angle_kp);
-    nh.getParam("/adjust_angle_pid_node/angle_ki",myPid.angle_ki);
-    nh.getParam("/adjust_angle_pid_node/angle_kd",myPid.angle_kd);
-    nh.getParam("/adjust_angle_pid_node/maxIntegral",myPid.maxIntegral);
-    nh.getParam("/adjust_angle_pid_node/maxOutput",myPid.maxOutput);
 
     ROS_INFO("adjust_angle_pid_node run success.");
 

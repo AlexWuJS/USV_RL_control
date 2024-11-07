@@ -159,6 +159,8 @@ add_executable(system_identification_node
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+# add_dependencies(system_identification_node ${PROJECT_NAME}_generate_messages_cpp)  #该操作可保证在编译过程中先编译【.msg】文件再编译cpp源文件，防止编译过程中出错
+add_dependencies(system_identification_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 # target_link_libraries(${PROJECT_NAME}_node

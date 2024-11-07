@@ -24,6 +24,7 @@ Controller myController;
 ros::ServiceClient client;
 control::Motor my_motor_msg;
 tcp::ship_info::ConstPtr ship_information_ptr;
+tcp::ship_info boat_status;
 
 /**
   * @brief  从节点中读取上位机发送的参数等信息
@@ -34,6 +35,7 @@ void Tcp_SubShipMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
 {
     ship_information_ptr = msg;
     myController.set(*ship_information_ptr);
+    boat_status = *msg;
 }
 
 int main(int argc, char* argv[])

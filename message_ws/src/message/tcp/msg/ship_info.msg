@@ -3,6 +3,8 @@ bool push_is_open
 bool ship_is_sending
 bool tcp_is_connecting
 char control_mode
+bool is_auto_control
+bool is_keyboard_control
 bool boat_keep_nav
 # 'M'报文
 bool boat_is_active

@@ -115,15 +115,15 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             case 'P':
-                point_list.clear();
-                FormatConversion_Tcp.handle_header_P(*it, point_list);
+                // point_list.clear();
+                // FormatConversion_Tcp.handle_header_P(*it, point_list);
 
-                for (vector<sensor_msgs::NavSatFix>::iterator point_ptr = point_list.begin(); point_ptr != point_list.end(); point_ptr++)
-                {
-                    int i;
-                    rtk_point_pub.publish(*point_ptr);
-                    ROS_WARN("pub %d point.",++i);
-                }
+                // for (vector<sensor_msgs::NavSatFix>::iterator point_ptr = point_list.begin(); point_ptr != point_list.end(); point_ptr++)
+                // {
+                //     int i;
+                //     rtk_point_pub.publish(*point_ptr);
+                //     ROS_WARN("pub %d point.",++i);
+                // }
             break;
 
             case 'K':
@@ -134,16 +134,9 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                 ship_information.keyboard.S = FormatConversion_Tcp.keyboard().S;
                 ship_information.keyboard.D = FormatConversion_Tcp.keyboard().D;
             break;
-            
-            case 'T':
-            break;
-
-            case 'X':
-                // FormatConversion_Tcp.handle_header_X(*it, ship_information);
-            break;
 
             default:
-                ROS_INFO("Message recognize error: \"%s\" is not fit for the protocol!", (*it).c_str());
+                // ROS_INFO("Message recognize error: \"%s\" is not fit for the protocol!", (*it).c_str());
             break;
         }
     }

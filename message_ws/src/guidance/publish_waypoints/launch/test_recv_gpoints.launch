@@ -1,0 +1,21 @@
+<launch>
+    <arg name="angle_kp" default="20.0" />
+    <arg name="angle_ki" default="0.0" />
+    <arg name="angle_kd" default="125.0" />
+    <arg name="maxIntegral" default="800.0" />
+    <arg name="maxOutput" default="1800.0" />
+
+    <node pkg="adjust_pid" type="adjust_angle_pid_node" name="adjust_angle_pid_node" output="screen">
+        <param name="angle_kp" value="$(arg angle_kp)" />
+        <param name="angle_ki" value="$(arg angle_ki)" />
+        <param name="angle_kd" value="$(arg angle_kd)" />
+        <param name="maxIntegral" value="$(arg maxIntegral)" />
+        <param name="maxOutput" value="$(arg maxOutput)" />
+
+    </node>
+
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <!-- 运行imu -->
+    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+</launch>
