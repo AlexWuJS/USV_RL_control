@@ -1,7 +1,13 @@
 <launch>
-    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
-    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <arg name="angle_kp" default="20.0" />
+    <arg name="angle_ki" default="0.0" />
+    <arg name="angle_kd" default="125.0" />
+    <arg name="position_kp" default="0.0" />
+    <arg name="position_ki" default="0.0" />
+    <arg name="position_kd" default="0.0" />
+    <arg name="maxIntegral" default="800.0" />
+    <arg name="maxOutput" default="1800.0" />
+
     <!-- 运行imu -->
     <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
     <!-- 运行rtk -->
@@ -14,7 +20,22 @@
     <!-- 运行两个tf和里程计 -->
     <node pkg="gps_common" type="odom_tf" name="odom_tf" output="screen"/>
     <node pkg="gps_common" type="fuse" name="fuse" output="screen"/>
+    <node pkg="publish_waypoints" type="publish_ground_waypoints_node" name="publish_ground_waypoints" output="screen"/>
     <!-- 启用船体模型 -->
 <!-- <include file="$(find USV_description)/launch/ship_model.launch"/>             -->
 <!-- <include file="$(find USV_description)/launch/move_base.launch"/>             -->
+
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <node pkg="control" type="controller_node" name="controller" output="screen">
+            <param name="angle_kp" value="$(arg angle_kp)" />
+        <param name="angle_ki" value="$(arg angle_ki)" />
+        <param name="angle_kd" value="$(arg angle_kd)" />
+        <param name="position_kp" value="$(arg position_kp)" />
+        <param name="position_ki" value="$(arg position_ki)" />
+        <param name="position_kd" value="$(arg position_kd)" />
+        <param name="maxIntegral" value="$(arg maxIntegral)" />
+        <param name="maxOutput" value="$(arg maxOutput)" />
+    </node>
 </launch>

@@ -9,6 +9,7 @@ project(control)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  nav_msgs
   std_msgs
   message_generation
 )
@@ -117,6 +118,7 @@ catkin_package(
 include_directories(
 include
   ${catkin_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}/common/inc
 )
 
 ## Declare a C++ library
@@ -134,9 +136,10 @@ include
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(controller_node 
   src/controller_node.cpp
-  src/pid.cpp
-
+  # src/pid.cpp
+  src/postion_control.cpp
 )
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use

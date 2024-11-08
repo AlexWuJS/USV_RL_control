@@ -84,7 +84,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             ship_information.voltage_right_battery = stof(sub_strings[2]);
             ship_information.boat_is_active = stof(sub_strings[3]);
             ship_information.boat_is_running = stof(sub_strings[4]);
-            ship_information.boat_is_smart_mode = stof(sub_strings[5]);
+            ship_information.boat_is_smart_remote_mode = stof(sub_strings[5]);
         }
         else
             // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
@@ -110,7 +110,9 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                 ship_information.push_is_open = FormatConversion_Tcp.push_is_open();
                 ship_information.ship_is_sending = FormatConversion_Tcp.message_is_recieving();
                 ship_information.tcp_is_connecting = FormatConversion_Tcp.tcp_is_connecting();
-                ship_information.control_mode = FormatConversion_Tcp.control_mode();
+                // ship_information.control_mode = FormatConversion_Tcp.control_mode();
+                ship_information.is_auto_control = FormatConversion_Tcp.is_auto_control;
+                ship_information.is_keyboard_control = FormatConversion_Tcp.is_keyboard_control;
                 ship_information.boat_keep_nav = FormatConversion_Tcp.boat_keep_nav();
             break;
 

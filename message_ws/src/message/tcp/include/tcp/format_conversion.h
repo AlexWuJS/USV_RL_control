@@ -47,6 +47,9 @@ public:
     float get_voltage_left_battery(void);
     float get_voltage_right_battery(void);
 
+    bool is_auto_control;
+    bool is_keyboard_control;
+
 private:
     bool m_push_is_open;
     bool m_is_recieving;
