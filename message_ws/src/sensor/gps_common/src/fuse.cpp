@@ -60,11 +60,14 @@ void gpsOdomCallback(const nav_msgs::Odometry::ConstPtr& gps_odom) {
     last_z = gps_odom->pose.pose.position.z; 
 
     // 发布无人艇的运行轨迹
-    motion_path.header = odom_local.header;            // 指定消息或数据的参考坐标系，position就是在这个坐标系下的
+    motion_path.header.frame_id = "map";           // 指定消息或数据的参考坐标系，position就是在这个坐标系下的
+    motion_path.header.stamp = ros::Time::now();
 
-    pose_msg.header.frame_id = "map"; 
+    pose_msg.header.frame_id = "odom_local"; 
     pose_msg.header.stamp = ros::Time::now();
-    pose_msg.pose.position = odom_local.pose.pose.position; 
+    pose_msg.pose.position.x = odom_local.pose.pose.position.x; 
+    pose_msg.pose.position.y = odom_local.pose.pose.position.y; 
+    pose_msg.pose.position.z = 0.0; 
     pose_msg.pose.orientation = odom_local.pose.pose.orientation; 
     motion_path.poses.push_back(pose_msg);
     motion_path_pub.publish(motion_path);   
