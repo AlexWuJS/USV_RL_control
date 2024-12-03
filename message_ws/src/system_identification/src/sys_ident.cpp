@@ -22,8 +22,10 @@ const int PWM_FORWARD_MIN = 1550;
 const int PWM_NEUTRAL = 1500;
 
 // 全局变量
+geometry_msgs::Vector3 angular_velocity;
 ros::Publisher controller_pub;
 double yaw1, rudder;
+   double yaw_rate;
 sensor_msgs::Imu imu;
 double jingdu, weidu;
 ros::ServiceClient client;
@@ -107,12 +109,15 @@ private:
     // 随机数生成器
     std::random_device rd;
     std::mt19937 gen{rd()};
-    std::normal_distribution<double> dis{0.0, 0.15}; // 均值0,标准差0.1的正态分布
+    std::normal_distribution<double> dis{0.0, 0.0005727}; // 均值0,标准差0.1的正态分布0008727
 
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
     {
         yaw1 = tf2::getYaw(msg->orientation);
+     angular_velocity = msg->angular_velocity;
 
+    // 提取偏航角角速度（绕y轴的角速度）
+       yaw_rate = angular_velocity.y;
         if (experiment_running_)
         {
             static int sample_count = 0;
@@ -120,9 +125,10 @@ private:
             // 每10个数据点输出一次
             if (sample_count % 10 == 0)
             {
-                ROS_INFO("采样点 %d: 航向角 = %.2f°, 时间 = %.2fs",
+                ROS_INFO("采样点 %d: 航向角 = %.2f°, 航向角速度 = %.2f,时间 = %.2fs, ",
                          sample_count / 10,
                          yaw1 * 180 / M_PI,
+                         yaw_rate * 180/ M_PI,
                          (ros::Time::now() - start_time_).toSec());
             }
             yaw_data_.push_back(yaw1);
@@ -168,13 +174,13 @@ private:
             {
                 ROS_INFO("开始Z10°/10°试验");
                 current_experiment_ = 2;
-                startExperiment(80);
+                startExperiment(40);
             }
             else if (sub_strings[1] == "3")
             {
                 ROS_INFO("开始Z20°/20°试验");
                 current_experiment_ = 3;
-                startExperiment(80);
+                startExperiment(40);  //80
             }
             else if (sub_strings[1] == "4")
             {
@@ -273,21 +279,21 @@ private:
 
     void performZManeuver(int angle, control::Motor &motor_msg)
     {
-        int pwm_range = PWM_FORWARD_MIN - PWM_REVERSE_MAX;
-        int pwm_change = pwm_range * angle / 180; // 修改PWM计算方式
-        // int pwm_change = pwm_range * angle / 90;  // 增大PWM变化量以获得更大舵角
+        // int pwm_range = PWM_FORWARD_MIN - PWM_REVERSE_MAX;
+        // int pwm_change = pwm_range * angle / 180; // 修改PWM计算方式
+        // // int pwm_change = pwm_range * angle / 90;  // 增大PWM变化量以获得更大舵角
 
-        // 每10秒(20个采样点)切换一次方向
-        if (experiment_counter_ % 20 < 10)
-        {
-            motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-            motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-        }
-        else
-        {
-            motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-            motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-        }
+        // // 每10秒(20个采样点)切换一次方向
+        // if (experiment_counter_ % 20 < 10)
+        // {
+        //     motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
+        //     motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
+        // }
+        // else
+        // {
+        //     motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
+        //     motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
+        // }
 
         // 输出当前采样点信息
         if (experiment_counter_ % 2 == 0)
@@ -339,9 +345,6 @@ private:
         for (size_t i = 1; i < n; ++i)
         {
             psi_dot[i - 1] = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]); // 航向角速度
-            // delta[i - 1] = (calculateRudderAngle(left_thruster_pwm_[i]) -
-            //                 calculateRudderAngle(right_thruster_pwm_[i])) /
-            //                2.0;
 
             // 基准舵角5度加上随机波动
             double base_angle = 5.0 * M_PI / 180.0; // 基准5度转换为弧度
