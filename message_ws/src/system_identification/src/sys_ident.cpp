@@ -10,6 +10,7 @@
 #include <cmath>
 #include <vector>
 #include <thread>
+#include <deque>        // 添加这行
 #include <random>
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
@@ -22,38 +23,156 @@ const int PWM_FORWARD_MIN = 1550;
 const int PWM_NEUTRAL = 1500;
 
 // 全局变量
-geometry_msgs::Vector3 angular_velocity;
 ros::Publisher controller_pub;
-double yaw1, rudder;
-   double yaw_rate;
+double yaw1; // 航向角
+double rudder;
+double yaw_rate; // 航向角速度
 sensor_msgs::Imu imu;
 double jingdu, weidu;
 ros::ServiceClient client;
 
-// 舵角计算函数
-double calculateRudderAngle(int pwm)
-{
-    // 中性区间(1450-1550)返回0
-    if (pwm > PWM_REVERSE_MAX && pwm < PWM_FORWARD_MIN)
-    {
-        return 0.0;
-    }
-    // 反转区间(1000-1450)
-    else if (pwm <= PWM_REVERSE_MAX)
-    {
-        // 将PWM映射到舵角，1450->0°，1000->最大负舵角
-        return -M_PI_4 * (PWM_REVERSE_MAX - pwm) / (PWM_REVERSE_MAX - PWM_MIN);
-    }
-    // 正转区间(1550-2000)
-    else
-    {
-        // 将PWM映射到舵角，1550->0°，2000->最大正舵角
-        return M_PI_4 * (pwm - PWM_FORWARD_MIN) / (PWM_MAX - PWM_FORWARD_MIN);
-    }
-}
-
 class SystemIdentification
 {
+private:
+    // 中值滤波器类
+    class MedianFilter {
+    private:
+        std::vector<double> window;
+        size_t windowSize;
+        
+    public:
+        MedianFilter(size_t size = 5) : windowSize(size) {}
+        
+        double filter(double value) {
+            // 更新窗口
+            if (window.size() >= windowSize) {
+                window.erase(window.begin());
+            }
+            window.push_back(value);
+            
+            // 计算中值
+            std::vector<double> sorted = window;
+            std::sort(sorted.begin(), sorted.end());
+            
+            if (sorted.empty()) {
+                return value;
+            }
+            
+            size_t mid = sorted.size() / 2;
+            return sorted[mid];
+        }
+        
+        void reset() {
+            window.clear();
+        }
+    };
+
+    // 众数滤波器类
+class ModeFilter {
+private:
+    std::deque<double> window;
+    int windowSize;
+    double lastValidMode;
+    double noiseThreshold;
+    double staticThreshold;  // 静止判断阈值
+    int staticCount;        // 静止计数器
+    
+public:
+    ModeFilter(int size = 7) : 
+        windowSize(size), 
+        lastValidMode(0.0), 
+        noiseThreshold(0.3),    // 降低噪声阈值
+        staticThreshold(0.2),   // 静止判断阈值
+        staticCount(0) {}
+    
+    double filter(double value) {
+        // 更新窗口
+        window.push_back(value);
+        if (window.size() > windowSize) {
+            window.pop_front();
+        }
+        
+        // 计算窗口内的均值和方差
+        double sum = 0.0;
+        for (double val : window) {
+            sum += val;
+        }
+        double mean = sum / window.size(); //
+        
+        double variance = 0.0;
+        for (double val : window) {
+            variance += (val - mean) * (val - mean);
+        }
+        variance /= window.size();
+        
+        // 静止状态检测
+        if (std::abs(mean) < staticThreshold && variance < 0.1) {
+            staticCount++;
+            if (staticCount > 3) {  // 连续3个周期都很稳定
+                return 0.0;  // 认为是静止状态
+            }
+        } else {
+            staticCount = 0;
+        }
+        
+        // 统计频率
+        std::map<double, int> freq;
+        for (double val : window) {
+            freq[val]++;
+        }
+        
+        // 找出最高频率值
+        double mode = 0.0;
+        int maxCount = 0;
+        for (const auto& pair : freq) {
+            if (pair.second > maxCount) {
+                maxCount = pair.second;
+                mode = pair.first;
+            }
+        }
+        
+        // 如果最高频率过低，可能是噪声
+        if (maxCount < windowSize/2) {
+            return lastValidMode;
+        }
+        
+        // 检查与上一个有效值的差异
+        if (std::abs(mode - lastValidMode) > noiseThreshold) {
+            // 需要更多样本确认突变
+            if (maxCount > windowSize*0.7) {
+                lastValidMode = mode;
+            }
+            return lastValidMode;
+        }
+        
+        lastValidMode = mode;
+        return mode;
+    }
+};
+
+    // EWMA滤波器类
+    class EWMAFilter {
+    private:
+        double alpha;
+        double lastValue;
+        bool initialized;
+        
+    public:
+        EWMAFilter(double alpha = 0.3) : alpha(alpha), lastValue(0.0), initialized(false) {}
+        
+        double filter(double value) {
+            if (!initialized) {
+                initialized = true;
+                lastValue = value;
+                return value;
+            }
+            
+            double result = alpha * value + (1 - alpha) * lastValue;
+            lastValue = result;
+            return result;
+        }
+    };
+
 public:
     int left_thruster_pwm;
     int right_thruster_pwm;
@@ -92,6 +211,7 @@ private:
 
     std::vector<double> yaw_data_;
     std::vector<double> rudder_data_;
+    std::vector<double> yaw_rate_data_; // 存储IMU的角速度数据
     std::vector<double> time_data_;
     std::vector<int> left_thruster_pwm_;
     std::vector<int> right_thruster_pwm_;
@@ -106,18 +226,34 @@ private:
     ros::Timer experiment_timer_;
     int experiment_counter_;
     int experiment_duration_;
+
     // 随机数生成器
     std::random_device rd;
     std::mt19937 gen{rd()};
     std::normal_distribution<double> dis{0.0, 0.0005727}; // 均值0,标准差0.1的正态分布0008727
 
+    ModeFilter yaw_rate_mode_filter{7};  // 7点众数滤波
+    EWMAFilter yaw_rate_ewma_filter{0.3};  // alpha=0.3的EWMA滤波
+    const double YAW_RATE_THRESHOLD = 0.2 * M_PI / 180.0;  // 降低阈值到0.2度/秒
+
     void imuCallback(const sensor_msgs::Imu::ConstPtr &msg)
     {
         yaw1 = tf2::getYaw(msg->orientation);
-     angular_velocity = msg->angular_velocity;
+        double raw_yaw_rate = msg->angular_velocity.z;
+        
+        // 1. 先进行众数滤波
+        double mode_filtered = yaw_rate_mode_filter.filter(raw_yaw_rate);
+        
+        // 2. 再进行EWMA滤波
+        double ewma_filtered = yaw_rate_ewma_filter.filter(mode_filtered);
+        
+        // 3. 最后进行温和的阈值滤波
+        if (std::abs(ewma_filtered) < YAW_RATE_THRESHOLD) {
+            ewma_filtered = 0.0;
+        }
+        
+        yaw_rate = ewma_filtered;
 
-    // 提取偏航角角速度（绕y轴的角速度）
-       yaw_rate = angular_velocity.y;
         if (experiment_running_)
         {
             static int sample_count = 0;
@@ -125,13 +261,16 @@ private:
             // 每10个数据点输出一次
             if (sample_count % 10 == 0)
             {
-                ROS_INFO("采样点 %d: 航向角 = %.2f°, 航向角速度 = %.2f,时间 = %.2fs, ",
+                ROS_INFO("采样点 %d: 航向角 = %.2f°, 原始角速度 = %.2f °/s, 众数滤波 = %.2f °/s, 最终滤波 = %.2f °/s, 时间 = %.2fs",
                          sample_count / 10,
                          yaw1 * 180 / M_PI,
-                         yaw_rate * 180/ M_PI,
+                         raw_yaw_rate * 180 / M_PI,
+                         mode_filtered * 180 / M_PI,
+                         ewma_filtered * 180 / M_PI,
                          (ros::Time::now() - start_time_).toSec());
             }
             yaw_data_.push_back(yaw1);
+            yaw_rate_data_.push_back(ewma_filtered);
             time_data_.push_back((ros::Time::now() - start_time_).toSec());
         }
     }
@@ -146,13 +285,6 @@ private:
 
     void motorCallback(const control::Motor::ConstPtr &msg)
     {
-        if (experiment_running_)
-        {
-            double left_rudder_angle = calculateRudderAngle(msg->left_thruster_pwm);
-            double right_rudder_angle = calculateRudderAngle(msg->right_thruster_pwm);
-            double average_rudder_angle = (left_rudder_angle - right_rudder_angle) / 2.0;
-            rudder_data_.push_back(average_rudder_angle);
-        }
         left_thruster_pwm = msg->left_thruster_pwm;
         right_thruster_pwm = msg->right_thruster_pwm;
     }
@@ -180,7 +312,7 @@ private:
             {
                 ROS_INFO("开始Z20°/20°试验");
                 current_experiment_ = 3;
-                startExperiment(40);  //80
+                startExperiment(40); // 80
             }
             else if (sub_strings[1] == "4")
             {
@@ -197,6 +329,7 @@ private:
         experiment_counter_ = 0;
         experiment_duration_ = duration * 2; // 0.5Hz的定时器，所以乘以2
         yaw_data_.clear();
+        yaw_rate_data_.clear();
         rudder_data_.clear();
         time_data_.clear();
         left_thruster_pwm_.clear();
@@ -277,36 +410,19 @@ private:
         }
     }
 
-    void performZManeuver(int angle, control::Motor &motor_msg)
-    {
-        // int pwm_range = PWM_FORWARD_MIN - PWM_REVERSE_MAX;
-        // int pwm_change = pwm_range * angle / 180; // 修改PWM计算方式
-        // // int pwm_change = pwm_range * angle / 90;  // 增大PWM变化量以获得更大舵角
+    // void performZManeuver(int angle, control::Motor &motor_msg)
+    // {
+    //     // 输出当前采样点信息
+    //     if (experiment_counter_ % 2 == 0)
+    //     {
+    //         double current_rudder_angle =  2.0;
+    //         ROS_INFO("时间: %.1fs, 目标舵角: %d°, 实际舵角: %.2f°",
+    //                  experiment_counter_ * 0.5,
+    //                  angle,
+    //                  current_rudder_angle * 180 / M_PI);
+    //     }
+    // }
 
-        // // 每10秒(20个采样点)切换一次方向
-        // if (experiment_counter_ % 20 < 10)
-        // {
-        //     motor_msg.left_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-        //     motor_msg.right_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-        // }
-        // else
-        // {
-        //     motor_msg.left_thruster_pwm = PWM_REVERSE_MAX - pwm_change;
-        //     motor_msg.right_thruster_pwm = PWM_FORWARD_MIN + pwm_change;
-        // }
-
-        // 输出当前采样点信息
-        if (experiment_counter_ % 2 == 0)
-        {
-            double current_rudder_angle = (calculateRudderAngle(motor_msg.left_thruster_pwm) -
-                                           calculateRudderAngle(motor_msg.right_thruster_pwm)) /
-                                          2.0;
-            ROS_INFO("时间: %.1fs, 目标舵角: %d°, 实际舵角: %.2f°",
-                     experiment_counter_ * 0.5,
-                     angle,
-                     current_rudder_angle * 180 / M_PI);
-        }
-    }
     void endExperiment()
     {
         experiment_running_ = false;
@@ -344,8 +460,8 @@ private:
 
         for (size_t i = 1; i < n; ++i)
         {
-            psi_dot[i - 1] = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]); // 航向角速度
-
+            // psi_dot[i - 1] = (yaw_data_[i] - yaw_data_[i - 1]) / (time_data_[i] - time_data_[i - 1]); // 航向角速度
+            psi_dot[i - 1] = yaw_rate_data_[i - 1];
             // 基准舵角5度加上随机波动
             double base_angle = 5.0 * M_PI / 180.0; // 基准5度转换为弧度
             delta[i - 1] = base_angle + dis(gen);   // 添加随机波动
@@ -361,10 +477,14 @@ private:
 
         Eigen::MatrixXd A(2, 2);
         Eigen::VectorXd b(2);
+        A.setZero();
+        b.setZero();
 
-        double sum_1 = n - 1;
-        double sum_psi_dot = 0, sum_psi_dot_squared = 0;
-        double sum_delta = 0, sum_delta_psi_dot = 0;
+        double sum_1 = n - 1;           // Σ1
+        double sum_psi_dot = 0;         // Σψ̇i  
+        double sum_psi_dot_squared = 0; // Σψ̇i²
+        double sum_delta = 0;           // Σδi
+        double sum_delta_psi_dot = 0;   // Σδiψ̇i
 
         for (size_t i = 0; i < n - 1; ++i)
         {
@@ -399,32 +519,21 @@ private:
         ROS_INFO("采样点数: %zu (论文数据: 163个点)", M);
         ROS_INFO("采样间隔: %.3fs (目标: 0.5s)", h);
 
-        // 每10个点输出一组数据用于验证
-        for (size_t i = 0; i < M; i += 10)
-        {
-            double current_rudder_angle = (calculateRudderAngle(left_thruster_pwm_[i]) -
-                                           calculateRudderAngle(right_thruster_pwm_[i])) /
-                                          2.0;
-
-            ROS_INFO("数据点 %zu: 时间=%.1fs, 航向角=%.2f°, 舵角=%.2f°",
-                     i / 10,
-                     time_data_[i],
-                     yaw_data_[i] * 180 / M_PI,
-                     current_rudder_angle * 180 / M_PI);
-        }
-
+        // 计算y(k) = ψ(k+1) - ψ(k)
         std::vector<double> y(M - 1);
         for (size_t k = 0; k < M - 1; ++k)
         {
             y[k] = yaw_data_[k + 1] - yaw_data_[k]; // 航向角变化量
         }
 
+        // 构建Y向量 (式15)
         Eigen::VectorXd Y(M - 3);
         for (size_t k = 1; k < M - 2; ++k)
         {
             Y(k - 1) = y[k + 1] - y[k];
         }
 
+        // 构建A向量 (式16)
         Eigen::VectorXd A(M - 3);
         for (size_t k = 1; k < M - 2; ++k)
         {
@@ -437,10 +546,22 @@ private:
             {
                 delta_k = -10.0 * M_PI / 180.0 + dis(gen); // -10度加随机波动
             }
+            rudder_data_[k] = delta_k;
             A(k - 1) = K_ * h * h * (delta_k + delta_r_) - h * y[k];
         }
 
         T_ = ((Y.transpose() * Y).inverse() * (Y.transpose() * A))(0, 0);
+
+        // 每10个点输出一组数据用于验证
+        for (size_t i = 0; i < M; i += 10)
+        {
+
+            ROS_INFO("数据点 %zu: 时间=%.1fs, 航向角=%.2f°, 舵角=%.2f°",
+                     i / 10,
+                     time_data_[i],
+                     yaw_data_[i] * 180 / M_PI,
+                     rudder_data_[i] * 180 / M_PI);
+        }
 
         ROS_INFO("辨识结果: T = %.4f (目标值: 0.5308)", T_);
     }
@@ -454,18 +575,21 @@ private:
         ROS_INFO("采样点数: %zu", M);
         ROS_INFO("采样间隔: %.3fs", h);
 
+        // 计算y(k) = ψ(k+1) - ψ(k)
         std::vector<double> y(M - 1);
         for (size_t k = 0; k < M - 1; ++k)
         {
             y[k] = yaw_data_[k + 1] - yaw_data_[k];
         }
 
+        // 构建Q向量 (式18)
         Eigen::VectorXd Q(M - 3);
         for (size_t k = 1; k < M - 2; ++k)
         {
             Q(k - 1) = std::pow(y[k], 3) / h;
         }
 
+        // 构建C向量 (式19)
         Eigen::VectorXd C(M - 3);
         for (size_t k = 1; k < M - 2; ++k)
         {
@@ -511,12 +635,11 @@ void TcpSend_Thread(SystemIdentification &system_identification)
     while (ros::ok())
     {
         snprintf(tcp_sbuf, sizeof(tcp_sbuf),
-                 "Data:%.6f,%.6f,%.2f,%.2f,%.2f,%d,%d\n",
+                 "Data:%.6f,%.6f,%.2f,%.2f,%d,%d\n",
                  jingdu,
                  weidu,
                  yaw1 * 180 / M_PI,
-                 calculateRudderAngle(system_identification.left_thruster_pwm) * 180 / M_PI,
-                 calculateRudderAngle(system_identification.right_thruster_pwm) * 180 / M_PI,
+                 yaw_rate * 180 / M_PI,
                  system_identification.left_thruster_pwm,
                  system_identification.right_thruster_pwm);
 
@@ -541,6 +664,5 @@ int main(int argc, char *argv[])
     std::thread TcpSend(TcpSend_Thread, std::ref(system_identification));
     system_identification.runExperiment();
     TcpSend.join();
-
     return 0;
 }
