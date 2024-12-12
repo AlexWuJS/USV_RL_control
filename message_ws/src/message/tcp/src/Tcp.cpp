@@ -36,6 +36,13 @@ int Tcp_Server_Init(uint16_t port)
         return -1;
     }
 
+     int opt = 1;
+    if (setsockopt(server_local_sockfd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        perror("setsockopt failed");
+        close(server_local_sockfd);
+        exit(EXIT_FAILURE);
+    }
+
     // 绑定socket到地址
     if (-1 == bind(server_local_sockfd, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr)))
     {
