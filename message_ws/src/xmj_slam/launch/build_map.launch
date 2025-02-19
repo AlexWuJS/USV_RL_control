@@ -1,0 +1,15 @@
+<launch>
+	<arg name="slam_methods" default="hector" doc="slam type [gmapping, cartographer, hector, karto]"/>
+
+	<!-- 启动机器人，包含底盘，雷达，相机设备 -->
+	<!-- <include file="$(find tarkbot_bringup)/launch/bringup.launch" >
+		<arg name="use_pose_ekf"      value="false"/>
+		<arg name="use_lidar"         value="true"/>
+		<arg name="use_camera"        value="false"/>
+		<arg name="use_web_video"     value="false"/>
+	</include> -->
+
+	<!-- 建图算法: Gmapping, Cartographer, Hector, Karto -->
+	<include file="$(find xmj_slam)/launch/includes/xmj_$(arg slam_methods).launch"/>
+
+</launch>
