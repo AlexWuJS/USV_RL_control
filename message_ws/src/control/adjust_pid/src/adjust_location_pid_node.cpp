@@ -21,7 +21,8 @@ ros::Publisher controller_pub;
 control::Motor thruster_msg;
 double desired_angle, heading_angle, boat_distance, desired_position_x, desired_position_y, location_pid_output, angle_pid_output;
 geometry_msgs::Point boat_position;                
-PID myPid;
+PID PositionPid;
+AnglePID AnglePid;
 ros::ServiceClient client;
 tcp::ship_info boat_status;
 
@@ -70,8 +71,8 @@ void Pid_Callback(const ros::TimerEvent &event)
         }
     }
     /* 输出差速值 */
-    location_pid_output = myPid.PID_LocationCalc(0, boat_distance); 
-    angle_pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
+    location_pid_output = PositionPid.update(0, boat_distance); 
+    angle_pid_output = AnglePid.update(desired_angle, heading_angle); 
 
     // if (boat_distance < 0.2 && boat_distance > -0.2)
     // {
@@ -125,11 +126,11 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     {
         desired_position_x = stof(sub_strings[1]);
         desired_position_y = stof(sub_strings[2]);
-        myPid.location_kp = stof(sub_strings[3]);
-        myPid.location_ki = stof(sub_strings[4]);
+        PositionPid.kp = stof(sub_strings[3]);
+        PositionPid.ki = stof(sub_strings[4]);
 
-        myPid.location_kd = stof(sub_strings[5]);
-        ROS_INFO("pid:%f,%f,%f", myPid.location_kp,myPid.location_ki,myPid.location_kd);
+        PositionPid.kd = stof(sub_strings[5]);
+        ROS_INFO("pid:%f,%f,%f", PositionPid.kp,PositionPid.ki,PositionPid.kd);
     }
 }
 
@@ -168,14 +169,16 @@ int main(int argc, char* argv[])
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
     //pid
-    nh.getParam("/adjust_location_pid_node/angle_kp",myPid.angle_kp);
-    nh.getParam("/adjust_location_pid_node/angle_ki",myPid.angle_ki);
-    nh.getParam("/adjust_location_pid_node/angle_kd",myPid.angle_kd);
-    nh.getParam("/adjust_location_pid_node/location_kp",myPid.location_kp);
-    nh.getParam("/adjust_location_pid_node/location_ki",myPid.location_ki);
-    nh.getParam("/adjust_location_pid_node/location_kd",myPid.location_kd);
-    nh.getParam("/adjust_location_pid_node/maxIntegral",myPid.maxIntegral);
-    nh.getParam("/adjust_location_pid_node/maxOutput",myPid.maxOutput);
+    nh.getParam("/adjust_location_pid_node/angle_kp",AnglePid.kp);
+    nh.getParam("/adjust_location_pid_node/angle_ki",AnglePid.ki);
+    nh.getParam("/adjust_location_pid_node/angle_kd",AnglePid.kd);
+    nh.getParam("/adjust_location_pid_node/location_kp",PositionPid.kp);
+    nh.getParam("/adjust_location_pid_node/location_ki",PositionPid.ki);
+    nh.getParam("/adjust_location_pid_node/location_kd",PositionPid.kd);
+    nh.getParam("/adjust_location_pid_node/maxIntegral",AnglePid.maxIntegral);
+    nh.getParam("/adjust_location_pid_node/maxOutput",AnglePid.maxOutput);
+    nh.getParam("/adjust_location_pid_node/maxIntegral",PositionPid.maxIntegral);
+    nh.getParam("/adjust_location_pid_node/maxOutput",PositionPid.maxOutput);
 
     ROS_INFO("adjust_location_pid_node run success.");
 

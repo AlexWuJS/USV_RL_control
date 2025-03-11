@@ -18,14 +18,15 @@ ros::Publisher controller_pub;
 control::Motor thruster_msg;
 double desired_angle, heading_angle, pid_output;
 sensor_msgs::Imu imu;                    
-PID myPid;
+// PID myPid;
 ros::ServiceClient client;
-
+AnglePID AnglePid;
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
     /* 输出差速值 */
-    pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
+    pid_output = AnglePid.update(desired_angle, heading_angle);
+    // pid_output = myPid.PID_AngleCalc(desired_angle, heading_angle); 
     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output;
     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + pid_output;
     // thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - pid_output - THRUSTER_DEADAREA_PWM * (pid_output/std::fabs(pid_output));    //跳过死区
@@ -63,10 +64,10 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     if (sub_strings[0] == "T" && sub_strings.size() == 5)      // T帧一共有5个数据
     {
             desired_angle = stof(sub_strings[1]);
-            myPid.angle_kp = stof(sub_strings[2]);
-            myPid.angle_ki = stof(sub_strings[3]);
-            myPid.angle_kd = stof(sub_strings[4]);
-            ROS_INFO("pid:%f,%f,%f", myPid.angle_kp,myPid.angle_ki,myPid.angle_kd);
+            AnglePid.kp = stof(sub_strings[2]);
+            AnglePid.ki = stof(sub_strings[3]);
+            AnglePid.kd = stof(sub_strings[4]);
+            ROS_INFO("pid:%f,%f,%f", AnglePid.kp,AnglePid.ki,AnglePid.kd);
     }
 }
 
@@ -104,11 +105,11 @@ int main(int argc, char* argv[])
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
     //pid
-    nh.getParam("/adjust_angle_pid_node/angle_kp",myPid.angle_kp);
-    nh.getParam("/adjust_angle_pid_node/angle_ki",myPid.angle_ki);
-    nh.getParam("/adjust_angle_pid_node/angle_kd",myPid.angle_kd);
-    nh.getParam("/adjust_angle_pid_node/maxIntegral",myPid.maxIntegral);
-    nh.getParam("/adjust_angle_pid_node/maxOutput",myPid.maxOutput);
+    nh.getParam("/adjust_angle_pid_node/angle_kp", AnglePid.kp);
+    nh.getParam("/adjust_angle_pid_node/angle_ki", AnglePid.ki);
+    nh.getParam("/adjust_angle_pid_node/angle_kd", AnglePid.kd);
+    nh.getParam("/adjust_angle_pid_node/maxIntegral",AnglePid.maxIntegral);
+    nh.getParam("/adjust_angle_pid_node/maxOutput",AnglePid.maxOutput);
 
     ROS_INFO("adjust_angle_pid_node run success.");
 

@@ -22,10 +22,10 @@ control::Motor thruster_msg;
 double heading_angle, angle_pid_output, speed_pid_output;
 sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
-PID myPid;
 ros::ServiceClient client;
 Eigen::Vector2d desired_speed, course_speed, filtered_speed, unfilter_speed;
-
+PID SpeedPid;
+AnglePID AnglePid;
 const int BUFFER_SIZE = 10;
 std::deque<Eigen::Vector2d> speed_buffer;
 Eigen::Matrix2d P;
@@ -81,8 +81,8 @@ Eigen::Vector2d smoothSpeed(const Eigen::Vector2d &input_speed)
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
-    angle_pid_output = myPid.PID_AngleCalc(desired_speed(0), course_speed(0));
-    speed_pid_output = myPid.PID_SpeedCalc(desired_speed(1), course_speed(1));
+    angle_pid_output = AnglePid.update(desired_speed(0), course_speed(0));
+    speed_pid_output = SpeedPid.update(desired_speed(1), course_speed(1));
 
     ROS_WARN("speed_pid_output:%f", speed_pid_output);
     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
@@ -153,18 +153,18 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr &msg)
     if (sub_strings[0] == "T" && sub_strings.size() == 5)
     {
         desired_speed(0) = stof(sub_strings[1]);
-        myPid.angle_kp = stof(sub_strings[2]);
-        myPid.angle_ki = stof(sub_strings[3]);
-        myPid.angle_kd = stof(sub_strings[4]);
-        ROS_INFO("pid:%f,%f,%f", myPid.angle_kp, myPid.angle_ki, myPid.angle_kd);
+        AnglePid.kp = stof(sub_strings[2]);
+        AnglePid.ki = stof(sub_strings[3]);
+        AnglePid.kd = stof(sub_strings[4]);
+        ROS_INFO("pid:%f,%f,%f", AnglePid.kp, AnglePid.ki, AnglePid.kd);
     }
     if (sub_strings[0] == "T2" && sub_strings.size() == 5)
     {
         desired_speed(1) = stof(sub_strings[1]);
-        myPid.speed_kp = stof(sub_strings[2]);
-        myPid.speed_ki = stof(sub_strings[3]);
-        myPid.speed_kd = stof(sub_strings[4]);
-        ROS_INFO("pid:%f,%f,%f", myPid.speed_kp, myPid.speed_ki, myPid.speed_kd);
+        SpeedPid.kp = stof(sub_strings[2]);
+        SpeedPid.ki = stof(sub_strings[3]);
+        SpeedPid.kd = stof(sub_strings[4]);
+        ROS_INFO("pid:%f,%f,%f", SpeedPid.kp, SpeedPid.ki, SpeedPid.kd);
     }
 }
 
@@ -206,14 +206,16 @@ int main(int argc, char *argv[])
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
 
-    nh.getParam("/adjust_speed_pid/angle_kp", myPid.angle_kp);
-    nh.getParam("/adjust_speed_pid/angle_ki", myPid.angle_ki);
-    nh.getParam("/adjust_speed_pid/angle_kd", myPid.angle_kd);
-    nh.getParam("/adjust_speed_pid/speed_kp", myPid.speed_kp);
-    nh.getParam("/adjust_speed_pid/speed_ki", myPid.speed_ki);
-    nh.getParam("/adjust_speed_pid/speed_kd", myPid.speed_kd);
-    nh.getParam("/adjust_speed_pid/maxIntegral", myPid.maxIntegral);
-    nh.getParam("/adjust_speed_pid/maxOutput", myPid.maxOutput);
+    nh.getParam("/adjust_speed_pid/angle_kp", AnglePid.kp);
+    nh.getParam("/adjust_speed_pid/angle_ki", AnglePid.ki);
+    nh.getParam("/adjust_speed_pid/angle_kd", AnglePid.kd);
+    nh.getParam("/adjust_speed_pid/speed_kp", SpeedPid.kp);
+    nh.getParam("/adjust_speed_pid/speed_ki", SpeedPid.ki);
+    nh.getParam("/adjust_speed_pid/speed_kd", SpeedPid.kd);
+    nh.getParam("/adjust_speed_pid/maxIntegral", AnglePid.maxIntegral);
+    nh.getParam("/adjust_speed_pid/maxOutput", AnglePid.maxOutput);
+    nh.getParam("/adjust_speed_pid/maxIntegral", SpeedPid.maxIntegral);
+    nh.getParam("/adjust_speed_pid/maxOutput", SpeedPid.maxOutput);
 
     P = Eigen::Matrix2d::Identity() * 1000;
 

@@ -3,25 +3,22 @@ using namespace std;
 #include "ros/ros.h"
 #include "adjust_pid/pid.h"
 
-double PID::PID_AngleCalc(float reference,float feedback)
-{
+PID::PID(double kp, double ki, double kd, double min_out, double max_out)
+        : kp(kp), ki(ki), kd(kd), min_output_(min_out), maxOutput(max_out),
+          lastError_(0.0), error_(0.0), integral_(0.0), maxIntegral(1000.0) {}
+
+double PID::update(float reference,float feedback){
     double output;
+
     lastError_=error_;
 
-    /* 角度误差映射 */
     error_ = reference - feedback;
-    if (error_ > 180 && error_ < 360)
-        error_ -= 360;
-    else if (error_ < -180 && error_ > -360)
-        error_ += 360;
-        
-    float dout=(error_-lastError_)*angle_kd;
+
+    float dout=(error_-lastError_)*kd;
     
-    // ROS_WARN("lastError_:%f,error_:%f,kd:%f,angle_kd:%f",lastError_,error_,dout,angle_kd);
+    float pout=error_*kp;
     
-    float pout=error_*angle_kp;
-    
-    integral_+=error_*angle_ki;
+    integral_+=error_*ki;
     
     if(integral_ > maxIntegral) integral_=maxIntegral;
     else if(integral_ < -maxIntegral) integral_=-maxIntegral;
@@ -31,58 +28,45 @@ double PID::PID_AngleCalc(float reference,float feedback)
     if(output > maxOutput) output=maxOutput;
     else if(output < -maxOutput) output=-maxOutput;
 
-    return output;
+    return output;        
 }
 
-double PID::PID_SpeedCalc(float reference,float feedback)
-{
-    double output, error, integral;
-    static double lastError;
 
-    lastError=error;
-    
-    error = reference - feedback;
+AnglePID::AnglePID(double kp, double ki, double kd, double min_out, double max_out)
+        : PID(kp, ki, kd, min_out, max_out) {}
 
-    float dout=(error-lastError)*speed_kd;
+/* 角度误差映射 */
+double AnglePID::map(double angle_error){
+    if (angle_error > 180 && angle_error < 360)
+        angle_error -= 360;
+    else if (angle_error < -180 && angle_error > -360)
+        angle_error += 360;
     
-    float pout=error*speed_kp;
+    return angle_error;
+}
+
+double AnglePID::update(float reference,float feedback){
+    double output;
+
+    lastError_=error_;
+    error_ = reference - feedback;
+
+    error_ = AnglePID::map(error_);
+
+    float dout=(error_-lastError_)*kd;
     
-    integral+=error*speed_ki;
+    float pout=error_*kp;
     
-    if(integral > maxIntegral) integral=maxIntegral;
-    else if(integral < -maxIntegral) integral=-maxIntegral;
+    integral_+=error_*ki;
     
-    output=pout+dout+integral;
+    if(integral_ > maxIntegral) integral_=maxIntegral;
+    else if(integral_ < -maxIntegral) integral_=-maxIntegral;
+    
+    output=pout+dout+integral_;
     
     if(output > maxOutput) output=maxOutput;
     else if(output < -maxOutput) output=-maxOutput;
 
-    return output;
+    return output;    
 }
 
-
-double PID::PID_LocationCalc(float reference,float feedback)
-{
-    double output, error, integral;
-    static double lastError;
-
-    lastError=error;
-    
-    error = reference - feedback;
-
-    float dout=(error-lastError)*location_kd;
-    
-    float pout=error*location_kp;
-    
-    integral+=error*location_ki;
-    
-    if(integral > maxIntegral) integral=maxIntegral;
-    else if(integral < -maxIntegral) integral=-maxIntegral;
-    
-    output=pout+dout+integral;
-    
-    if(output > maxOutput) output=maxOutput;
-    else if(output < -maxOutput) output=-maxOutput;
-
-    return output;
-}
