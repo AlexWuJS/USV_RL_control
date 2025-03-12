@@ -14,12 +14,9 @@ using namespace std;
 #include <sensor_msgs/NavSatFix.h>
 
 
-FormatConversionClass::FormatConversionClass()
-{
-    m_valid_headers = "SPRKMXT";    // 协议中所有的合法帧头
-    m_is_connecting = true;
+FormatConversionClass& FormatConversionClass::getInstance() {
+    return instance;
 }
-
 /**
   * @brief  分割一个包含不同帧头的字符串。只查找一次，不允许存在相同帧头
   * @param  无
@@ -31,7 +28,7 @@ FormatConversionClass::FormatConversionClass()
     map<int, char> signs_in_strings;
 
     /* 查找所有对应的符号 */
-    for (std::string::iterator it = m_valid_headers.begin(); it !=m_valid_headers.end(); it ++){
+    for (std::string::iterator it = valid_headers.begin(); it != valid_headers.end(); it ++){
         if ((pos = s.find(*it)) != string::npos)
             signs_in_strings.insert(pair<int, char>(pos, *it));        /* 记录符号及对应的位置 */  
     }
@@ -75,7 +72,7 @@ vector<string> FormatConversionClass::get_value_from_string(std::string s, const
 char FormatConversionClass::recognize_message(std::string s)
 {
     /* 首先判断帧头、帧尾是否合法 */
-    if (m_valid_headers.find(s.front()) == std::string::npos)    /* 帧头不合法 */
+    if (valid_headers.find(s.front()) == std::string::npos)    /* 帧头不合法 */
     {
         ROS_INFO("recognize_message: The message tail '%c' is invalid!", s.front());
         ROS_INFO("    Entire message: %s", s.c_str());
@@ -120,21 +117,21 @@ int FormatConversionClass::handle_header_S(std::string s)
     else
     {
         
-        if (string_values[1] == "1")  m_push_is_open = true;        /* 1为打开，0为关闭 */
-        else if (string_values[1] == "0")  m_push_is_open = false;
+        if (string_values[1] == "1")  push_is_open = true;        /* 1为打开，0为关闭 */
+        else if (string_values[1] == "0")  push_is_open = false;
         
-        if (string_values[2] == "3")  m_is_recieving = true;        /* 3为打开，2为关闭 */
-        else if (string_values[2] == "2")  m_is_recieving = false;
+        if (string_values[2] == "3")  is_recieving = true;        /* 3为打开，2为关闭 */
+        else if (string_values[2] == "2")  is_recieving = false;
         
-        if (string_values[3] == "q"||string_values[3] =="exit")  m_is_connecting = false;    /* q或exit为关闭 */
-        else m_is_connecting = true;
+        if (string_values[3] == "q"||string_values[3] =="exit")  is_connecting = false;    /* q或exit为关闭 */
+        else is_connecting = true;
 
-        // m_control_mode = (char)string_values[4][0];
+        // control_mode = (char)string_values[4][0];  // 修正注释掉的代码，移除 m_ 前缀
         if (string_values[4] == "#") {is_auto_control = true;is_keyboard_control = false;}        /* #为自动控制，@为键盘控制 */
         else if (string_values[4] == "@") {is_keyboard_control = true;is_auto_control = false;}
 
-        if (string_values[5] == "1")  m_boat_keep_nav = true;        /* 1为打开，0为关闭 */
-        else if (string_values[5] == "0")  m_boat_keep_nav = false;             
+        if (string_values[5] == "1")  boat_keep_nav = true;        /* 1为打开，0为关闭 */
+        else if (string_values[5] == "0")  boat_keep_nav = false;             
     }
 
     return 0;
@@ -203,51 +200,12 @@ int FormatConversionClass::handle_header_K(std::string s)
     }
     else
     {
-        m_keyboard.W = (bool)(string_values[1][0] - '0');
-        m_keyboard.A = (bool)(string_values[2][0] - '0');
-        m_keyboard.S = (bool)(string_values[3][0] - '0');
-        m_keyboard.D = (bool)(string_values[4][0] - '0');
+        keyboard.W = (bool)(string_values[1][0] - '0');
+        keyboard.A = (bool)(string_values[2][0] - '0');
+        keyboard.S = (bool)(string_values[3][0] - '0');
+        keyboard.D = (bool)(string_values[4][0] - '0');
     }
 
     return 0;
 }
 
-bool FormatConversionClass::push_is_open(void)
-{
-    return m_push_is_open;
-}       
-
-bool FormatConversionClass::message_is_recieving(void)
-{
-    return m_is_recieving;
-}
-
-bool FormatConversionClass::tcp_is_connecting(void)
-{
-    return m_is_connecting;
-}
-
-char FormatConversionClass::control_mode(void)
-{
-    return m_control_mode;
-}
-
-bool FormatConversionClass::boat_keep_nav(void)
-{
-    return m_boat_keep_nav;
-}
-
-KeyboardStructure FormatConversionClass::keyboard(void)
-{
-    return m_keyboard;
-}
-
-float FormatConversionClass::get_voltage_left_battery(void)
-{
-    return m_voltage_left_battery;
-}
-
-float FormatConversionClass::get_voltage_right_battery(void)
-{
-    return m_voltage_right_battery;
-}

@@ -67,7 +67,7 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
   */
 void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
-    FormatConversionClass FormatConversion_usart;
+    FormatConversionClass& FormatConversion_usart = FormatConversionClass::getInstance();
     vector<std::string> raw_recv_strings;
 
     /* convert to string */
@@ -96,7 +96,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
     vector<std::string> sub_strings;
-    FormatConversionClass FormatConversion_Tcp;
+    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::getInstance();
     std::vector<sensor_msgs::NavSatFix> point_list;
 
     sub_strings.push_back(msg->data);
@@ -107,13 +107,13 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             case 'S':
                 FormatConversion_Tcp.handle_header_S(*it);
 
-                ship_information.push_is_open = FormatConversion_Tcp.push_is_open();
-                ship_information.ship_is_sending = FormatConversion_Tcp.message_is_recieving();
-                ship_information.tcp_is_connecting = FormatConversion_Tcp.tcp_is_connecting();
-                // ship_information.control_mode = FormatConversion_Tcp.control_mode();
+                ship_information.push_is_open = FormatConversion_Tcp.push_is_open;
+                ship_information.ship_is_sending = FormatConversion_Tcp.is_recieving;
+                ship_information.tcp_is_connecting = FormatConversion_Tcp.is_connecting;
+                // ship_information.control_mode = FormatConversion_Tcp.control_mode;
                 ship_information.is_auto_control = FormatConversion_Tcp.is_auto_control;
                 ship_information.is_keyboard_control = FormatConversion_Tcp.is_keyboard_control;
-                ship_information.boat_keep_nav = FormatConversion_Tcp.boat_keep_nav();
+                ship_information.boat_keep_nav = FormatConversion_Tcp.boat_keep_nav;
             break;
 
             case 'P':
@@ -131,10 +131,10 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             case 'K':
                 FormatConversion_Tcp.handle_header_K(*it);
 
-                ship_information.keyboard.W = FormatConversion_Tcp.keyboard().W;
-                ship_information.keyboard.A = FormatConversion_Tcp.keyboard().A;
-                ship_information.keyboard.S = FormatConversion_Tcp.keyboard().S;
-                ship_information.keyboard.D = FormatConversion_Tcp.keyboard().D;
+                ship_information.keyboard.W = FormatConversion_Tcp.keyboard.W;
+                ship_information.keyboard.A = FormatConversion_Tcp.keyboard.A;
+                ship_information.keyboard.S = FormatConversion_Tcp.keyboard.S;
+                ship_information.keyboard.D = FormatConversion_Tcp.keyboard.D;
             break;
 
             default:

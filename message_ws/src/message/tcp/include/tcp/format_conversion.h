@@ -16,19 +16,19 @@ typedef struct {
     bool D;
 }KeyboardStructure;
 
-class Point
-{
-public:
-    Point() = default;
-    Point(float longitude, float latitude);
-
-    float m_longitude;	/* 经度 */
-    float m_latitude;	/* 纬度 */
-};
 
 class FormatConversionClass {
+private:
+    FormatConversionClass():is_connecting(true) {}
+    ~FormatConversionClass();
+    FormatConversionClass(const FormatConversionClass&) = delete;
+    FormatConversionClass& operator=(const FormatConversionClass&) = delete;
+
+    static FormatConversionClass instance;
+
 public:
-    FormatConversionClass();
+    static FormatConversionClass& getInstance();
+    
     int SplitString(string s, vector<string>& sub_strings);
     std::vector<std::string> get_value_from_string(std::string s, const char pattern);
     char recognize_message(std::string s);
@@ -37,29 +37,19 @@ public:
     int handle_header_P(std::string points_s, std::vector<sensor_msgs::NavSatFix> &point_list);
     int handle_header_K(std::string s);
 
-    bool push_is_open(void);
-    bool message_is_recieving(void);
-    bool tcp_is_connecting(void);
-    char control_mode(void);
-    bool boat_keep_nav(void);
-    std::string handle_R_string(void);
-    KeyboardStructure keyboard(void);
-    float get_voltage_left_battery(void);
-    float get_voltage_right_battery(void);
-
     bool is_auto_control;
     bool is_keyboard_control;
+    bool push_is_open;
+    bool is_recieving;
+    bool is_connecting;
+    char control_mode;
+    bool boat_keep_nav;
+    float voltage_left_battery;
+    float voltage_right_battery;
+    KeyboardStructure keyboard;
 
-private:
-    bool m_push_is_open;
-    bool m_is_recieving;
-    bool m_is_connecting;
-    char m_control_mode;
-    bool m_boat_keep_nav;
-    float m_voltage_left_battery;
-    float m_voltage_right_battery;
-    KeyboardStructure m_keyboard;
-    std::string m_valid_headers;
+    static const std::string valid_headers = "SPRKMXT";    // 协议中所有的合法帧头
+
 };
 
 #endif // FORMAT_CONVERSION_CLASS_H

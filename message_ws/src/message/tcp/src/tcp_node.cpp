@@ -141,7 +141,6 @@ void Tcp_RecvMessage_Thread(int client_socket)
         FormatConversion_Tcp.SplitString(tcp_recv_string.data, raw_sstrings);
         for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++)
         {
-
             vector<std::string> sub_strings = FormatConversion_Tcp.get_value_from_string((*it), ',');
             // sub_strings[0] 通常包含报文类型标识符（S/M/R/K/X等）
             tcp_message.sub_strings = sub_strings;
