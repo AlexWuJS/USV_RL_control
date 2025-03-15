@@ -162,8 +162,11 @@ add_executable(system_control_node
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(tcp_node ${PROJECT_NAME}_generate_messages_cpp)
-add_dependencies(system_control_node ${PROJECT_NAME}_generate_messages_cpp)
+
+# add_dependencies(tcp_node ${PROJECT_NAME}_generate_messages_cpp)
+# add_dependencies(system_control_node ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(tcp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(system_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(tcp_node

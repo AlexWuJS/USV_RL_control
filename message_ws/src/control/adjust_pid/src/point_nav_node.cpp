@@ -8,12 +8,23 @@ using namespace std;
 #include "control/Motor.h"
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
-#include "tcp/keyboard.h"
 #include "adjust_pid/point_nav.h"
+#include <sensor_msgs/Imu.h>
+#include <tf2/utils.h>
 
 
 Point_Nav point_nav;
 control::Motor thruster_msg;
+sensor_msgs::NavSatFix current_position;
+double heading_angle;
+
+void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
+    current_position = *msg;
+}
+
+void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
+    heading_angle = tf2::getYaw(msg->orientation)*180/M_PI;  // 当前船体的航向角
+}
 
 void Recv_NavSatFix_CallBack(const sensor_msgs::NavSatFix::ConstPtr& msg)
 {
@@ -34,15 +45,17 @@ int main(int argc, char* argv[])
     ros::init(argc, argv, "controller_node");
     ros::NodeHandle nh;
 
-    ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     ros::Publisher boat_auto_control_pub = nh.advertise<control::Motor>("/auto_thruster_pwm", 100);
+    ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
+    ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
+    ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
     // ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
-    ros::Rate rate(1);
+    ros::Rate rate(0.1);
     ROS_INFO("point_nav_node run success.");
     while (ros::ok())
     {
-        point_nav.run();
+        point_nav.run(current_position, heading_angle);
         std::pair<int, int> current_pwm = point_nav.get_thruster_pwm();
         thruster_msg.left_thruster_pwm = current_pwm.first;
         thruster_msg.right_thruster_pwm = current_pwm.second;

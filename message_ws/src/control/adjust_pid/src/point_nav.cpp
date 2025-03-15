@@ -12,7 +12,7 @@ using namespace std;
 #include "adjust_pid/pid.h"
 
 // 定义并初始化静态常量
-const sensor_msgs::NavSatFix FormatConversionClass::virtual_start_waypoint = [] {
+const sensor_msgs::NavSatFix Point_Nav::virtual_start_waypoint = [] {
     sensor_msgs::NavSatFix pos;
     pos.latitude = 91.0;    // 默认纬度
     pos.longitude = 181.0;   // 默认经度
@@ -21,7 +21,7 @@ const sensor_msgs::NavSatFix FormatConversionClass::virtual_start_waypoint = [] 
     return pos;
 }();
 
-const sensor_msgs::NavSatFix FormatConversionClass::virtual_end_waypoint = [] {
+const sensor_msgs::NavSatFix Point_Nav::virtual_end_waypoint = [] {
     sensor_msgs::NavSatFix pos;
     pos.latitude = -91.0;    // 默认纬度
     pos.longitude = -181.0;   // 默认经度
@@ -30,7 +30,7 @@ const sensor_msgs::NavSatFix FormatConversionClass::virtual_end_waypoint = [] {
     return pos;
 }();
 
-void Point_Nav::run(sensor_msgs::NavSatFix self_point){
+void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
     AnglePID AnglePid;
     PID PositionPid;
 
@@ -38,12 +38,12 @@ void Point_Nav::run(sensor_msgs::NavSatFix self_point){
         stop();
         return;
     }
-
-    double now_angle = get_angle(self_point, point_list[_index]);
-    double now_dist = get_distance(self_point, point_list[_index]);
+    
+    double desired_angle = get_angle(current_position, point_list[_index]);
+    double now_dist = get_distance(current_position, point_list[_index]);
 
     double angle_pid_output = AnglePid.update(desired_angle, now_angle);
-    double position_pid_output = PositionPid.update(_desired_dist, now_angle);
+    double position_pid_output = PositionPid.update(_desired_dist, now_dist);
 
     _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.5;
     _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.5;
@@ -51,11 +51,11 @@ void Point_Nav::run(sensor_msgs::NavSatFix self_point){
     update_point(now_dist);
 }
 
-double Point_Nav::get_angle(sensor_msgs::NavSatFix self_point, sensor_msgs::NavSatFix waypoint){
-    float now_lat_rad = now_lat * M_PI / 180;
-    float desired_lat_rad = desired_lat * M_PI / 180;
-    float delta_lat = (waypoint.latitude - self_point.latitude) * M_PI / 180;
-    float delta_lon = (waypoint.longitude - self_point.longitude) * M_PI / 180;
+double Point_Nav::get_angle(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint){
+    float now_lat_rad = current_position.latitude * M_PI / 180;
+    float desired_lat_rad = waypoint.latitude * M_PI / 180;
+    float delta_lat = (waypoint.latitude - current_position.latitude) * M_PI / 180;
+    float delta_lon = (waypoint.longitude - current_position.longitude) * M_PI / 180;
 
     float y = sin(delta_lon) * cos(desired_lat_rad);
     float x = cos(now_lat_rad) * sin(desired_lat_rad) - sin(now_lat_rad) * cos(desired_lat_rad) * cos(delta_lon);
@@ -64,13 +64,13 @@ double Point_Nav::get_angle(sensor_msgs::NavSatFix self_point, sensor_msgs::NavS
     return bear;
 }
 
-double Point_Nav::get_distance(sensor_msgs::NavSatFix self_point, sensor_msgs::NavSatFix waypoint){
-    const float R = 6371e3; // 地球半径，
+double Point_Nav::get_distance(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint){
+    const float R = 6371e3; // 地球半径，单位：米
 
-    float now_lat_rad = now_lat * M_PI / 180;
-    float desired_lat_rad = desired_lat * M_PI / 180;
-    float delta_lat = (waypoint.latitude- self_point.latitude) * M_PI / 180;
-    float delta_lon = (waypoint.longitude - self_point.longitude) * M_PI / 180;
+    float now_lat_rad = current_position.latitude * M_PI / 180;
+    float desired_lat_rad = waypoint.latitude * M_PI / 180;
+    float delta_lat = (waypoint.latitude - current_position.latitude) * M_PI / 180;
+    float delta_lon = (waypoint.longitude - current_position.longitude) * M_PI / 180;
 
     float a = sin(delta_lat / 2) * sin(delta_lat / 2) + cos(now_lat_rad) * cos(desired_lat_rad) * sin(delta_lon / 2) * sin(delta_lon / 2);
     float c = 2 * atan2(sqrt(a), sqrt(1 - a));
@@ -96,26 +96,26 @@ void Point_Nav::update_point(double dist){
     }
 }
 
-bool Point_Nav::recv_first_waypoint(sensor_msgs::NavSatFix waypoint){
-        return (msg.latitude == virtual_start_waypoint.latitude \
-            && msg.longtitude == virtual_start_waypoint.longitude);
+bool Point_Nav::recv_first_waypoint(sensor_msgs::NavSatFix waypoint) const {
+    return (waypoint.latitude == virtual_start_waypoint.latitude && 
+            waypoint.longitude == virtual_start_waypoint.longitude);
 }
 
-bool Point_Nav::recv_last_waypoint(sensor_msgs::NavSatFix waypoint){
-        return (msg.latitude == virtual_end_waypoint.latitude \
-            && msg.longtitude == virtual_end_waypoint.longitude);
+bool Point_Nav::recv_last_waypoint(sensor_msgs::NavSatFix waypoint) const {
+    return (waypoint.latitude == virtual_end_waypoint.latitude && 
+            waypoint.longitude == virtual_end_waypoint.longitude);
 }
 
 void Point_Nav::add_waypoint(sensor_msgs::NavSatFix waypoint){
     _temp_point_list.push_back(waypoint);
 }
 
-bool Point_Nav::begin_recv(void){
+void Point_Nav::begin_recv(void){
     _temp_point_list.clear();
 }
 
 void Point_Nav::update_recv_waypoints(void){
-    unordered_map<sensor_msgs::NavSatFix, int> hash_table;
+    std::set<std::pair<float, float>> hash_table;
 
     if (_temp_point_list.empty()){
         point_list.clear();
@@ -123,21 +123,22 @@ void Point_Nav::update_recv_waypoints(void){
         return;
     }
         
-    int waypoint_num = 0;
     for (auto& waypoint : point_list){
-        hash_table.insert({waypoint, waypoint_num++});
+        hash_table.insert({waypoint.longitude, waypoint.latitude});
     }
+    int waypoint_num = 0;
     for (auto& waypoint : _temp_point_list){
-        auto result = hash_table.insert({waypoint, waypoint_num++});
-        if (result.second && _index >= result.first->second){// 回到第一个不同的点开始跟踪
-                _index = result.first->second;
+        waypoint_num++;
+        auto result = hash_table.insert({waypoint.longitude, waypoint.latitude});
+        if (result.second && _index >= waypoint_num){// 回到第一个不同的点开始跟踪
+            _index = waypoint_num;
             break;
         }    
     }    
     point_list = std::move(_temp_point_list);  
 }
 
-std::pair<int, int> Point_Nav::get_thruster_pwm(void){
+std::pair<int, int> Point_Nav::get_thruster_pwm(void) const {
     return {_left_thruster_pwm, _right_thruster_pwm};
 }
 

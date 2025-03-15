@@ -174,6 +174,7 @@ add_dependencies(adjust_angle_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cat
 add_dependencies(adjust_speed_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(adjust_location_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(point_nav_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(adjust_angle_pid_node
   ${catkin_LIBRARIES}
