@@ -121,7 +121,7 @@ void Tcp_SendMessage_Thread(int client_socket)
 void Tcp_RecvMessage_Thread(int client_socket)
 {
     char tcp_rbuf[100];
-    FormatConversionClass FormatConversion_Tcp;
+    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
     vector<std::string> raw_sstrings;
 
     while (true)

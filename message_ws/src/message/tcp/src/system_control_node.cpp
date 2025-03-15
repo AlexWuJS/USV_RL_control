@@ -67,7 +67,7 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
   */
 void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
-    FormatConversionClass& FormatConversion_usart = FormatConversionClass::getInstance();
+    FormatConversionClass& FormatConversion_usart = FormatConversionClass::get_singleton();
     vector<std::string> raw_recv_strings;
 
     /* convert to string */
@@ -96,7 +96,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
     vector<std::string> sub_strings;
-    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::getInstance();
+    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
     std::vector<sensor_msgs::NavSatFix> point_list;
     sensor_msgs::NavSatFix virtual_point;
     virtual_point.latitude = 0;

@@ -13,9 +13,12 @@ using namespace std;
 #include <tf2_ros/buffer.h>
 #include <sensor_msgs/NavSatFix.h>
 
+// 定义静态成员 singleton
+FormatConversionClass FormatConversionClass::singleton;
+const std::string FormatConversionClass::valid_headers = "SPRKMXT";
 
-FormatConversionClass& FormatConversionClass::getInstance() {
-    return instance;
+FormatConversionClass& FormatConversionClass::get_singleton() {
+    return singleton;
 }
 /**
   * @brief  分割一个包含不同帧头的字符串。只查找一次，不允许存在相同帧头
@@ -28,10 +31,14 @@ FormatConversionClass& FormatConversionClass::getInstance() {
     map<int, char> signs_in_strings;
 
     /* 查找所有对应的符号 */
-    for (std::string::iterator it = valid_headers.begin(); it != valid_headers.end(); it ++){
-        if ((pos = s.find(*it)) != string::npos)
-            signs_in_strings.insert(pair<int, char>(pos, *it));        /* 记录符号及对应的位置 */  
+    for (auto& str : valid_headers){
+        if ((pos = s.find(str)) != string::npos)
+            signs_in_strings.insert(pair<int, char>(pos, str));        /* 记录符号及对应的位置 */  
     }
+    // for (std::string::iterator it = valid_headers.begin(); it != valid_headers.end(); it ++){
+    //     if ((pos = s.find(*it)) != string::npos)
+    //         signs_in_strings.insert(pair<int, char>(pos, *it));        /* 记录符号及对应的位置 */  
+    // }
     if (signs_in_strings.empty())    /* 如果没有找到对应的符号 */
     {
         return -1;

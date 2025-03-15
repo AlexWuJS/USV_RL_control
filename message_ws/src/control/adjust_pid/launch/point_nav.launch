@@ -1,0 +1,29 @@
+<launch>
+    <arg name="angle_kp" default="20.0" />
+    <arg name="angle_ki" default="0.0" />
+    <arg name="angle_kd" default="125.0" />
+    <arg name="location_kp" default="0.0" />
+    <arg name="location_ki" default="0.0" />
+    <arg name="location_kd" default="0.0" />
+    <arg name="maxIntegral" default="800.0" />
+    <arg name="maxOutput" default="1800.0" />
+
+    <node pkg="control" type="point_nav_node" name="point_nav" output="screen"/>
+        <param name="angle_kp" value="$(arg angle_kp)" />
+        <param name="angle_ki" value="$(arg angle_ki)" />
+        <param name="angle_kd" value="$(arg angle_kd)" />
+        <param name="location_kp" value="$(arg location_kp)" />
+        <param name="location_ki" value="$(arg location_ki)" />
+        <param name="location_kd" value="$(arg location_kd)" />
+        <param name="maxIntegral" value="$(arg maxIntegral)" />
+        <param name="maxOutput" value="$(arg maxOutput)" />
+
+    </node>
+
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <node pkg="control" type="controller_node" name="controller" output="screen"/>
+    <!-- <include file="$(find gps_common)/launch/odom_local.launch"/> -->
+
+</launch>

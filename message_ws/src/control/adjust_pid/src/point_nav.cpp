@@ -4,19 +4,40 @@ using namespace std;
 #include <nav_msgs/Odometry.h>
 #include <tf/transform_datatypes.h>
 #include <std_msgs/String.h>
-#include "point_nav.h"
+#include "adjust_pid/point_nav.h"
 #include "control/Motor.h"
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "tcp/keyboard.h"
 #include "adjust_pid/pid.h"
 
+// 定义并初始化静态常量
+const sensor_msgs::NavSatFix FormatConversionClass::virtual_start_waypoint = [] {
+    sensor_msgs::NavSatFix pos;
+    pos.latitude = 91.0;    // 默认纬度
+    pos.longitude = 181.0;   // 默认经度
+    pos.altitude = 0.0;    // 默认高度
+    pos.header.frame_id = "map";  // 可选：设置坐标系
+    return pos;
+}();
 
-
+const sensor_msgs::NavSatFix FormatConversionClass::virtual_end_waypoint = [] {
+    sensor_msgs::NavSatFix pos;
+    pos.latitude = -91.0;    // 默认纬度
+    pos.longitude = -181.0;   // 默认经度
+    pos.altitude = 0.0;    // 默认高度
+    pos.header.frame_id = "map";  // 可选：设置坐标系
+    return pos;
+}();
 
 void Point_Nav::run(sensor_msgs::NavSatFix self_point){
     AnglePID AnglePid;
     PID PositionPid;
+
+    if (point_list.empty()){
+        stop();
+        return;
+    }
 
     double now_angle = get_angle(self_point, point_list[_index]);
     double now_dist = get_distance(self_point, point_list[_index]);
@@ -24,8 +45,8 @@ void Point_Nav::run(sensor_msgs::NavSatFix self_point){
     double angle_pid_output = AnglePid.update(desired_angle, now_angle);
     double position_pid_output = PositionPid.update(_desired_dist, now_angle);
 
-    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + location_pid_output * 0.5;
-    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + location_pid_output * 0.5;
+    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.5;
+    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.5;
 
     update_point(now_dist);
 }
@@ -62,13 +83,12 @@ void Point_Nav::update_point(double dist){
     // std::cout << "dist:" << dist << std::endl;
     if (dist  < _switch_dist) {
         std::cout << "go to next point" << std::endl;
-        if (_index+1 == point_list.size()) { //this is the last waypoint
+        if (_index == point_list.size()-1) { //this is the last waypoint
             std::cout << "this is the last waypoint" << std::endl;
             if (dist  < 1) {
                 std::cout << "stop" << std::endl;
-                is_final = true;
-                
-                //cout << "current speed:" << vel_b(0) << endl;
+                stop();
+                // is_final = true;
             }
         } else {
             _index++;
@@ -77,33 +97,40 @@ void Point_Nav::update_point(double dist){
 }
 
 bool Point_Nav::recv_first_waypoint(sensor_msgs::NavSatFix waypoint){
-        return (msg.latitude == 91 && msg.longtitude == 181);
+        return (msg.latitude == virtual_start_waypoint.latitude \
+            && msg.longtitude == virtual_start_waypoint.longitude);
 }
 
 bool Point_Nav::recv_last_waypoint(sensor_msgs::NavSatFix waypoint){
-        return (msg.latitude == -91 && msg.longtitude == -181);
+        return (msg.latitude == virtual_end_waypoint.latitude \
+            && msg.longtitude == virtual_end_waypoint.longitude);
 }
 
 void Point_Nav::add_waypoint(sensor_msgs::NavSatFix waypoint){
     _temp_point_list.push_back(waypoint);
 }
 
-bool Point_Nav::begin_recv(sensor_msgs::NavSatFix waypoint){
+bool Point_Nav::begin_recv(void){
     _temp_point_list.clear();
 }
 
 void Point_Nav::update_recv_waypoints(void){
     unordered_map<sensor_msgs::NavSatFix, int> hash_table;
 
+    if (_temp_point_list.empty()){
+        point_list.clear();
+        _index = 0;
+        return;
+    }
+        
+    int waypoint_num = 0;
     for (auto& waypoint : point_list){
-        int waypoint_num = 0;
         hash_table.insert({waypoint, waypoint_num++});
     }
     for (auto& waypoint : _temp_point_list){
-        int waypoint_num = 0;
-        std::pair result = hash_table.insert({waypoint, waypoint_num++});
-        if (result.second() && _index >= result.first().second()){// 回到第一个不同的点开始跟踪
-                _index = result.first().second();
+        auto result = hash_table.insert({waypoint, waypoint_num++});
+        if (result.second && _index >= result.first->second){// 回到第一个不同的点开始跟踪
+                _index = result.first->second;
             break;
         }    
     }    
@@ -112,4 +139,9 @@ void Point_Nav::update_recv_waypoints(void){
 
 std::pair<int, int> Point_Nav::get_thruster_pwm(void){
     return {_left_thruster_pwm, _right_thruster_pwm};
+}
+
+void Point_Nav::stop(void){
+    _left_thruster_pwm = THRUSTER_MID_PWM;
+    _right_thruster_pwm = THRUSTER_MID_PWM;
 }
