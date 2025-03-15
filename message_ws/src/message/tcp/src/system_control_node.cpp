@@ -98,6 +98,9 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
     vector<std::string> sub_strings;
     FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::getInstance();
     std::vector<sensor_msgs::NavSatFix> point_list;
+    sensor_msgs::NavSatFix virtual_point;
+    virtual_point.latitude = 0;
+    virtual_point.longitude = 0;
 
     sub_strings.push_back(msg->data);
 
@@ -117,15 +120,14 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             case 'P':
-                // point_list.clear();
-                // FormatConversion_Tcp.handle_header_P(*it, point_list);
+                point_list.clear();
 
-                // for (vector<sensor_msgs::NavSatFix>::iterator point_ptr = point_list.begin(); point_ptr != point_list.end(); point_ptr++)
-                // {
-                //     int i;
-                //     rtk_point_pub.publish(*point_ptr);
-                //     ROS_WARN("pub %d point.",++i);
-                // }
+                rtk_point_pub.publish(virtual_point);   // 发送一个虚拟航点，用于清空原有航点
+                FormatConversion_Tcp.handle_header_P(*it, point_list);
+                for (auto& point : point_list)
+                {
+                    rtk_point_pub.publish(point);
+                }
             break;
 
             case 'K':
@@ -154,12 +156,12 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 10000);
-    rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10000);
+    rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10);
 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
-    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
+    ros::Subscriber tcp_message_sb = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
     ros::service::waitForService("/tcp/communication", -1);

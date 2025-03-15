@@ -28,24 +28,6 @@ tcp::ship_info boat_status;
 
 
 /**
-  * @brief  角度映射到-180~180度的范围。
-  * @param  angle: 映射前的角度。
-  * @retval map_angle：映射前的角度。
-  */
-double angleMap(double angle)
-{
-    double map_angle;
-    if (angle > 180 && angle < 360)
-        map_angle = angle - 360;
-    else if (angle < -180 && angle > -360)
-        map_angle = angle + 360;
-    else
-        map_angle = angle;
-
-    return map_angle;
-}
-
-/**
   * @brief  从节点中读取上位机发送的参数等信息
   * @param  msg: ship_info类型的消息
   * @retval 无
@@ -61,11 +43,11 @@ void Pid_Callback(const ros::TimerEvent &event)
     if (boat_distance < 1.5) // 1.5
     {
         /* 如果目标点在船身后,那么后退 */
-        if ((desired_angle < angleMap(heading_angle - 90)) && (desired_angle > angleMap(heading_angle + 90)))
+        if ((desired_angle < AnglePID::map(heading_angle - 90)) && (desired_angle > AnglePID::map(heading_angle + 90)))
         {
             if (desired_angle != 0)
             {
-                desired_angle = angleMap(desired_angle - 180 * desired_angle/abs(desired_angle));
+                desired_angle = AnglePID::map(desired_angle - 180 * desired_angle/abs(desired_angle));
             }
             boat_distance = -boat_distance;
         }
