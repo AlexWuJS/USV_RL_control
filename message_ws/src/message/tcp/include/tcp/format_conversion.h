@@ -24,7 +24,7 @@ private:
     FormatConversionClass& operator=(const FormatConversionClass&) = delete;
 
     static FormatConversionClass singleton;
-
+    static const std::string _valid_headers;    // 协议中所有的合法帧头
 public:
     static FormatConversionClass& get_singleton();
     
@@ -47,7 +47,6 @@ public:
     float voltage_right_battery;
     KeyboardStructure keyboard;
 
-    static const std::string valid_headers;    // 协议中所有的合法帧头
 };
 
 #endif // FORMAT_CONVERSION_CLASS_H

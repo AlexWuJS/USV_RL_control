@@ -17,7 +17,7 @@
 std::mutex tcp_send_mtx, tcp_recv_mtx; // 定义互斥锁
 std::condition_variable tcp_send_cv;   // 条件变量
 bool enable_send_tcp, ready_send_tcp;  // 条件变量的条件
-ros::Publisher tcp_message_pub, tcp_raw_message_pub, tcp_GroundData_pub;
+ros::Publisher tcp_data_pub, tcp_raw_message_pub, tcp_GroundData_pub;
 std::string tcp_sub_string;
 std_msgs::String tcp_recv_string;
 
@@ -122,13 +122,13 @@ void Tcp_RecvMessage_Thread(int client_socket)
 {
     char tcp_rbuf[100];
     FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
-    vector<std::string> raw_sstrings;
+    vector<std::string> data_frames;
 
     while (true)
     {
         // std::lock_guard<std::mutex> lock(tcp_recv_mtx);     // 上锁，自动释放锁
         memset(tcp_rbuf, '\0', sizeof(tcp_rbuf)); // 接收数据前，清空缓存区
-        raw_sstrings.clear();
+        data_frames.clear();
         ssize_t bytes_received = Tcp_Server_Read(client_socket, tcp_rbuf); // 线程安全函数
         if (bytes_received <= 0)
         { // 读取Tcp数据失败
@@ -138,13 +138,11 @@ void Tcp_RecvMessage_Thread(int client_socket)
         tcp_recv_string.data = tcp_rbuf;
         tcp_raw_message_pub.publish(tcp_recv_string);
         /* convert to string */
-        FormatConversion_Tcp.SplitString(tcp_recv_string.data, raw_sstrings);
-        for (vector<string>::iterator it = raw_sstrings.begin(); it != raw_sstrings.end(); it++)
-        {
-            vector<std::string> sub_strings = FormatConversion_Tcp.get_value_from_string((*it), ',');
-            // sub_strings[0] 通常包含报文类型标识符（S/M/R/K/X等）
-            tcp_message.sub_strings = sub_strings;
-            tcp_message_pub.publish(tcp_message);
+        FormatConversion_Tcp.SplitString(tcp_recv_string.data, data_frames);
+        for (auto& data_frame: data_frames){
+            vector<std::string> tcp_segments = FormatConversion_Tcp.get_value_from_string(data_frame, ',');
+            tcp_message.sub_strings = tcp_segments;
+            tcp_data_pub.publish(tcp_message);
         }
     }
     ROS_WARN("close socket:%d", client_socket);
@@ -193,10 +191,10 @@ int main(int argc, char *argv[])
 
     ros::NodeHandle nh;
 
-    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10000);
-    tcp_message_pub = nh.advertise<tcp::message_s>("/tcp/data", 10000);
+    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 1000);
+    tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 1000);
     tcp_GroundData_pub = nh.advertise<std_msgs::String>("/tcp/GroundData", 1000);
-    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10000, Tcp_GetShipInfo_CallBack);
+    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_GetShipInfo_CallBack);
 
     ros::ServiceServer service_connection = nh.advertiseService("/tcp/connection", Tcp_Get_Status_CallBack);
     ros::ServiceServer service_send_message = nh.advertiseService("/tcp/communication", Tcp_Srv_SendMessageCallBack);
@@ -208,8 +206,6 @@ int main(int argc, char *argv[])
     ros::spin();
 
     // 等待线程结束
-
-    
     ServerAccept.join();
 
     return 0;

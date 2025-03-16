@@ -11,7 +11,7 @@ using namespace std;
 #include "tcp/keyboard.h"
 #include "adjust_pid/pid.h"
 
-// 定义并初始化静态常量
+// 定义并初始化常量
 const sensor_msgs::NavSatFix Point_Nav::virtual_start_waypoint = [] {
     sensor_msgs::NavSatFix pos;
     pos.latitude = 91.0;    // 默认纬度

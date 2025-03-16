@@ -3,7 +3,6 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
-#include <map>
 #include "tcp/format_conversion.h"
 #include "tcp/ship_info.h"
 using namespace std;
@@ -12,10 +11,12 @@ using namespace std;
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/buffer.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <unordered_set>
+
 
 // 定义静态成员 singleton
 FormatConversionClass FormatConversionClass::singleton;
-const std::string FormatConversionClass::valid_headers = "SPRKMXT";
+const std::string FormatConversionClass::_valid_headers = "SPRKMXT";
 
 FormatConversionClass& FormatConversionClass::get_singleton() {
     return singleton;
@@ -25,37 +26,69 @@ FormatConversionClass& FormatConversionClass::get_singleton() {
   * @param  无
   * @retval -1: 字符串中不存在合法帧头
   */
- int FormatConversionClass::SplitString(string s, vector<string>& sub_strings)
+ int FormatConversionClass::SplitString(string source, vector<string>& data_frames_string)
 {
-    size_t pos;
-    map<int, char> signs_in_strings;
+    data_frames_string.clear();
 
-    /* 查找所有对应的符号 */
-    for (auto& str : valid_headers){
-        if ((pos = s.find(str)) != string::npos)
-            signs_in_strings.insert(pair<int, char>(pos, str));        /* 记录符号及对应的位置 */  
+    if (_valid_headers.empty()) {
+        return -1; // 错误：分隔符集合为空
     }
-    // for (std::string::iterator it = valid_headers.begin(); it != valid_headers.end(); it ++){
-    //     if ((pos = s.find(*it)) != string::npos)
-    //         signs_in_strings.insert(pair<int, char>(pos, *it));        /* 记录符号及对应的位置 */  
-    // }
-    if (signs_in_strings.empty())    /* 如果没有找到对应的符号 */
-    {
-        return -1;
+
+    // 将分隔符存储到 unordered_set 中以便快速查找
+    std::unordered_set<char> delim_set(_valid_headers.begin(), _valid_headers.end());
+
+    size_t start = 0;
+    // 跳过开头的非分隔符字符
+    while (start < source.length() && delim_set.find(source[start]) == delim_set.end()) {
+        ++start;
     }
-    else    /* 根据key值，分割字符串*/
-    {
-        for (map<int, char>::iterator it = signs_in_strings.begin(); it != signs_in_strings.end(); it++)
-        {
-            map<int, char>::iterator next_it = std::next(it);
-            if (next_it != signs_in_strings.end())                                          // 如果该标识符不是最后一个标识符
-                sub_strings.push_back(s.substr(it->first, next_it->first - it->first));     // 将当前标识符与下一个标识符之间的字符作为字符串
-            else                                                                            // 如果该标识符为最后一个标识符
-                sub_strings.push_back(s.substr(it->first));                                 // 将最后一个标识符到结尾添加到字符串
+
+    // 从第一个分隔符开始分割
+    while (start < source.length()) {
+        // 找到下一个分隔符的位置
+        size_t end = start + 1;
+        while (end < source.length() && delim_set.find(source[end]) == delim_set.end()) {
+            ++end;
         }
+
+        // 提取从 start 到 end（不包括 end）的子字符串
+        data_frames_string.push_back(source.substr(start, end - start));
+
+        // 更新 start 到下一个分隔符位置
+        start = end;
     }
+
+    return 0; // 成功
+    // size_t pos;
+    // map<int, char> frame_header_positions;
+
+    // /* 查找所有对应的符号 */
+    // for (auto& header : _valid_headers){
+    //     if ((pos = s.find(header)) != string::npos)
+    //         frame_header_positions.insert(pair<int, char>(pos, header));        /* 记录帧头及对应的位置 */  
+    // }
+    // // for (std::string::iterator it = _valid_headers.begin(); it != _valid_headers.end(); it ++){
+    // //     if ((pos = s.find(*it)) != string::npos)
+    // //         frame_header_positions.insert(pair<int, char>(pos, *it));        /* 记录帧头及对应的位置 */  
+    // // }
+    // if (frame_header_positions.empty())    /* 如果没有找到对应的帧头 */
+    // {
+    //     return -1;
+    // }
+    // else    /* 根据key值，分割字符串*/
+    // {
+        
+    //     for (map<int, char>::iterator it = frame_header_positions.begin(); it != frame_header_positions.end(); it++)
+    //     {
+    //         map<int, char>::iterator next_it = std::next(it);
+    //         if (next_it != frame_header_positions.end())                                          // 如果该标识符不是最后一个标识符
+    //             data_frames_string.push_back(s.substr(it->first, next_it->first - it->first));     // 将当前标识符与下一个标识符之间的字符作为字符串
+    //         else                                                                            // 如果该标识符为最后一个标识符
+    //             data_frames_string.push_back(s.substr(it->first));                                 // 将最后一个标识符到结尾添加到字符串
+    //     }
+    // }
     
-    return 0;
+    // return 0;
 }
 
 vector<string> FormatConversionClass::get_value_from_string(std::string s, const char pattern)
@@ -79,7 +112,7 @@ vector<string> FormatConversionClass::get_value_from_string(std::string s, const
 char FormatConversionClass::recognize_message(std::string s)
 {
     /* 首先判断帧头、帧尾是否合法 */
-    if (valid_headers.find(s.front()) == std::string::npos)    /* 帧头不合法 */
+    if (_valid_headers.find(s.front()) == std::string::npos)    /* 帧头不合法 */
     {
         ROS_INFO("recognize_message: The message tail '%c' is invalid!", s.front());
         ROS_INFO("    Entire message: %s", s.c_str());
