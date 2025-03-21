@@ -33,6 +33,10 @@ void Recv_NavSatFix_CallBack(const sensor_msgs::NavSatFix::ConstPtr& msg)
     }
     else if (point_nav.recv_last_waypoint(*msg)){
         point_nav.update_recv_waypoints();
+        ROS_INFO("recieve %d waypoints.", point_nav.point_list.size());
+        for (auto& point : point_nav.point_list){
+            cout << point.latitude << "\t"<<point.longitude<<endl;
+        }
     }
     else
         point_nav.add_waypoint(*msg);
@@ -51,7 +55,7 @@ int main(int argc, char* argv[])
     ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
     // ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
-    ros::Rate rate(0.1);
+    ros::Rate rate(10);
     ROS_INFO("point_nav_node run success.");
     while (ros::ok())
     {

@@ -82,16 +82,16 @@ double Point_Nav::get_distance(sensor_msgs::NavSatFix current_position, sensor_m
 void Point_Nav::update_point(double dist){
     // std::cout << "dist:" << dist << std::endl;
     if (dist  < _switch_dist) {
-        std::cout << "go to next point" << std::endl;
         if (_index == point_list.size()-1) { //this is the last waypoint
-            std::cout << "this is the last waypoint" << std::endl;
             if (dist  < 1) {
                 std::cout << "stop" << std::endl;
                 stop();
                 // is_final = true;
-            }
+            }else
+                std::cout << "this is the last waypoint" << std::endl;
         } else {
             _index++;
+            std::cout << "go to next point" << std::endl;
         }
     }
 }

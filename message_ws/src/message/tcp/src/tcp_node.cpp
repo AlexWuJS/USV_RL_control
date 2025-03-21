@@ -86,7 +86,7 @@ bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessag
  */
 void Tcp_SendMessage_Thread(int client_socket)
 {
-    char tcp_sbuf[100];
+    char tcp_sbuf[TCP_MAX_SIZE];
 
     while (true)
     {
@@ -120,7 +120,7 @@ void Tcp_SendMessage_Thread(int client_socket)
  */
 void Tcp_RecvMessage_Thread(int client_socket)
 {
-    char tcp_rbuf[100];
+    char tcp_rbuf[TCP_MAX_SIZE];
     FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
     vector<std::string> data_frames;
 
@@ -138,9 +138,9 @@ void Tcp_RecvMessage_Thread(int client_socket)
         tcp_recv_string.data = tcp_rbuf;
         tcp_raw_message_pub.publish(tcp_recv_string);
         /* convert to string */
-        FormatConversion_Tcp.SplitString(tcp_recv_string.data, data_frames);
+        FormatConversion_Tcp.SplitString(tcp_recv_string.data, data_frames);    // 拆解多组数据帧
         for (auto& data_frame: data_frames){
-            vector<std::string> tcp_segments = FormatConversion_Tcp.get_value_from_string(data_frame, ',');
+            vector<std::string> tcp_segments = FormatConversion_Tcp.get_value_from_string(data_frame, ',');     // 拆解每组数据帧的数据块
             tcp_message.sub_strings = tcp_segments;
             tcp_data_pub.publish(tcp_message);
         }

@@ -8,7 +8,7 @@
     <arg name="maxIntegral" default="800.0" />
     <arg name="maxOutput" default="1800.0" />
 
-    <node pkg="control" type="point_nav_node" name="point_nav" output="screen"/>
+    <node pkg="adjust_pid" type="point_nav_node" name="point_nav" output="screen">
         <param name="angle_kp" value="$(arg angle_kp)" />
         <param name="angle_ki" value="$(arg angle_ki)" />
         <param name="angle_kd" value="$(arg angle_kd)" />
@@ -17,7 +17,6 @@
         <param name="location_kd" value="$(arg location_kd)" />
         <param name="maxIntegral" value="$(arg maxIntegral)" />
         <param name="maxOutput" value="$(arg maxOutput)" />
-
     </node>
 
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
