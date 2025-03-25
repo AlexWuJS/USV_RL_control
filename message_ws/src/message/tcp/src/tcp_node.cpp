@@ -17,9 +17,9 @@
 std::mutex tcp_send_mtx, tcp_recv_mtx; // 定义互斥锁
 std::condition_variable tcp_send_cv;   // 条件变量
 bool enable_send_tcp, ready_send_tcp;  // 条件变量的条件
-ros::Publisher tcp_data_pub, tcp_raw_message_pub, tcp_GroundData_pub;
-std::string tcp_sub_string;
-std_msgs::String tcp_recv_string;
+ros::Publisher tcp_data_pub, tcp_raw_message_pub, tcp_toGroundData_pub;
+std::string ground_station_data;
+std_msgs::String tcp_recv_string, tcp_toGroundData;
 
 tcp::message_s tcp_message;
 
@@ -72,7 +72,7 @@ bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessag
     std::unique_lock<std::mutex> lock(tcp_send_mtx); // 上锁
     // while (!enable_send_tcp) tcp_send_cv.wait(lock);
     ready_send_tcp = true;
-    tcp_sub_string = req.str;
+    ground_station_data = req.str;
 
     lock.unlock(); // 解锁
 
@@ -97,13 +97,15 @@ void Tcp_SendMessage_Thread(int client_socket)
         {
             ready_send_tcp = false;
 
-            strcpy(tcp_sbuf, tcp_sub_string.c_str());
+            strcpy(tcp_sbuf, ground_station_data.c_str());
             int tcp_send_flag = Tcp_Server_Send(client_socket, tcp_sbuf);
 
             if (tcp_send_flag < 0) // 发送失败
                 break;
-            else
-                tcp_GroundData_pub.publish(tcp_recv_string); // 发送至上位机
+            else{
+                tcp_toGroundData.data = ground_station_data;
+                tcp_toGroundData_pub.publish(tcp_toGroundData); // 发送至上位机
+            }
         }
         lock.unlock(); // 解锁
 
@@ -193,7 +195,7 @@ int main(int argc, char *argv[])
 
     tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 1000);
     tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 1000);
-    tcp_GroundData_pub = nh.advertise<std_msgs::String>("/tcp/GroundData", 1000);
+    tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 1000);
     ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_GetShipInfo_CallBack);
 
     ros::ServiceServer service_connection = nh.advertiseService("/tcp/connection", Tcp_Get_Status_CallBack);

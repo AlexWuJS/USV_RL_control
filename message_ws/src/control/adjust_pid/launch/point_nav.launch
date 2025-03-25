@@ -2,7 +2,7 @@
     <arg name="angle_kp" default="20.0" />
     <arg name="angle_ki" default="0.0" />
     <arg name="angle_kd" default="125.0" />
-    <arg name="location_kp" default="0.0" />
+    <arg name="location_kp" default="-60.0" />
     <arg name="location_ki" default="0.0" />
     <arg name="location_kd" default="0.0" />
     <arg name="maxIntegral" default="800.0" />
@@ -23,6 +23,10 @@
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
     <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
     <node pkg="control" type="controller_node" name="controller" output="screen"/>
+    <!-- 运行imu -->
+    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    <!-- 运行rtk -->
+    <include file="$(find gps_common)/launch/rtk_nmea.launch"/>
     <!-- <include file="$(find gps_common)/launch/odom_local.launch"/> -->
 
 </launch>

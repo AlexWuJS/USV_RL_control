@@ -5,6 +5,8 @@
 #include <set>
 #include <utility>
 #include <sensor_msgs/NavSatFix.h>
+#include "adjust_pid/pid.h"
+
 
 // 定义电机中值常量
 #define THRUSTER_MID_PWM 1500  // 推进器中间值PWM (通常是1500微秒)
@@ -12,8 +14,12 @@
 class Point_Nav{
 public:
     std::vector<sensor_msgs::NavSatFix> point_list;
+    AnglePID AnglePid;
+    PID PositionPid;
 
+    // Point_Nav();
     Point_Nav() = default;
+    void get_nh_param(const ros::NodeHandle& nh);
     void run(sensor_msgs::NavSatFix current_position, double now_angle);
     void update_recv_waypoints(void);
     bool recv_first_waypoint(sensor_msgs::NavSatFix waypoint) const;
@@ -33,6 +39,6 @@ private:
 
     double get_angle(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint);
     double get_distance(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint);
-    void update_point(double dist);
+    void update_point(const double dist);
     void stop(void);
 };

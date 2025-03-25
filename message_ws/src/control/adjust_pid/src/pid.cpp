@@ -57,6 +57,8 @@ double AnglePID::update(float reference,float feedback){
 
     error_ = AnglePID::map(error_);
 
+    ROS_INFO("reference:%f feedback:%f error: %f",reference,feedback, error_);
+
     float dout=(error_-lastError_)*kd;
     
     float pout=error_*kp;
