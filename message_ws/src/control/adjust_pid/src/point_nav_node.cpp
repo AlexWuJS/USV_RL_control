@@ -52,6 +52,11 @@ int main(int argc, char* argv[])
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
     // ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
     ros::Rate rate(0.1);
+    
+    // 设置PID参数
+    point_nav.setAnglePidParams(nh);
+    point_nav.setPositionPidParams(nh);
+    
     ROS_INFO("point_nav_node run success.");
     while (ros::ok())
     {
