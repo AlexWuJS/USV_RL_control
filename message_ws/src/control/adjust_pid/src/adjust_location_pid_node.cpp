@@ -110,7 +110,6 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
         desired_position_y = stof(sub_strings[2]);
         PositionPid.kp = stof(sub_strings[3]);
         PositionPid.ki = stof(sub_strings[4]);
-
         PositionPid.kd = stof(sub_strings[5]);
         ROS_INFO("pid:%f,%f,%f", PositionPid.kp,PositionPid.ki,PositionPid.kd);
     }
@@ -125,8 +124,9 @@ void TcpSend_Thread()
     {
         // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
         //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,0,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-       tcp_send_message.request.str = tcp_sbuf;
+        // sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%d,%d,\n", location_pid_output, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+        tcp_send_message.request.str = tcp_sbuf;
 
         client.call(tcp_send_message);   
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       

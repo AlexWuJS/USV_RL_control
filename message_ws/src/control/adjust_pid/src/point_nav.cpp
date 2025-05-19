@@ -9,7 +9,7 @@ using namespace std;
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "tcp/keyboard.h"
-#include "adjust_pid/pid.h"
+
 
 // 定义并初始化常量
 const sensor_msgs::NavSatFix Point_Nav::virtual_start_waypoint = [] {
@@ -30,20 +30,46 @@ const sensor_msgs::NavSatFix Point_Nav::virtual_end_waypoint = [] {
     return pos;
 }();
 
+void Point_Nav::get_nh_param(const ros::NodeHandle& nh){
+    //pid
+    if (!nh.getParam("/point_nav/angle_kp", AnglePid.kp))
+    ROS_WARN("angle_kp not found");
+    if (!nh.getParam("/point_nav/angle_ki", AnglePid.ki))
+        ROS_WARN("angle_ki not found");
+    if (!nh.getParam("/point_nav/angle_kd", AnglePid.kd))
+        ROS_WARN("angle_kd not found");
+    if (!nh.getParam("/point_nav/location_kp", PositionPid.kp))
+        ROS_WARN("location_kp not found");
+    if (!nh.getParam("/point_nav/location_ki", PositionPid.ki))
+        ROS_WARN("location_ki not found");
+    if (!nh.getParam("/point_nav/location_kd", PositionPid.kd))
+        ROS_WARN("location_kd not found");
+    if (!nh.getParam("/point_nav/maxIntegral", AnglePid.maxIntegral))
+        ROS_WARN("angle maxIntegral not found");
+    if (!nh.getParam("/point_nav/maxOutput", AnglePid.maxOutput))
+        ROS_WARN("angle maxOutput not found");
+    if (!nh.getParam("/point_nav/maxIntegral", PositionPid.maxIntegral))
+        ROS_WARN("position maxIntegral not found");
+    if (!nh.getParam("/point_nav/maxOutput", PositionPid.maxOutput))
+        ROS_WARN("position maxOutput not found");
+}
+
 void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
     if (point_list.empty()){
         stop();
+        ROS_DEBUG("point_list is empty");
         return;
     }
     
     double desired_angle = get_angle(current_position, point_list[_index]);
     double now_dist = get_distance(current_position, point_list[_index]);
+    ROS_INFO("desired_angle: %f, now_dist: %f", desired_angle, now_dist);
 
     double angle_pid_output = angle_pid.update(desired_angle, now_angle);
     double position_pid_output = position_pid.update(_desired_dist, now_dist);
 
-    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.5;
-    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.5;
+    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.0;
+    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.0;
 
     update_point(now_dist);
 }
@@ -76,19 +102,19 @@ double Point_Nav::get_distance(sensor_msgs::NavSatFix current_position, sensor_m
     return dist;
 }
 
-void Point_Nav::update_point(double dist){
+void Point_Nav::update_point(const double dist){
     // std::cout << "dist:" << dist << std::endl;
     if (dist  < _switch_dist) {
-        std::cout << "go to next point" << std::endl;
         if (_index == point_list.size()-1) { //this is the last waypoint
-            std::cout << "this is the last waypoint" << std::endl;
             if (dist  < 1) {
                 std::cout << "stop" << std::endl;
                 stop();
                 // is_final = true;
-            }
+            }else
+                std::cout << "this is the last waypoint" << std::endl;
         } else {
             _index++;
+            std::cout << "go to next point" << std::endl;
         }
     }
 }

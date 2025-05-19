@@ -16,14 +16,14 @@ using namespace std;
 Point_Nav point_nav;
 control::Motor thruster_msg;
 sensor_msgs::NavSatFix current_position;
-double heading_angle;
+double current_heading_angle;
 
 void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
     current_position = *msg;
 }
 
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
-    heading_angle = tf2::getYaw(msg->orientation)*180/M_PI;  // 当前船体的航向角
+    current_heading_angle = tf2::getYaw(msg->orientation)*180/M_PI;  // 当前船体的航向角
 }
 
 void Recv_NavSatFix_CallBack(const sensor_msgs::NavSatFix::ConstPtr& msg)
@@ -33,6 +33,10 @@ void Recv_NavSatFix_CallBack(const sensor_msgs::NavSatFix::ConstPtr& msg)
     }
     else if (point_nav.recv_last_waypoint(*msg)){
         point_nav.update_recv_waypoints();
+        ROS_INFO("recieve %d waypoints.", point_nav.point_list.size());
+        for (auto& point : point_nav.point_list){
+            cout << point.latitude << "\t"<<point.longitude<<endl;
+        }
     }
     else
         point_nav.add_waypoint(*msg);
@@ -59,7 +63,7 @@ int main(int argc, char* argv[])
     ROS_INFO("point_nav_node run success.");
     while (ros::ok())
     {
-        point_nav.run(current_position, heading_angle);
+        point_nav.run(current_position, current_heading_angle);
         std::pair<int, int> current_pwm = point_nav.get_thruster_pwm();
         thruster_msg.left_thruster_pwm = current_pwm.first;
         thruster_msg.right_thruster_pwm = current_pwm.second;
