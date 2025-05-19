@@ -54,8 +54,7 @@ int main(int argc, char* argv[])
     ros::Rate rate(0.1);
     
     // 设置PID参数
-    point_nav.setAnglePidParams(nh);
-    point_nav.setPositionPidParams(nh);
+    point_nav.setPidParams(nh);
     
     ROS_INFO("point_nav_node run success.");
     while (ros::ok())

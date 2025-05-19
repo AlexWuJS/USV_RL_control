@@ -39,8 +39,8 @@ void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
     double desired_angle = get_angle(current_position, point_list[_index]);
     double now_dist = get_distance(current_position, point_list[_index]);
 
-    double angle_pid_output = angle_pid_.update(desired_angle, now_angle);
-    double position_pid_output = position_pid_.update(_desired_dist, now_dist);
+    double angle_pid_output = angle_pid.update(desired_angle, now_angle);
+    double position_pid_output = position_pid.update(_desired_dist, now_dist);
 
     _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.5;
     _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.5;
@@ -144,32 +144,19 @@ void Point_Nav::stop(void){
     _right_thruster_pwm = THRUSTER_MID_PWM;
 }
 
-void Point_Nav::setAnglePidParams(ros::NodeHandle& nh) {
-    double kp, ki, kd, max_integral, max_output;
-    nh.getParam("point_nav/angle_kp", kp);
-    nh.getParam("point_nav/angle_ki", ki);
-    nh.getParam("point_nav/angle_kd", kd);
-    nh.getParam("point_nav/maxIntegral", max_integral);
-    nh.getParam("point_nav/maxOutput", max_output);
-    
-    angle_pid_.setKp(kp);
-    angle_pid_.setKi(ki);
-    angle_pid_.setKd(kd);
-    angle_pid_.setMaxIntegral(max_integral);
-    angle_pid_.setMaxOutput(max_output);
-}
+void Point_Nav::setPidParams(ros::NodeHandle& nh) {
+    // 角度PID参数
+    nh.getParam("point_nav/angle_kp", angle_pid.kp);
+    nh.getParam("point_nav/angle_ki", angle_pid.ki);
+    nh.getParam("point_nav/angle_kd", angle_pid.kd);
+    nh.getParam("point_nav/maxIntegral", angle_pid.maxIntegral);
+    nh.getParam("point_nav/maxOutput", angle_pid.maxOutput);
 
-void Point_Nav::setPositionPidParams(ros::NodeHandle& nh) {
-    double kp, ki, kd, max_integral, max_output;
-    nh.getParam("point_nav/location_kp", kp);
-    nh.getParam("point_nav/location_ki", ki);
-    nh.getParam("point_nav/location_kd", kd);
-    nh.getParam("point_nav/maxIntegral", max_integral);
-    nh.getParam("point_nav/maxOutput", max_output);
+    // 位置PID参数
+    nh.getParam("point_nav/location_kp", position_pid.kp);
+    nh.getParam("point_nav/location_ki", position_pid.ki);
+    nh.getParam("point_nav/location_kd", position_pid.kd);
+    nh.getParam("point_nav/maxIntegral", position_pid.maxIntegral);
+    nh.getParam("point_nav/maxOutput", position_pid.maxOutput);
     
-    position_pid_.setKp(kp);
-    position_pid_.setKi(ki);
-    position_pid_.setKd(kd);
-    position_pid_.setMaxIntegral(max_integral);
-    position_pid_.setMaxOutput(max_output);
 }
