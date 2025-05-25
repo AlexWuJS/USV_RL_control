@@ -199,7 +199,7 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10000, Tcp_SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 1000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_speed_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vel", 1000, rtkSpeedCallback);
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");

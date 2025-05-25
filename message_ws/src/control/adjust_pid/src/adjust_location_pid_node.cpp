@@ -28,24 +28,6 @@ tcp::ship_info boat_status;
 
 
 /**
-  * @brief  角度映射到-180~180度的范围。
-  * @param  angle: 映射前的角度。
-  * @retval map_angle：映射前的角度。
-  */
-double angleMap(double angle)
-{
-    double map_angle;
-    if (angle > 180 && angle < 360)
-        map_angle = angle - 360;
-    else if (angle < -180 && angle > -360)
-        map_angle = angle + 360;
-    else
-        map_angle = angle;
-
-    return map_angle;
-}
-
-/**
   * @brief  从节点中读取上位机发送的参数等信息
   * @param  msg: ship_info类型的消息
   * @retval 无
@@ -61,11 +43,11 @@ void Pid_Callback(const ros::TimerEvent &event)
     if (boat_distance < 1.5) // 1.5
     {
         /* 如果目标点在船身后,那么后退 */
-        if ((desired_angle < angleMap(heading_angle - 90)) && (desired_angle > angleMap(heading_angle + 90)))
+        if ((desired_angle < AnglePID::map(heading_angle - 90)) && (desired_angle > AnglePID::map(heading_angle + 90)))
         {
             if (desired_angle != 0)
             {
-                desired_angle = angleMap(desired_angle - 180 * desired_angle/abs(desired_angle));
+                desired_angle = AnglePID::map(desired_angle - 180 * desired_angle/abs(desired_angle));
             }
             boat_distance = -boat_distance;
         }
@@ -128,7 +110,6 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
         desired_position_y = stof(sub_strings[2]);
         PositionPid.kp = stof(sub_strings[3]);
         PositionPid.ki = stof(sub_strings[4]);
-
         PositionPid.kd = stof(sub_strings[5]);
         ROS_INFO("pid:%f,%f,%f", PositionPid.kp,PositionPid.ki,PositionPid.kd);
     }
@@ -143,8 +124,9 @@ void TcpSend_Thread()
     {
         // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
         //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,0,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-       tcp_send_message.request.str = tcp_sbuf;
+        // sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%d,%d,\n", location_pid_output, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+        tcp_send_message.request.str = tcp_sbuf;
 
         client.call(tcp_send_message);   
         // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
@@ -160,7 +142,7 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10000, Tcp_SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 1000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1, odomCallback);
     ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatMessage_CallBack);
 

@@ -16,6 +16,24 @@ sensor_msgs::NavSatFix rtk;                  // 里程计信息
 ros::Publisher ship_info_pub, rtk_point_pub;
 ros::ServiceClient client;
 
+// 定义并初始化常量
+const sensor_msgs::NavSatFix virtual_start_waypoint = [] {
+    sensor_msgs::NavSatFix pos;
+    pos.latitude = 91.0;    // 默认纬度
+    pos.longitude = 181.0;   // 默认经度
+    pos.altitude = 0.0;    // 默认高度
+    pos.header.frame_id = "map";  // 可选：设置坐标系
+    return pos;
+}();
+
+const sensor_msgs::NavSatFix virtual_end_waypoint = [] {
+    sensor_msgs::NavSatFix pos;
+    pos.latitude = -91.0;    // 默认纬度
+    pos.longitude = -181.0;   // 默认经度
+    pos.altitude = 0.0;    // 默认高度
+    pos.header.frame_id = "map";  // 可选：设置坐标系
+    return pos;
+}();
 
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     imu = *msg;
@@ -67,7 +85,7 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
   */
 void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
-    FormatConversionClass& FormatConversion_usart = FormatConversionClass::getInstance();
+    FormatConversionClass& FormatConversion_usart = FormatConversionClass::get_singleton();
     vector<std::string> raw_recv_strings;
 
     /* convert to string */
@@ -96,7 +114,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
     vector<std::string> sub_strings;
-    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::getInstance();
+    FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
     std::vector<sensor_msgs::NavSatFix> point_list;
 
     sub_strings.push_back(msg->data);
@@ -117,15 +135,15 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             case 'P':
-                // point_list.clear();
-                // FormatConversion_Tcp.handle_header_P(*it, point_list);
+                point_list.clear();
 
-                // for (vector<sensor_msgs::NavSatFix>::iterator point_ptr = point_list.begin(); point_ptr != point_list.end(); point_ptr++)
-                // {
-                //     int i;
-                //     rtk_point_pub.publish(*point_ptr);
-                //     ROS_WARN("pub %d point.",++i);
-                // }
+                rtk_point_pub.publish(virtual_start_waypoint);   // 发送一个虚拟航点，用于清空原有航点
+                FormatConversion_Tcp.handle_header_P(*it, point_list);
+                for (auto& point : point_list)
+                {
+                    rtk_point_pub.publish(point);
+                }
+                rtk_point_pub.publish(virtual_end_waypoint);   // 发送一个虚拟航点，用于清空原有航点
             break;
 
             case 'K':
@@ -153,13 +171,13 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 10000);
-    rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10000);
+    ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 1000);
+    rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10);
 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
-    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10000, SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 1000, SubMessage_CallBack);
 
     client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
     ros::service::waitForService("/tcp/communication", -1);

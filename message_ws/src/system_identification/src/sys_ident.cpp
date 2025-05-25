@@ -66,7 +66,7 @@ private:
     ros::Publisher motor_pub_;
     ros::Publisher tcp_pub_;
 
-    FormatConversionClass format_conversion_;
+    // FormatConversionClass format_conversion_;
     tcp::ship_info ship_info_;
 
     std::vector<double> yaw_data_;

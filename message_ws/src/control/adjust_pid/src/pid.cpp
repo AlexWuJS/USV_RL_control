@@ -35,7 +35,11 @@ double PID::update(float reference,float feedback){
 AnglePID::AnglePID(double kp, double ki, double kd, double min_out, double max_out)
         : PID(kp, ki, kd, min_out, max_out) {}
 
-/* 角度误差映射 */
+/**
+  * @brief  角度映射到-180~180度的范围。
+  * @param  angle: 映射前的角度。
+  * @retval map_angle：映射前的角度。
+  */
 double AnglePID::map(double angle_error){
     if (angle_error > 180 && angle_error < 360)
         angle_error -= 360;

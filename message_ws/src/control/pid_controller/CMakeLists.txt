@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   std_msgs
   message_generation
+
 )
 
 ## System dependencies are found with CMake's conventions
@@ -116,8 +117,9 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
+include
   ${catkin_INCLUDE_DIRS}
+  ${CMAKE_SOURCE_DIR}
   ${CMAKE_SOURCE_DIR}/common/inc
 )
 
@@ -140,6 +142,8 @@ add_executable(controller_node
   src/postion_control.cpp
 )
 
+
+
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -148,7 +152,7 @@ add_executable(controller_node
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(controller_node ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(controller_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(controller_node

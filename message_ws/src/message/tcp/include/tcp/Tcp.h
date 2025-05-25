@@ -10,7 +10,7 @@ using namespace std;
 
 #define SERVER_PORT     1234     /* 服务器端口号 */
 #define SERVER_IP       "120.77.0.8"
-#define TCP_MAX_SIZE    100
+#define TCP_MAX_SIZE    1024
 
 // int Tcp_Reconnect(int server_local_sockfd);
 

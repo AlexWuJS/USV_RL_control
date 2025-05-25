@@ -20,14 +20,13 @@ typedef struct {
 class FormatConversionClass {
 private:
     FormatConversionClass():is_connecting(true) {}
-    ~FormatConversionClass();
     FormatConversionClass(const FormatConversionClass&) = delete;
     FormatConversionClass& operator=(const FormatConversionClass&) = delete;
 
-    static FormatConversionClass instance;
-
+    static FormatConversionClass singleton;
+    static const std::string _valid_headers;    // 协议中所有的合法帧头
 public:
-    static FormatConversionClass& getInstance();
+    static FormatConversionClass& get_singleton();
     
     int SplitString(string s, vector<string>& sub_strings);
     std::vector<std::string> get_value_from_string(std::string s, const char pattern);
@@ -47,8 +46,6 @@ public:
     float voltage_left_battery;
     float voltage_right_battery;
     KeyboardStructure keyboard;
-
-    static const std::string valid_headers = "SPRKMXT";    // 协议中所有的合法帧头
 
 };
 
