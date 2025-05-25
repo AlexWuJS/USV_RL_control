@@ -1,0 +1,193 @@
+#include "ros/ros.h"
+#include <std_msgs/Float32.h>
+#include <std_msgs/Bool.h>
+#include <fstream>
+#include <chrono>
+#include <ctime>
+#include <sstream>
+#include <sensor_msgs/Imu.h>
+#include <tf/transform_broadcaster.h>
+#include <tf/transform_listener.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Twist.h>
+
+#include "huamo/guidance.h"
+#include "huamo/huamo.h"
+#include "usart/Motor.h"
+#include "usart/pwm_data.h"
+
+bool data_flag = false;
+bool has_odom_ = false;
+bool has_imu_ = false;
+bool has_path_ = false;
+bool remember = false;
+
+static std::ofstream file;
+
+Eigen::VectorXd current_state_(6);
+
+nav_msgs::Path motion_path, path_, LOS_path;
+nav_msgs::Odometry odom_;
+
+static ros::Publisher pwm_pub;
+static usart::Motor pwm_data;
+
+ros::Publisher motion_path_pub, global_path_pub,LOS_path_pub;
+
+void odomCallback(const nav_msgs::Odometry &msg)
+{
+    odom_ = msg;
+    current_state_(0) = msg.pose.pose.position.x;
+    current_state_(1) = msg.pose.pose.position.y;
+    // current_state_(2) = atan2(-(current_state_(0)-last_x),(current_state_(1)-last_y));
+    current_state_(2) = tf2::getYaw(msg.pose.pose.orientation) + 91.5*M_PI/180.f;
+    current_state_(2) = current_state_(2) > M_PI ? (current_state_(2) - 2*M_PI) : (current_state_(2) < -M_PI ? (current_state_(2) + 2 * M_PI) : current_state_(2));
+    // std::cout << "yaw:" << current_state_(2)*180/M_PI << std::endl;
+    // if (current_state(2) < 0) current_state(2) += 2 * M_PI;
+    double vx = msg.twist.twist.linear.x;
+    double vy = msg.twist.twist.linear.y;
+    Eigen::Matrix2d R_b_n;
+    Eigen::Vector2d vel_n;
+    Eigen::Vector2d vel_b;
+    double psi = current_state_(2);
+    R_b_n << cos(psi), -sin(psi), sin(psi), cos(psi);
+    vel_n << vx, vy;
+    vel_b = R_b_n.transpose() * vel_n;
+    current_state_(3) = vel_b(0);
+    current_state_(4) = vel_b(1);       //横向速度向左为正
+    current_state_(5) = msg.twist.twist.angular.z;
+
+    // std::cout << "u" << vel_b(0) << std::endl;
+
+    motion_path.header.frame_id = "camera_init";
+    motion_path.header.stamp = ros::Time::now();
+    geometry_msgs::PoseStamped pose_msg;
+    pose_msg.header.stamp = msg.header.stamp;
+    pose_msg.header.frame_id = msg.header.frame_id;
+    pose_msg.pose.position.x = msg.pose.pose.position.x; 
+    pose_msg.pose.position.y = msg.pose.pose.position.y; 
+    pose_msg.pose.position.z = 0;
+    pose_msg.pose.orientation.x = msg.pose.pose.orientation.x; 
+    pose_msg.pose.orientation.y = msg.pose.pose.orientation.y; 
+    pose_msg.pose.orientation.z = msg.pose.pose.orientation.z; 
+    pose_msg.pose.orientation.w = msg.pose.pose.orientation.w; 
+    motion_path.poses.push_back(pose_msg);
+    motion_path_pub.publish(motion_path);
+
+    has_odom_ = true;
+
+}
+
+void pathCallback(const nav_msgs::Path &path)
+{
+    path_ = path;
+    has_path_ = true;
+}
+
+void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_data)
+{
+    // current_state_(2) = tf::getYaw(imu_data->orientation) - 80*M_PI/180.f;
+    // current_state_(2) = current_state_(2) > M_PI ? (current_state_(2) - 2*M_PI) : (current_state_(2) < -M_PI ? (current_state_(2) + 2 * M_PI) : current_state_(2));
+    current_state_(5) = imu_data->angular_velocity.z;
+    current_state_(2) = current_state_(2) + current_state_(5) * 0.01;
+    has_imu_ = true;
+}
+
+void huamo_run(const float now_v, const float now_yaw, const float now_w)
+{
+    if(has_path_)
+    {
+        static double desired_speed_ = 0, desired_heading_ = 0;
+        static float ye_ = 0;
+        float forward = 0;
+        float turn = 0;
+        Eigen::VectorXd LOS_(2);
+
+        // if(has_imu_)
+        {
+            if(has_odom_)
+            {
+                getDesiredSpeedHeading(desired_speed_,desired_heading_,current_state_,path_,ye_,LOS_);
+                LOS_path.header.frame_id = "camera_init";
+                LOS_path.header.stamp = ros::Time::now();
+                geometry_msgs::PoseStamped pose_msg;
+                pose_msg.header.stamp = ros::Time::now();
+                pose_msg.header.frame_id = "LOS";
+                pose_msg.pose.position.x = LOS_[0]; 
+                pose_msg.pose.position.y = LOS_[1]; 
+                pose_msg.pose.position.z = 0;
+                LOS_path.poses.push_back(pose_msg);
+                LOS_path_pub.publish(LOS_path);
+
+                forward = speed_huamo(now_v,desired_speed_);
+                
+                turn = yaw_huamo(forward, now_yaw, desired_heading_, now_w,ye_);
+                std::vector<float> control_ = remote_data_deal(forward,turn);
+                pwm_data.left_thruster_pwm = control_[0];
+                pwm_data.right_thruster_pwm = control_[1];
+                pwm_pub.publish(pwm_data);
+                
+                has_odom_ = false;
+            }
+            
+        }
+        
+    }
+}
+
+void data_flag_callback(const std_msgs::Bool::ConstPtr& data)
+{
+    data_flag = data->data;
+    if(!data_flag)
+    {
+        remember = false;
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    setlocale(LC_ALL,"");
+
+    ros::init(argc,argv,"huamo_node");
+
+    // ros::Rate r(10);
+
+    ros::NodeHandle nh;
+
+    // ros::Subscriber odom_sub = nh.subscribe("/odom_local",10,odomCallback);
+    // ros::Subscriber imu_sub = nh.subscribe("/imu/data",10,imuCallback);
+    ros::Subscriber odom_sub = nh.subscribe("/Odometry",10,odomCallback);
+    ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
+    ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
+
+    pwm_pub = nh.advertise<usart::Motor>("/controller",10);
+    global_path_pub = nh.advertise<nav_msgs::Path>("/global_path",1);
+    motion_path_pub = nh.advertise<nav_msgs::Path>("/motion_path", 1);
+    LOS_path_pub = nh.advertise<nav_msgs::Path>("/LOS_path", 1);
+
+    // ros::Timer control_cmd = nh.createTimer(ros::Duration(0.005), controler_cmd);
+    
+    while(ros::ok())
+    {
+        if(has_odom_)
+        {
+            static float last_yaw = 0;
+            float u = current_state_(3);
+            float v = current_state_(4);
+            float d_yaw = atan2(v,u);
+            float yaw = current_state_(2) + 0*d_yaw;
+            // std::cout << "yaw1:" << yaw*180/M_PI << "\tyaw2:" << (current_state_(2)+ 0.6*d_yaw)*180/M_PI << std::endl;
+            float w = 10 * (yaw - last_yaw);
+            huamo_run(u, yaw, w);
+
+            last_yaw = yaw;
+            has_odom_ = false;
+        }
+        ros::spinOnce();
+    }
+
+    ros::spin();
+
+    return 0;
+}
+
