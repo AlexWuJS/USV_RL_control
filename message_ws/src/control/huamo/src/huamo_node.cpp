@@ -13,8 +13,7 @@
 
 #include "huamo/guidance.h"
 #include "huamo/huamo.h"
-#include "usart/Motor.h"
-#include "usart/pwm_data.h"
+#include <control/Motor.h>
 
 bool data_flag = false;
 bool has_odom_ = false;
@@ -29,8 +28,8 @@ Eigen::VectorXd current_state_(6);
 nav_msgs::Path motion_path, path_, LOS_path;
 nav_msgs::Odometry odom_;
 
-static ros::Publisher pwm_pub;
-static usart::Motor pwm_data;
+static ros::Publisher controller_pub;
+control::Motor thruster_msg;
 
 ros::Publisher motion_path_pub, global_path_pub,LOS_path_pub;
 
@@ -123,9 +122,9 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                 
                 turn = yaw_huamo(forward, now_yaw, desired_heading_, now_w,ye_);
                 std::vector<float> control_ = remote_data_deal(forward,turn);
-                pwm_data.left_thruster_pwm = control_[0];
-                pwm_data.right_thruster_pwm = control_[1];
-                pwm_pub.publish(pwm_data);
+                thruster_msg.left_thruster_pwm = control_[0];
+                thruster_msg.right_thruster_pwm = control_[1];
+                controller_pub.publish(thruster_msg);
                 
                 has_odom_ = false;
             }
@@ -160,7 +159,7 @@ int main(int argc, char* argv[])
     ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
     ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
 
-    pwm_pub = nh.advertise<usart::Motor>("/controller",10);
+    controller_pub = nh.advertise<control::Motor>("/controller", 1000);
     global_path_pub = nh.advertise<nav_msgs::Path>("/global_path",1);
     motion_path_pub = nh.advertise<nav_msgs::Path>("/motion_path", 1);
     LOS_path_pub = nh.advertise<nav_msgs::Path>("/LOS_path", 1);
