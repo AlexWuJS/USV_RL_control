@@ -140,6 +140,7 @@ add_executable(huamo_node
   src/huamo_node.cpp 
   src/guidance.cpp
   src/huamo.cpp
+  src/pwm_data.cpp
 )
 
 ## Rename C++ executable without prefix

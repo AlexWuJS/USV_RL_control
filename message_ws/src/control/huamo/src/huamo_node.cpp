@@ -13,6 +13,7 @@
 
 #include "huamo/guidance.h"
 #include "huamo/huamo.h"
+#include "huamo/pwm_data.h"
 #include <control/Motor.h>
 
 bool data_flag = false;
