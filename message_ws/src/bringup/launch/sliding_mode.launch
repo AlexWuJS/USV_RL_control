@@ -1,14 +1,14 @@
 <launch>
     <!-- 启用机器人 -->
     <include file="$(find bringup)/launch/bringup.launch">
-        <arg name="use_imu"         default="true"/>
+        <arg name="use_imu"         default="false"/>
         <arg name="use_rtk"         default="false"/>
-        <arg name="use_lidar"       default="true"/>
+        <arg name="use_lidar"       default="false"/>
     </include>
 
     <!-- 生成路径 -->
     <include file="$(find path)/launch/path.launch">
-        <arg name="path_type"         default="sin_node"/>
+        <arg name="path_type"         default="square_node"/>
     </include>
 
     <!-- 启用滑模控制 -->

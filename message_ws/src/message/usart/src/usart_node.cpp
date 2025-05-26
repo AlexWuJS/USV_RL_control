@@ -74,9 +74,9 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    mcu_pub = nh.advertise<std_msgs::String>("/usart/data", 1000);
-    toMcu_pub = nh.advertise<std_msgs::String>("/usart/toMcu", 1000);
-    ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 1000, Get_ThrusterPwm_CallBack);
+    mcu_pub = nh.advertise<std_msgs::String>("/usart/data", 100);
+    toMcu_pub = nh.advertise<std_msgs::String>("/usart/toMcu", 100);
+    ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 100, Get_ThrusterPwm_CallBack);
 
     /*--- USART1 INIT ------------------------------------------- */
     char* device_usart1 = USART1_PORT;

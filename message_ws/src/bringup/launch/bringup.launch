@@ -1,9 +1,9 @@
 <launch>
 
     <!-- 标签 -->
-    <arg name="use_imu"         default="true"/>
-    <arg name="use_rtk"         default="true"/>
-    <arg name="use_lidar"       default="true"/>
+    <arg name="use_imu"         default="false"/>
+    <arg name="use_rtk"         default="false"/>
+    <arg name="use_lidar"       default="false"/>
 
     <!-- 启动机器人 -->
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
@@ -26,7 +26,7 @@
         <include file="$(find livox_ros_driver2)/launch/msg_MID360.launch"/> 
         <!-- 使用fast lio -->
         <include file="$(find fast_lio_localization)/launch/sentry_build_map.launch">
-            <arg name="rviz" default="false" />
+            <arg name="rviz" default="true" />
         </include> 
     </group>
 

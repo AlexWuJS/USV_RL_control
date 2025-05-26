@@ -216,7 +216,7 @@ if __name__ == '__main__':
 
     # The threshold of global localization,
     # only those scan2map-matching with higher fitness than LOCALIZATION_TH will be taken
-    LOCALIZATION_TH = 0.92
+    LOCALIZATION_TH = 0.85
 
     # FOV(rad), modify this according to your LiDAR type
     FOV = 6.28

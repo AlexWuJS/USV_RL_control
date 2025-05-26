@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
     while (ros::ok())
     {  
         /* 自主巡航模式 */
-        if (boat_status.is_auto_control)
+        if (boat_status.is_auto_control || boat_status.boat_is_smart_remote_mode)
         {
             my_motor_msg.left_thruster_pwm = auto_thruster.left_thruster_pwm;
             my_motor_msg.right_thruster_pwm = auto_thruster.right_thruster_pwm;
@@ -93,13 +93,13 @@ int main(int argc, char* argv[])
             }
         }
         /* smart remote mode */
-        if (boat_status.boat_is_smart_remote_mode && boat_status.is_auto_control == false)
-        {
-            if (boat_status.boat_is_active && !boat_status.boat_is_running)
-            {
-                ;
-            }
-        }
+        // if (boat_status.boat_is_smart_remote_mode && boat_status.is_auto_control == false)
+        // {
+        //     if (boat_status.boat_is_active && !boat_status.boat_is_running)
+        //     {
+        //         ;
+        //     }
+        // }
         /* 发布pwm消息 */
         controller_pub.publish(my_motor_msg);
 

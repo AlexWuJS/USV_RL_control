@@ -158,9 +158,9 @@ int main(int argc, char* argv[])
     // ros::Subscriber imu_sub = nh.subscribe("/imu/data",10,imuCallback);
     ros::Subscriber odom_sub = nh.subscribe("/Odometry",10,odomCallback);
     ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
-    ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
+    // ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
 
-    controller_pub = nh.advertise<control::Motor>("/controller", 1000);
+    controller_pub = nh.advertise<control::Motor>("/auto_thruster_pwm", 1000);
     global_path_pub = nh.advertise<nav_msgs::Path>("/global_path",1);
     motion_path_pub = nh.advertise<nav_msgs::Path>("/motion_path", 1);
     LOS_path_pub = nh.advertise<nav_msgs::Path>("/LOS_path", 1);
