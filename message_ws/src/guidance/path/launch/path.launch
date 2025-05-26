@@ -1,0 +1,15 @@
+<launch>
+    <arg name="path_type" default="path_node" doc="Options: path_node, sin_node, square_node" />
+
+    <group if="$(eval arg('path_type') == 'path_node')">
+        <node pkg="path" type="path_node" name="selected_trajectory_node" output="screen"/>
+    </group>
+
+    <group if="$(eval arg('path_type') == 'sin_node')">
+        <node pkg="path" type="sin_node" name="selected_trajectory_node" output="screen"/>
+    </group>
+
+    <group if="$(eval arg('path_type') == 'square_node')">
+        <node pkg="path" type="square_node" name="selected_trajectory_node" output="screen"/>
+    </group>
+</launch>
