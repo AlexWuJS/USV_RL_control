@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- 启动参数 -->
+  <arg name="map_file" default="$(find hybrid_astar_planner)/maps/scans2.yaml" />
+  <arg name="rviz_config" default="$(find hybrid_astar_planner)/rviz/hybrid_astar.rviz" />
+  <arg name="use_rviz" default="true" />
+  
+  <!-- 规划器参数 -->
+  <group ns="hybrid_astar_planner">
+    <!-- 基本参数 -->
+    <param name="heuristic_weight" value="1.0" />
+    <param name="inflation_radius" value="0.5" />
+    <param name="map_resolution" value="0.05" />
+    <param name="vehicle_length" value="4.7" />
+    <param name="vehicle_width" value="2.0" />
+    <param name="min_turning_radius" value="6.0" />
+    <param name="steering_angle" value="0.6" />
+    <param name="steering_angle_discrete_num" value="3" />
+    <param name="segment_length" value="1.5" />
+    <param name="max_iterations" value="30000" />
+    <param name="visualize_vehicle" value="true" />
+    <param name="max_planning_attempts" value="3" />
+    <param name="planning_timeout" value="10.0" />
+    
+    <!-- 平滑器参数 -->
+    <rosparam param="smoother_params">
+      alpha: 0.1
+      beta: 0.5
+      max_iterations: 500
+      weight_collision: 0.5
+      weight_curvature: 0.25 
+      weight_smoothness: 0.25
+    </rosparam>
+  </group>
+  
+  <!-- TF静态变换 -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom" 
+        args="0 0 0 0 0 0 map odom" />
+  <node pkg="tf2_ros" type="static_transform_publisher" name="odom_to_base_link" 
+        args="0 0 0 0 0 0 odom base_link" />
+        
+  <!-- TF广播节点 -->
+  <node pkg="hybrid_astar_planner" type="tf_broadcaster_node" name="tf_broadcaster"
+        output="screen" />
+  
+  <!-- 真实地图服务器 -->
+  <node pkg="map_server" type="map_server" name="map_server" 
+        args="$(arg map_file)" output="screen">
+    <param name="frame_id" value="map" />
+  </node>
+  
+  <!-- 增强版混合A*规划器节点 -->
+  <node pkg="hybrid_astar_planner" type="hybrid_astar_planner_enhanced" name="hybrid_astar_planner_enhanced" 
+        output="screen">
+    <!-- 添加规划器参数 -->
+    <param name="heuristic_weight" value="1.0" />
+    <param name="inflation_radius" value="0.5" />
+    <param name="map_resolution" value="0.05" />
+    <param name="vehicle_length" value="4.7" />
+    <param name="vehicle_width" value="2.0" />
+    <param name="min_turning_radius" value="6.0" />
+    <param name="steering_angle" value="0.6" />
+    <param name="steering_angle_discrete_num" value="3" />
+    <param name="segment_length" value="1.5" />
+    <param name="max_iterations" value="30000" />
+    <param name="visualize_vehicle" value="true" />
+    <param name="max_planning_attempts" value="3" />
+    <param name="planning_timeout" value="10.0" />
+  </node>
+  
+  <!-- RViz可视化 -->
+  <group if="$(arg use_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" 
+          args="-d $(arg rviz_config)" />
+  </group>
+</launch> 

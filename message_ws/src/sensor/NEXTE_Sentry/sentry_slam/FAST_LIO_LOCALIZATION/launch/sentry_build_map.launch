@@ -27,7 +27,7 @@
     <node pkg="fast_lio_localization" type="transform_fusion.py" name="transform_fusion" output="screen" />
 
 	<!-- glbal map-->
-    <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publishe" output="screen"
+    <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publish" output="screen"
 		  args="$(arg map) 5 _frame_id:=map cloud_pcd:=map" /> 
 
 	<group if="$(arg rviz)">
