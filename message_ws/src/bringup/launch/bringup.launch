@@ -1,0 +1,34 @@
+<launch>
+
+    <!-- 标签 -->
+    <arg name="use_imu"         default="true"/>
+    <arg name="use_rtk"         default="true"/>
+    <arg name="use_lidar"       default="true"/>
+
+    <!-- 启动机器人 -->
+    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
+    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
+    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <node pkg="control" type="controller_node" name="controller" output="screen"/>
+  
+    <!-- 是否使用imu -->
+    <group if="$(arg use_imu)">
+        <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    </group>
+
+    <!-- 是否使用rtk -->
+    <group if="$(arg use_rtk)">
+        <include file="$(find gps_common)/launch/rtk_nmea.launch"/>
+    </group>
+  
+    <!-- 是否使用激光雷达  --> 
+    <group if="$(arg use_lidar)">
+        <include file="$(find livox_ros_driver2)/launch/msg_MID360.launch"/> 
+        <!-- 使用fast lio -->
+        <include file="$(find fast_lio_localization)/launch/sentry_build_map.launch">
+            <arg name="rviz" default="false" />
+        </include> 
+    </group>
+
+</launch>
+

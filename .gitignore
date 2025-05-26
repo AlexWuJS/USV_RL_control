@@ -1,5 +1,6 @@
 .*
-**/NEXTE_Sentry/
+**/NEXTE_Sentry/sentry_slam/*/PCD/
+**/NEXTE_Sentry/sentry_slam/*/*.pcd
 **/devel/
 **/build/
 backup/
