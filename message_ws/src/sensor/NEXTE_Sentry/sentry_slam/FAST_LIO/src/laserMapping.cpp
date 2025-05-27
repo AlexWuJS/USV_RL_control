@@ -84,6 +84,9 @@ condition_variable sig_buffer;
 string root_dir = ROOT_DIR;
 string map_file_path, lid_topic, imu_topic;
 
+double min_display_height = -0.5; // 显示点云的最小高度---------------------------------------------------------//
+double max_display_height = 1.0;  // 显示点云的最大高度---------------------------------------------------------//
+
 double res_mean_last = 0.05, total_residual = 0.0;
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
 double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;
@@ -470,20 +473,29 @@ void map_incremental()
 
 PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI(500000, 1));
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
-void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
+void publish_frame_world(const ros::Publisher &pubLaserCloudFull)
 {
-    if(scan_pub_en)
+    if (scan_pub_en)
     {
         PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
         int size = laserCloudFullRes->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld( \
-                        new PointCloudXYZI(size, 1));
+        PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI());
 
+        // 只显示指定高度范围内的点
         for (int i = 0; i < size; i++)
         {
-            RGBpointBodyToWorld(&laserCloudFullRes->points[i], \
-                                &laserCloudWorld->points[i]);
+            PointType point_world;
+            RGBpointBodyToWorld(&laserCloudFullRes->points[i], &point_world);
+
+            // 只添加在指定高度范围内的点
+            if (point_world.z >= min_display_height && point_world.z <= max_display_height)
+            {
+                laserCloudWorld->points.push_back(point_world);
+            }
         }
+
+        laserCloudWorld->width = laserCloudWorld->points.size();
+        laserCloudWorld->height = 1;
 
         sensor_msgs::PointCloud2 laserCloudmsg;
         pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
@@ -494,26 +506,37 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
     }
 
     /**************** save map ****************/
-    /* 1. make sure you have enough memories
-    /* 2. noted that pcd save will influence the real-time performences **/
     if (pcd_save_en)
     {
         int size = feats_undistort->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld( \
-                        new PointCloudXYZI(size, 1));
+        PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI());
 
+        // 只保存指定高度范围内的点
         for (int i = 0; i < size; i++)
         {
-            RGBpointBodyToWorld(&feats_undistort->points[i], \
-                                &laserCloudWorld->points[i]);
+            PointType point_world;
+            RGBpointBodyToWorld(&feats_undistort->points[i], &point_world);
+            
+            // 只添加在指定高度范围内的点
+            if (point_world.z >= min_display_height && point_world.z <= max_display_height)
+            {
+                laserCloudWorld->points.push_back(point_world);
+            }
         }
+
+        // 更新点云大小
+        laserCloudWorld->width = laserCloudWorld->points.size();
+        laserCloudWorld->height = 1;
+
+        // 将过滤后的点云添加到待保存的点云中
         *pcl_wait_save += *laserCloudWorld;
 
+        // 定期保存局部地图
         static int scan_wait_num = 0;
-        scan_wait_num ++;
-        if (pcl_wait_save->size() > 0 && pcd_save_interval > 0  && scan_wait_num >= pcd_save_interval)
+        scan_wait_num++;
+        if (pcl_wait_save->size() > 0 && pcd_save_interval > 0 && scan_wait_num >= pcd_save_interval)
         {
-            pcd_index ++;
+            pcd_index++;
             string all_points_dir(string(string(ROOT_DIR) + "PCD/scans_") + to_string(pcd_index) + string(".pcd"));
             pcl::PCDWriter pcd_writer;
             cout << "current scan saved to /PCD/" << all_points_dir << endl;
@@ -524,122 +547,129 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
     }
 }
 
-void publish_frame_body(const ros::Publisher & pubLaserCloudFull_body)
-{
-    int size = feats_undistort->points.size();
-    PointCloudXYZI::Ptr laserCloudIMUBody(new PointCloudXYZI(size, 1));
-
-    for (int i = 0; i < size; i++)
+    void publish_frame_body(const ros::Publisher &pubLaserCloudFull_body)
     {
-        RGBpointBodyLidarToIMU(&feats_undistort->points[i], \
-                            &laserCloudIMUBody->points[i]);
+        int size = feats_undistort->points.size();
+        PointCloudXYZI::Ptr laserCloudIMUBody(new PointCloudXYZI(size, 1));
+
+        for (int i = 0; i < size; i++)
+        {
+            RGBpointBodyLidarToIMU(&feats_undistort->points[i],
+                                   &laserCloudIMUBody->points[i]);
+        }
+
+        sensor_msgs::PointCloud2 laserCloudmsg;
+        pcl::toROSMsg(*laserCloudIMUBody, laserCloudmsg);
+        laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
+        laserCloudmsg.header.frame_id = "body";
+        pubLaserCloudFull_body.publish(laserCloudmsg);
+        publish_count -= PUBFRAME_PERIOD;
     }
 
-    sensor_msgs::PointCloud2 laserCloudmsg;
-    pcl::toROSMsg(*laserCloudIMUBody, laserCloudmsg);
-    laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
-    laserCloudmsg.header.frame_id = "body";
-    pubLaserCloudFull_body.publish(laserCloudmsg);
-    publish_count -= PUBFRAME_PERIOD;
-}
-
-void publish_effect_world(const ros::Publisher & pubLaserCloudEffect)
-{
-    PointCloudXYZI::Ptr laserCloudWorld( \
-                    new PointCloudXYZI(effct_feat_num, 1));
-    for (int i = 0; i < effct_feat_num; i++)
+    void publish_effect_world(const ros::Publisher &pubLaserCloudEffect)
     {
-        RGBpointBodyToWorld(&laserCloudOri->points[i], \
-                            &laserCloudWorld->points[i]);
-    }
-    sensor_msgs::PointCloud2 laserCloudFullRes3;
-    pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
-    laserCloudFullRes3.header.stamp = ros::Time().fromSec(lidar_end_time);
-    laserCloudFullRes3.header.frame_id = "camera_init";
-    pubLaserCloudEffect.publish(laserCloudFullRes3);
-}
-
-void publish_map(const ros::Publisher & pubLaserCloudMap)
-{
-    sensor_msgs::PointCloud2 laserCloudMap;
-    pcl::toROSMsg(*featsFromMap, laserCloudMap);
-    laserCloudMap.header.stamp = ros::Time().fromSec(lidar_end_time);
-    laserCloudMap.header.frame_id = "camera_init";
-    pubLaserCloudMap.publish(laserCloudMap);
-}
-
-template<typename T>
-void set_posestamp(T & out)
-{
-    out.pose.position.x = state_point.pos(0);
-    out.pose.position.y = state_point.pos(1);
-    out.pose.position.z = 0;
-    // out.pose.position.z = state_point.pos(2);
-    out.pose.orientation.x = geoQuat.x;
-    out.pose.orientation.y = geoQuat.y;
-    out.pose.orientation.z = geoQuat.z;
-    out.pose.orientation.w = geoQuat.w;
-    
-}
-
-void publish_odometry(const ros::Publisher & pubOdomAftMapped)
-{
-    odomAftMapped.header.frame_id = "camera_init";
-    odomAftMapped.child_frame_id = "body";
-    odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time);// ros::Time().fromSec(lidar_end_time);
-    set_posestamp(odomAftMapped.pose);
-    pubOdomAftMapped.publish(odomAftMapped);
-    auto P = kf.get_P();
-    for (int i = 0; i < 6; i ++)
-    {
-        int k = i < 3 ? i + 3 : i - 3;
-        odomAftMapped.pose.covariance[i*6 + 0] = P(k, 3);
-        odomAftMapped.pose.covariance[i*6 + 1] = P(k, 4);
-        odomAftMapped.pose.covariance[i*6 + 2] = P(k, 5);
-        odomAftMapped.pose.covariance[i*6 + 3] = P(k, 0);
-        odomAftMapped.pose.covariance[i*6 + 4] = P(k, 1);
-        odomAftMapped.pose.covariance[i*6 + 5] = P(k, 2);
+        PointCloudXYZI::Ptr laserCloudWorld(
+            new PointCloudXYZI(effct_feat_num, 1));
+        for (int i = 0; i < effct_feat_num; i++)
+        {
+            RGBpointBodyToWorld(&laserCloudOri->points[i],
+                                &laserCloudWorld->points[i]);
+        }
+        sensor_msgs::PointCloud2 laserCloudFullRes3;
+        pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
+        laserCloudFullRes3.header.stamp = ros::Time().fromSec(lidar_end_time);
+        laserCloudFullRes3.header.frame_id = "camera_init";
+        pubLaserCloudEffect.publish(laserCloudFullRes3);
     }
 
-    static tf::TransformBroadcaster br;
-    tf::Transform                   transform;
-    tf::Quaternion                  q;
-    transform.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x, \
-                                    odomAftMapped.pose.pose.position.y, \
-                                    odomAftMapped.pose.pose.position.z));
-    q.setW(odomAftMapped.pose.pose.orientation.w);
-    q.setX(odomAftMapped.pose.pose.orientation.x);
-    q.setY(odomAftMapped.pose.pose.orientation.y);
-    q.setZ(odomAftMapped.pose.pose.orientation.z);
-    transform.setRotation( q );
-    br.sendTransform( tf::StampedTransform( transform, odomAftMapped.header.stamp, "camera_init", "body" ) );
-}
-
-void publish_path(const ros::Publisher pubPath)
-{
-    set_posestamp(msg_body_pose);
-    msg_body_pose.header.stamp = ros::Time().fromSec(lidar_end_time);
-    msg_body_pose.header.frame_id = "camera_init";
-
-    /*** if path is too large, the rvis will crash ***/
-    static int jjj = 0;
-    jjj++;
-    if (jjj % 10 == 0) 
+    void publish_map(const ros::Publisher &pubLaserCloudMap)
     {
-        path.poses.push_back(msg_body_pose);
-        pubPath.publish(path);
+        sensor_msgs::PointCloud2 laserCloudMap;
+        pcl::toROSMsg(*featsFromMap, laserCloudMap);
+        laserCloudMap.header.stamp = ros::Time().fromSec(lidar_end_time);
+        laserCloudMap.header.frame_id = "camera_init";
+        pubLaserCloudMap.publish(laserCloudMap);
     }
-}
 
-void h_share_model(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_data)
-{
-    double match_start = omp_get_wtime();
-    laserCloudOri->clear(); 
-    corr_normvect->clear(); 
-    total_residual = 0.0; 
+    template <typename T>
+    void set_posestamp(T & out)
+    {
+        out.pose.position.x = state_point.pos(0);
+        out.pose.position.y = state_point.pos(1);
+        out.pose.position.z = state_point.pos(2);
+        out.pose.orientation.x = geoQuat.x;
+        out.pose.orientation.y = geoQuat.y;
+        out.pose.orientation.z = geoQuat.z;
+        out.pose.orientation.w = geoQuat.w;
+    }
 
-    /** closest surface search and residual computation **/
-    #ifdef MP_EN
+    void publish_odometry(const ros::Publisher &pubOdomAftMapped)
+    {
+        odomAftMapped.header.frame_id = "camera_init";
+        odomAftMapped.child_frame_id = "body";
+        odomAftMapped.header.stamp = ros::Time().fromSec(lidar_end_time); // ros::Time().fromSec(lidar_end_time);
+        set_posestamp(odomAftMapped.pose);
+        pubOdomAftMapped.publish(odomAftMapped);
+        auto P = kf.get_P();
+        for (int i = 0; i < 6; i++)
+        {
+            int k = i < 3 ? i + 3 : i - 3;
+            odomAftMapped.pose.covariance[i * 6 + 0] = P(k, 3);
+            odomAftMapped.pose.covariance[i * 6 + 1] = P(k, 4);
+            odomAftMapped.pose.covariance[i * 6 + 2] = P(k, 5);
+            odomAftMapped.pose.covariance[i * 6 + 3] = P(k, 0);
+            odomAftMapped.pose.covariance[i * 6 + 4] = P(k, 1);
+            odomAftMapped.pose.covariance[i * 6 + 5] = P(k, 2);
+        }
+
+        static tf::TransformBroadcaster br;
+        tf::Transform transform;
+        tf::Quaternion q;
+        transform.setOrigin(tf::Vector3(odomAftMapped.pose.pose.position.x,
+                                        odomAftMapped.pose.pose.position.y,
+                                        odomAftMapped.pose.pose.position.z));
+        q.setW(odomAftMapped.pose.pose.orientation.w);
+        q.setX(odomAftMapped.pose.pose.orientation.x);
+        q.setY(odomAftMapped.pose.pose.orientation.y);
+        q.setZ(odomAftMapped.pose.pose.orientation.z);
+        transform.setRotation(q);
+        br.sendTransform(tf::StampedTransform(transform, odomAftMapped.header.stamp, "camera_init", "body"));
+    }
+
+    void publish_path(const ros::Publisher pubPath)
+    {
+        set_posestamp(msg_body_pose);
+        msg_body_pose.header.stamp = ros::Time().fromSec(lidar_end_time);
+        msg_body_pose.header.frame_id = "camera_init";
+
+        /*** if path is too large, the rvis will crash ***/
+        static int jjj = 0;
+        jjj++;
+        if (jjj % 10 == 0)  // 每10帧添加一个路径点
+        {
+            path.poses.push_back(msg_body_pose);
+            
+            // 限制路径点的数量，比如只保留最近1000个点
+            const size_t max_path_size = 200;  // 可以根据需要调整这个值
+            if (path.poses.size() > max_path_size)
+            {
+                // 删除最旧的路径点
+                path.poses.erase(path.poses.begin());
+            }
+            
+            pubPath.publish(path);
+        }
+    }
+
+    void h_share_model(state_ikfom & s, esekfom::dyn_share_datastruct<double> & ekfom_data)
+    {
+        double match_start = omp_get_wtime();
+        laserCloudOri->clear();
+        corr_normvect->clear();
+        total_residual = 0.0;
+
+/** closest surface search and residual computation **/
+#ifdef MP_EN
         omp_set_num_threads(MP_PROC_NUM);
         #pragma omp parallel for
     #endif
@@ -785,6 +815,8 @@ int main(int argc, char** argv)
     nh.param<bool>("mapping/extrinsic_est_en", extrinsic_est_en, true);
     nh.param<bool>("pcd_save/pcd_save_en", pcd_save_en, false);
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
+    nh.param<double>("min_display_height", min_display_height, -0.5); //------------------------------------------------------//
+    nh.param<double>("max_display_height", max_display_height, 1.0);  //------------------------------------------------------//
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
     cout<<"p_pre->lidar_type "<<p_pre->lidar_type<<endl;

@@ -1,23 +1,23 @@
 <launch>
-        <!-- run pointcloud_to_laserscan node -->
+    <!-- 运行 pointcloud_to_laserscan 节点 -->
     <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
-        <remap from="cloud_in" to="/cloud_registered"/>
+        <remap from="cloud_in" to="/cloud_registered"/>  <!-- 将输入点云话题重映射为 /cloud_registered -->
         
         <rosparam>
-            transform_tolerance: 0.01
-            min_height: 0.0
-            max_height: 1.0
+            transform_tolerance: 0.01  <!-- 设置坐标变换的容忍度为 0.01 秒 -->
+            min_height: -0.5  <!-- 设置点云中点的最小高度为 0.0 米 -->
+            max_height: 0.5  <!-- 设置点云中点的最大高度为 1.0 米 -->
 
-            angle_min: -3.14159 # -M_PI/2
-            angle_max: 3.14159 # M_PI/2
-            angle_increment: 0.0087 # M_PI/360.0
-            scan_time: 10
-            range_min: 0.05
-            range_max: 30.0
-            use_inf: true
-            inf_epsilon: 1.0
+            angle_min: -3.14159 # -M_PI/2  <!-- 设置激光扫描的最小角度为 -π 弧度 -->
+            angle_max: 3.14159 # M_PI/2  <!-- 设置激光扫描的最大角度为 π 弧度 -->
+            angle_increment: 0.0087 # M_PI/360.0  <!-- 设置激光扫描的角度增量为 0.0087 弧度 -->
+            scan_time: 10  <!-- 设置激光扫描的时间为 10 秒 -->
+            range_min: 0.05  <!-- 设置激光扫描的最小范围为 0.05 米 -->
+            range_max: 30.0  <!-- 设置激光扫描的最大范围为 30.0 米 -->
+            use_inf: true  <!-- 启用无穷远距离的处理 -->
+            inf_epsilon: 1.0  <!-- 设置无穷远距离的偏移量为 1.0 米 -->
             
-            concurrency_level: 1
+            concurrency_level: 1  <!-- 设置并发级别为 1 -->
         </rosparam>
     </node>
 </launch>
