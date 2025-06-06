@@ -3,7 +3,7 @@
     <!-- 标签 -->
     <arg name="use_imu"         default="false"/>
     <arg name="use_rtk"         default="false"/>
-    <arg name="use_lidar"       default="false"/>
+    <arg name="use_lidar"       default="true"/>
 
     <!-- 启动机器人 -->
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>

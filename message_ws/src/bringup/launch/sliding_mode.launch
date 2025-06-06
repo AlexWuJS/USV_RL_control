@@ -3,7 +3,7 @@
     <include file="$(find bringup)/launch/bringup.launch">
         <arg name="use_imu"         default="false"/>
         <arg name="use_rtk"         default="false"/>
-        <arg name="use_lidar"       default="false"/>
+        <arg name="use_lidar"       default="true"/>
     </include>
 
     <!-- 生成路径 -->
