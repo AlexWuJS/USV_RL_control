@@ -38,7 +38,7 @@
         <param name="chunk_size" value="1000000" /> <!-- 设置块大小 -->
         <param name="voxel_size" value="0.2" /> <!-- 设置体素大小 -->
         <param name="publish_rate" value="1.0" /> <!-- 设置发布速率 -->
-        <param name="display_ratio" value="0.4" />  <!-- 显示50%的点云 -->
+        <param name="display_ratio" value="1" />  <!-- 显示50%的点云 -->
 		<param name="display_mode" value="first" />  <!-- 或 "first" -->
     </node>
 

@@ -302,7 +302,7 @@ void AStarPlanner::publishPath(const std::vector<Node*>& path) {
     
     current_path_.header = current_map_.header;
     current_path_.header.stamp = ros::Time::now();
-    current_path_.header.frame_id = "map";
+    current_path_.header.frame_id = "camera_init";
     
     for (const Node* node : path) {
         geometry_msgs::PoseStamped pose;

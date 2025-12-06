@@ -248,7 +248,7 @@ if __name__ == '__main__':
     FREQ_LOCALIZATION = 0.5
 
     # 全局定位的阈值，只有那些配准的拟合度高于LOCALIZATION_TH的扫描才会被使用
-    LOCALIZATION_TH = 0.88
+    LOCALIZATION_TH = 0.85
 
     # FOV(弧度), 根据你的激光雷达类型修改
     FOV = 6.28

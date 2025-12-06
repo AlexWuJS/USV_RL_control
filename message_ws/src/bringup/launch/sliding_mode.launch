@@ -7,12 +7,13 @@
     </include>
 
     <!-- 生成路径 -->
-    <include file="$(find path)/launch/path.launch">
+    <!-- <include file="$(find path)/launch/path.launch">
         <arg name="path_type"         default="square_node"/>
-    </include>
+    </include> -->
 
     <!-- 启用滑模控制 -->
     <node pkg="huamo" type="huamo_node" name="huamo" output="screen">
+        <remap from="my_path" to="a_star_path" />
     </node>
 
 </launch>

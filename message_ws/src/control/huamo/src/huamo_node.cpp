@@ -63,7 +63,7 @@ void odomCallback(const nav_msgs::Odometry &msg)
     motion_path.header.stamp = ros::Time::now();
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.stamp = msg.header.stamp;
-    pose_msg.header.frame_id = msg.header.frame_id;
+    pose_msg.header.frame_id = "camera_init";
     pose_msg.pose.position.x = msg.pose.pose.position.x; 
     pose_msg.pose.position.y = msg.pose.pose.position.y; 
     pose_msg.pose.position.z = 0;
@@ -112,7 +112,7 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                 LOS_path.header.stamp = ros::Time::now();
                 geometry_msgs::PoseStamped pose_msg;
                 pose_msg.header.stamp = ros::Time::now();
-                pose_msg.header.frame_id = "LOS";
+                pose_msg.header.frame_id = "camera_init";
                 pose_msg.pose.position.x = LOS_[0]; 
                 pose_msg.pose.position.y = LOS_[1]; 
                 pose_msg.pose.position.z = 0;
