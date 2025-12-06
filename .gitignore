@@ -14,5 +14,7 @@ record/
 ws_livox/
 rplidar_ws/teamviewer-host_15.44.4_arm64.deb
 
+*.pcd
+*.pgm
 
 !/.gitignore
