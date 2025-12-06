@@ -11,7 +11,7 @@ using namespace std;
 #include "adjust_pid/point_nav.h"
 #include <sensor_msgs/Imu.h>
 #include <tf2/utils.h>
-
+#include <logger/logger.h>
 
 Point_Nav point_nav;
 control::Motor thruster_msg;
@@ -60,7 +60,8 @@ int main(int argc, char* argv[])
     // 设置PID参数
     point_nav.setPidParams(nh);
     
-    ROS_INFO("point_nav_node run success.");
+    LOG_INFO("point_nav_node run success.");
+    LOG_SENSOR_INFO("test sensor info.");
     while (ros::ok())
     {
         point_nav.run(current_position, current_heading_angle);

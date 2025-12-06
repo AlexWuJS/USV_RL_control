@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
 
   tcp
+  logger
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES adjust_pid
- CATKIN_DEPENDS roscpp sensor_msgs std_msgs tcp
+ CATKIN_DEPENDS roscpp sensor_msgs std_msgs tcp logger
 #  DEPENDS system_lib
 )
 

@@ -3,6 +3,7 @@
 **/NEXTE_Sentry/sentry_slam/*/*.pcd
 **/devel/
 **/build/
+**/logs/
 backup/
 carto/
 catkin_ws/
