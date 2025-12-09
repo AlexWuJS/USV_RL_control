@@ -9,18 +9,18 @@
 #define LOG_TRACE(fmt, ...) logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::trace, fmt, ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...)  logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::info, fmt, ##__VA_ARGS__)
 #define LOG_WARN(fmt, ...)  logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::warn, fmt, ##__VA_ARGS__)
-#define LOG_ERROR(fmt, ...) logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::error, fmt, ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...) logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::err, fmt, ##__VA_ARGS__)
 #define LOG_CRITICAL(fmt, ...) logger::Logger::GetInstance().get_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::critical, fmt, ##__VA_ARGS__)
 
 #define LOG_TRACE_CONSOLE(fmt, ...) logger::Logger::GetInstance().get_console_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::trace, fmt, ##__VA_ARGS__)
 #define LOG_INFO_CONSOLE(fmt, ...)  logger::Logger::GetInstance().get_console_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::info, fmt, ##__VA_ARGS__)
 #define LOG_WARN_CONSOLE(fmt, ...)  logger::Logger::GetInstance().get_console_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::warn, fmt, ##__VA_ARGS__)
-#define LOG_ERROR_CONSOLE(fmt, ...) logger::Logger::GetInstance().get_console_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::error, fmt, ##__VA_ARGS__)
+#define LOG_ERROR_CONSOLE(fmt, ...) logger::Logger::GetInstance().get_console_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::err, fmt, ##__VA_ARGS__)
 
 #define LOG_TRACE_FILE(fmt, ...) logger::Logger::GetInstance().get_file_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::trace, fmt, ##__VA_ARGS__)
 #define LOG_INFO_FILE(fmt, ...)  logger::Logger::GetInstance().get_file_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::info, fmt, ##__VA_ARGS__)
 #define LOG_WARN_FILE(fmt, ...)  logger::Logger::GetInstance().get_file_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::warn, fmt, ##__VA_ARGS__)
-#define LOG_ERROR_FILE(fmt, ...) logger::Logger::GetInstance().get_file_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::error, fmt, ##__VA_ARGS__)
+#define LOG_ERROR_FILE(fmt, ...) logger::Logger::GetInstance().get_file_logger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::err, fmt, ##__VA_ARGS__)
 
 #define LOG_SENSOR_INFO(...)  logger::Logger::GetInstance().GetSensorLogger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::info, __VA_ARGS__)
 #define LOG_SENSOR_DEBUG(...) logger::Logger::GetInstance().GetSensorLogger()->log(spdlog::source_loc{__FILE__, __LINE__, __FUNCTION__}, spdlog::level::debug, __VA_ARGS__)
