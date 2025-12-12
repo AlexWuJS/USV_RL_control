@@ -9,6 +9,7 @@
 // 1. 定义枚举类型，列出所有需要播报的情况
 enum class AudioType {
     CAMERA_ERR,     // 相机故障
+    NETWORK_ERR,    // 网络异常
     RTK_ERR,        // RTK 定位故障
     LIDAR_ERR,      // 雷达故障
     BATTERY_LOW,    // 电量低

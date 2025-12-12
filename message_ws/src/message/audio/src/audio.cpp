@@ -25,6 +25,7 @@ void AudioManager::initAudioPaths() {
 
     // 2. 绑定枚举到具体的文件名
     audio_map_[AudioType::CAMERA_ERR]  = sound_dir + "camera_err.wav";
+    audio_map_[AudioType::NETWORK_ERR]  = sound_dir + "network_err.wav";
     audio_map_[AudioType::RTK_ERR]     = sound_dir + "rtk_err.wav";
     audio_map_[AudioType::LIDAR_ERR]   = sound_dir + "lidar_err.wav";
     audio_map_[AudioType::BATTERY_LOW] = sound_dir + "battery_low.wav";
@@ -32,14 +33,15 @@ void AudioManager::initAudioPaths() {
 }
 
 void AudioManager::play(AudioType type) {
-    // 查找 map 中是否存在该枚举
     if (audio_map_.find(type) != audio_map_.end()) {
         std::string file_path = audio_map_[type];
-        LOG_INFO("Playing audio:{} ", file_path);
+        LOG_INFO("Playing audio: {}", file_path);
         
-        // 调用 sound_play 播放
-        // playWave 是非阻塞的
-        sc_.playWave(file_path);
+        std::string command = "aplay -q " + file_path + " &";
+        
+        // 执行命令
+        int ret = std::system(command.c_str());
+        
     } else {
         LOG_WARN("Audio type not defined in map!");
     }
