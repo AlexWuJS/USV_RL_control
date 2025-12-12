@@ -145,6 +145,7 @@ void Point_Nav::update_recv_waypoints(void){
         _index = 0;
         return;
     }
+    
         
     for (auto& waypoint : point_list){
         hash_table.insert({waypoint.longitude, waypoint.latitude});

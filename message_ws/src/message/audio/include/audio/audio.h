@@ -8,12 +8,18 @@
 
 // 1. 定义枚举类型，列出所有需要播报的情况
 enum class AudioType {
-    CAMERA_ERR,     // 相机故障
-    NETWORK_ERR,    // 网络异常
-    RTK_ERR,        // RTK 定位故障
-    LIDAR_ERR,      // 雷达故障
-    BATTERY_LOW,    // 电量低
-    TASK_START      // 任务开始
+    CAMERA_ERR,         // 相机故障
+    NETWORK_ERR,        // 网络异常
+    RTK_ERR,            // RTK 定位故障
+    LIDAR_ERR,          // 雷达故障
+    RC_COMM_ERR,        // 遥控器通信异常
+    MCU_COMM_ERR,       // 单片机通信异常
+
+    IMU_DISCONNECTED,   // 未连接到惯导
+    LIDAR_DISCONNECTED, // 未连接到激光雷达
+
+    BATTERY_LOW,        // 电量低
+    TASK_START          // 任务开始
 };
 
 class AudioManager {

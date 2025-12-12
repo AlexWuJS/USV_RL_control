@@ -28,6 +28,13 @@ void AudioManager::initAudioPaths() {
     audio_map_[AudioType::NETWORK_ERR]  = sound_dir + "network_err.wav";
     audio_map_[AudioType::RTK_ERR]     = sound_dir + "rtk_err.wav";
     audio_map_[AudioType::LIDAR_ERR]   = sound_dir + "lidar_err.wav";
+    audio_map_[AudioType::RC_COMM_ERR]   = sound_dir + "rc_comm_err.wav";
+    audio_map_[AudioType::MCU_COMM_ERR]   = sound_dir + "mcu_comm_err.wav";
+
+
+    audio_map_[AudioType::IMU_DISCONNECTED]  = sound_dir + "imu_disconnected.wav";
+    audio_map_[AudioType::LIDAR_DISCONNECTED]  = sound_dir + "lidar_disconnected.wav";
+
     audio_map_[AudioType::BATTERY_LOW] = sound_dir + "battery_low.wav";
     audio_map_[AudioType::TASK_START]  = sound_dir + "task_start.wav";
 }

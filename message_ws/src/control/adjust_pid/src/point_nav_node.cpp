@@ -61,7 +61,6 @@ int main(int argc, char* argv[])
     point_nav.setPidParams(nh);
     
     LOG_INFO("point_nav_node run success.");
-    LOG_SENSOR_INFO("test sensor info.");
     while (ros::ok())
     {
         point_nav.run(current_position, current_heading_angle);
