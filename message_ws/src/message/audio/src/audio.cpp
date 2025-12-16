@@ -24,6 +24,8 @@ void AudioManager::initAudioPaths() {
     std::string sound_dir = pkg_path + "/sounds/";
 
     // 2. 绑定枚举到具体的文件名
+    audio_map_[AudioType::NETWORK_CONNECTED]  = sound_dir + "network_connected.wav";
+
     audio_map_[AudioType::CAMERA_ERR]  = sound_dir + "camera_err.wav";
     audio_map_[AudioType::NETWORK_ERR]  = sound_dir + "network_err.wav";
     audio_map_[AudioType::RTK_ERR]     = sound_dir + "rtk_err.wav";

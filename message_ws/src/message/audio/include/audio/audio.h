@@ -8,6 +8,8 @@
 
 // 1. 定义枚举类型，列出所有需要播报的情况
 enum class AudioType {
+    NETWORK_CONNECTED,  // 网络连接正常
+    
     CAMERA_ERR,         // 相机故障
     NETWORK_ERR,        // 网络异常
     RTK_ERR,            // RTK 定位故障

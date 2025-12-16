@@ -9,6 +9,9 @@
 #include "tcp/ship_info.h"
 #include "tcp/sendMessage.h"
 #include <thread>
+#include "logger/logger.h"
+#include <audio/audio.h>
+
 
 tcp::ship_info ship_information;
 sensor_msgs::Imu imu;                        // 里程计信息
@@ -183,6 +186,16 @@ int main(int argc, char* argv[])
     ros::service::waitForService("/tcp/communication", -1);
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
+
+    AudioManager audio_mgr(nh);
+
+    if (TcpClient::checkNetStatus("223.5.5.5", 53, 1)) {
+        LOG_INFO("Network Status: ONLINE");
+        audio_mgr.play(AudioType::NETWORK_CONNECTED);
+    } else {
+        LOG_WARN("Network Status: OFFLINE");
+        audio_mgr.play(AudioType::NETWORK_ERR);
+    }
 
     // 创建线程，传入线程函数
     std::thread TcpSend(TcpSend_Thread);    
