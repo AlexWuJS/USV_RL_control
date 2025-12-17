@@ -44,6 +44,8 @@ public:
      */
     void stop();
 
+    static void InitSystemVolume(int volume_percent);
+
 private:
     // sound_play 客户端
     sound_play::SoundClient sc_;

@@ -5,6 +5,7 @@
 AudioManager::AudioManager(ros::NodeHandle& nh) : sc_(nh, "robotsound") {
     // 初始化路径映射
     initAudioPaths();
+    InitSystemVolume(40);
     
 }
 
@@ -60,7 +61,7 @@ void AudioManager::stop() {
     sc_.stopAll();
 }
 
-void InitSystemVolume(int volume_percent) {
+void AudioManager::InitSystemVolume(int volume_percent) {
     if (volume_percent < 0) volume_percent = 0;
     if (volume_percent > 150) volume_percent = 150;
 
