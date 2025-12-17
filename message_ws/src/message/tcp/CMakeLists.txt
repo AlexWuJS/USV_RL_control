@@ -156,6 +156,7 @@ add_executable(sys_status_node
   src/sys_status_node.cpp
   src/Tcp.cpp
   src/format_conversion.cpp
+  src/network_monitor.cpp
 )
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

@@ -9,8 +9,10 @@
 #include "tcp/ship_info.h"
 #include "tcp/sendMessage.h"
 #include <thread>
+
 #include "logger/logger.h"
 #include <audio/audio.h>
+#include "tcp/network_monitor.h" 
 
 
 tcp::ship_info ship_information;
@@ -188,14 +190,15 @@ int main(int argc, char* argv[])
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 
     AudioManager audio_mgr(nh);
+    NetworkMonitor net_monitor(audio_mgr);
 
-    if (TcpClient::checkNetStatus("223.5.5.5", 53, 1)) {
-        LOG_INFO("Network Status: ONLINE");
-        audio_mgr.play(AudioType::NETWORK_CONNECTED);
-    } else {
-        LOG_WARN("Network Status: OFFLINE");
-        audio_mgr.play(AudioType::NETWORK_ERR);
-    }
+    // 3. 创建 Timer，绑定类的成员函数
+    // 这里的逻辑是：每隔 NET_CHECK_INTERVAL (3秒)，ROS 会自动调用 net_monitor.update()
+    ros::Timer timer_net_check = nh.createTimer(
+        ros::Duration(NET_CHECK_INTERVAL), 
+        &NetworkMonitor::update, 
+        &net_monitor
+    );
 
     // 创建线程，传入线程函数
     std::thread TcpSend(TcpSend_Thread);    
