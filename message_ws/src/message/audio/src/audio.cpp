@@ -59,3 +59,20 @@ void AudioManager::play(AudioType type) {
 void AudioManager::stop() {
     sc_.stopAll();
 }
+
+void InitSystemVolume(int volume_percent) {
+    if (volume_percent < 0) volume_percent = 0;
+    if (volume_percent > 150) volume_percent = 150;
+
+    // > /dev/null 2>&1 用于屏蔽终端输出
+    std::string cmd = "pactl set-sink-volume @DEFAULT_SINK@ " + std::to_string(volume_percent) + "% > /dev/null 2>&1";
+    
+    // 执行命令
+    int ret = std::system(cmd.c_str());
+    
+    if (ret == 0) {
+        LOG_INFO("[System] Volume initialized to {}% ", volume_percent);
+    } else {
+        LOG_ERROR("[System] Failed to set volume. Is PulseAudio running?");
+    }
+}
