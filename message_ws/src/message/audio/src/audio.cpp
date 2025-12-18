@@ -5,7 +5,7 @@
 AudioManager::AudioManager(ros::NodeHandle& nh) : sc_(nh, "robotsound") {
     // 初始化路径映射
     initAudioPaths();
-    InitSystemVolume(40);
+    InitSystemVolume(30);
     
 }
 

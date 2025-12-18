@@ -46,7 +46,7 @@ class Logger {
  private:
   // 构造函数现在是初始化的入口
   Logger();
-  ~Logger() = default;
+  ~Logger();
 
   // 指向 spdlog 日志记录器的共享指针。
   std::shared_ptr<spdlog::logger> logger_both_;    // 终端 + 文件

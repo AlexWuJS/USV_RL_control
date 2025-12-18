@@ -14,7 +14,7 @@
 #define NET_TEST_PORT      53            // 目标端口 (DNS)
 #define NET_TIMEOUT_SEC    1             // 单次Socket连接超时时间 (秒)
 #define NET_MAX_FAIL_COUNT 3             // 判定断网的连续失败次数阈值
-
+#define NET_CHECK_INTERVAL 1             // 网络状态监测的时间间隔(秒)
 /**
  * @brief 网络状态监控类
  * 负责定期检测网络连通性，并调用 AudioManager 播放对应语音

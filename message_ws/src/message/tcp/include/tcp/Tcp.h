@@ -11,7 +11,6 @@ using namespace std;
 #define SERVER_PORT         1234     /* 服务器端口号 */
 #define SERVER_IP           "120.77.0.8"
 #define TCP_MAX_SIZE        1024
-#define NET_CHECK_INTERVAL  3
 
 typedef enum{
     GET_IP_FAILED = -1,

@@ -106,4 +106,13 @@ Logger::Logger() {
   }
 }
 
+Logger::~Logger() {
+  if (logger_both_) logger_both_->flush();
+  if (logger_console_) logger_console_->flush();
+  if (logger_file_) logger_file_->flush();
+  if (logger_sensor_) logger_sensor_->flush();
+
+  spdlog::shutdown();
+}
+
 }  // namespace logger
