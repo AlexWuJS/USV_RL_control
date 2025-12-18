@@ -10,6 +10,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  roslib
 )
 
 ## System dependencies are found with CMake's conventions
@@ -104,7 +105,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include        # 导出 include 目录，这样别人能找到 logger.h
   LIBRARIES ${PROJECT_NAME}   # 导出生成的库文件 (liblogger.so)
-  CATKIN_DEPENDS roscpp std_msgs # 依赖的包
+  CATKIN_DEPENDS roscpp std_msgs roslib # 依赖的包
 )
 
 ###########

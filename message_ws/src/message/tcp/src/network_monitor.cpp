@@ -48,7 +48,7 @@ void NetworkMonitor::update(const ros::TimerEvent& event) {
     } else {
         // --- 检测失败 ---
         fail_count_++;
-        LOG_ERROR_FILE("[NetMonitor] Network Check Failed {} time, try again...", fail_count_);
+        LOG_WARN_FILE("[NetMonitor] Network Check Failed {} time, try again...", fail_count_);
         
         // 只有连续失败次数达到阈值，且当前认为是“在线”时，才播报断网
         if (fail_count_ >= NET_MAX_FAIL_COUNT) {
