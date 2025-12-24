@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
     /*--- ROS INIT ----------------------------------------------------------- */
-    ros::init(argc, argv, "system_control_node");
+    ros::init(argc, argv, "sys_status_node");
 
     ros::NodeHandle nh;
 
@@ -179,7 +179,6 @@ int main(int argc, char* argv[])
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 
-<<<<<<< HEAD:message_ws/src/message/tcp/src/sys_status_node.cpp
     AudioManager audio_mgr(nh);
     NetworkMonitor net_monitor(audio_mgr);
 
@@ -190,12 +189,7 @@ int main(int argc, char* argv[])
         &NetworkMonitor::update, 
         &net_monitor
     );
-
-    // 创建线程，传入线程函数
-    std::thread TcpSend(TcpSend_Thread);    
-
-=======
->>>>>>> update-tcp-send:message_ws/src/message/tcp/src/system_control_node.cpp
+    
     ros::spin();
 
     return 0;

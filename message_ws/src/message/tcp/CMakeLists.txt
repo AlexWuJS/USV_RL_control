@@ -19,10 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
 
   logger
-<<<<<<< HEAD
   audio
-=======
->>>>>>> update-tcp-send
 )
 
 ## System dependencies are found with CMake's conventions
@@ -121,11 +118,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES tcp
-<<<<<<< HEAD
  CATKIN_DEPENDS roscpp std_msgs message_runtime sensor_msgs logger audio
-=======
- CATKIN_DEPENDS roscpp std_msgs message_runtime sensor_msgs logger
->>>>>>> update-tcp-send
 #  DEPENDS system_lib
 )
 
@@ -179,12 +172,8 @@ add_executable(example_ros_tx_tcp_node
 ## same as for the library above
 
 add_dependencies(tcp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-<<<<<<< HEAD
 add_dependencies(sys_status_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-=======
-add_dependencies(system_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(example_ros_tx_tcp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
->>>>>>> update-tcp-send
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(tcp_node
