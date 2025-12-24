@@ -2,18 +2,24 @@
 
     <!-- 标签 -->
     <arg name="use_imu"         default="false"/>
+    <arg name="use_wit_imu"     default="true"/>
     <arg name="use_rtk"         default="false"/>
     <arg name="use_lidar"       default="false"/>
 
     <!-- 启动机器人 -->
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-    <node pkg="tcp" type="system_control_node" name="system_control" output="screen"/>
+    <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen"/>
     <node pkg="control" type="controller_node" name="controller" output="screen"/>
   
     <!-- 是否使用imu -->
     <group if="$(arg use_imu)">
         <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
+    </group>
+
+    <!-- 是否使用imu -->
+    <group if="$(arg use_wit_imu)">
+        <include file="$(find wit_imu)/launch/imu_pub.launch"/>
     </group>
 
     <!-- 是否使用rtk -->

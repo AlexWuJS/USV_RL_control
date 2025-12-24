@@ -2,7 +2,7 @@
 
   <!-- Launch nmea_topic_serial_reader node -->
   <node name="nmea_topic_serial_reader_node" pkg="nmea_navsat_driver" type="nmea_topic_serial_reader" output="screen">
-    <param name="port" value="/dev/rtk" />
+    <param name="port" value="/dev/gps" />
     <param name="baud" value="115200" />
     <param name="frame_id" value="gps" />
     <!-- Additional parameters specific to nmea_topic_serial_reader if needed -->
