@@ -22,7 +22,7 @@ std::condition_variable tcp_send_cv;   // 条件变量
 bool enable_send_tcp, ready_send_tcp;  // 条件变量的条件
 ros::Publisher tcp_data_pub, tcp_raw_message_pub, tcp_toGroundData_pub;
 std::string ground_station_data;
-std_msgs::String tcp_recv_string, tcp_toGroundData;
+std_msgs::String tcp_recv_string;
 
 tcp::message_s tcp_message;
 
@@ -94,37 +94,38 @@ bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessag
 }
 
 /**
- * @brief  服务器发送船体信息至上位机，间隔为0.1s
- * @param  无
- * @retval 无
+ * @brief  服务器发送船体信息至上位机
  */
 void Tcp_SendMessage_Thread(int client_socket)
 {
-    char tcp_sbuf[TCP_MAX_SIZE];
+    std_msgs::String tcp_toGroundData;
+    
     while (ros::ok())
     {
         std::unique_lock<std::mutex> lock(queue_mutex);
-        // 等待队列不为空，避免死循环空转占用 CPU
+        // 等待队列不为空
         queue_cv.wait(lock, []{ return !send_queue.empty(); });
         
         // 取出队首数据
-        tcp_toGroundData.data = send_queue.front();
+        std::string current_msg = send_queue.front(); 
         send_queue.pop();
-        strcpy(tcp_sbuf, tcp_toGroundData.data.c_str());
-        LOG_INFO_CONSOLE("data:{}\t\n",  tcp_sbuf);
+        
+        lock.unlock(); // 尽早解锁
+
+        LOG_INFO_CONSOLE("Sending data: {}\n", current_msg.c_str()); 
     
-        lock.unlock();
-        // 2. 执行 TCP 发送 (耗时操作放在锁外面！)
-        int tcp_send_flag = Tcp_Server_Send(client_socket, tcp_sbuf);
+        int tcp_send_flag = Tcp_Server_Send(client_socket, current_msg);
         
         if (tcp_send_flag < 0) {
-            LOG_ERROR("Send failed, closing socket.");
+            LOG_ERROR("Send failed, closing socket: {}", client_socket);
             break; 
         }
-        tcp_toGroundData_pub.publish(tcp_toGroundData); // 发送至上位机    
+
+        tcp_toGroundData.data = current_msg;
+        tcp_toGroundData_pub.publish(tcp_toGroundData); 
     }
 
-    LOG_INFO("close send thread,socket: {}", client_socket);
+    LOG_INFO("close send thread, socket: {}", client_socket);
 }
 
 /**

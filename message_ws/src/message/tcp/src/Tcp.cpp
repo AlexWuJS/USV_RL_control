@@ -63,29 +63,58 @@ int Tcp_Server_Init(uint16_t port)
 }
 
 /**
- * @brief 服务器发送数据
+ * @brief 服务器发送数据 (Char* 版本，支持指定长度)
  * @param client_socket 客户端套接字
  * @param buf 要发送的数据缓冲区
+ * @param len 要发送的数据长度 (字节数)
  * @return 成功返回0，失败返回负值
  */
-int Tcp_Server_Send(int client_socket, const char *buf)
+int Tcp_Server_Send(int client_socket, const char *buf, int len)
 {
-    // 检查套接字有效性
+    // 1. 检查套接字有效性
     if (client_socket <= 0)
     {
-        cout << "Server send failed! Please check your network, maybe your socket is not running as expected." << endl;
+        cout << "[Tcp Error] Server send failed: Invalid socket." << endl;
         return -1;
     }
 
-    // 发送数据
-    if (-1 == send(client_socket, buf, TCP_MAX_SIZE, 0))
+    // 2. 检查数据有效性
+    if (buf == nullptr || len <= 0)
+    {
+        cout << "[Tcp Error] Server send failed: Empty data or invalid length." << endl;
+        return -1;
+    }
+
+    // 3. 安全检查：防止发送超过缓冲区定义的最大长度 (可选，视需求而定)
+    if (len > TCP_MAX_SIZE) 
+    {
+        cout << "[Tcp Warning] Data too long, truncated to TCP_MAX_SIZE." << endl;
+        len = TCP_MAX_SIZE; 
+    }
+
+    ssize_t sent_bytes = send(client_socket, buf, len, 0);
+
+    if (-1 == sent_bytes)
     {
         perror("server send failed");
-        printf("This message failed to send:\r\n\t%s\r\n", buf);
+        // 为了防止打印乱码，这里只打印前一部分
+        printf("Failed to send data (len=%d)\n", len); 
         return -2;
     }
 
     return 0;
+}
+
+/**
+ * @brief 服务器发送数据 (String 重载版本)
+ * @param client_socket 客户端套接字
+ * @param data 要发送的 string 数据
+ * @return 成功返回0，失败返回负值
+ */
+int Tcp_Server_Send(int client_socket, const std::string &data)
+{
+    // 直接调用 char* 版本，自动获取长度
+    return Tcp_Server_Send(client_socket, data.c_str(), static_cast<int>(data.length()));
 }
 
 /**

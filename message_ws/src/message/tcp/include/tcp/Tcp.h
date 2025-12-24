@@ -16,7 +16,8 @@ using namespace std;
 
 /* -function about server ----------------------------*/
 int Tcp_Server_Init(uint16_t port);
-int Tcp_Server_Send(int client_socket, const char* buf);
+int Tcp_Server_Send(int client_socket, const char *buf, int len);
+int Tcp_Server_Send(int client_socket, const std::string &data);
 int Tcp_Server_Read(int client_socket, char* buf);
 void Tcp_Server_Close(int client_socket);
 /* -function about client ---------------------------*/
