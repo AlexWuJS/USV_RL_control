@@ -57,12 +57,18 @@
   <build_depend>tf2_ros</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>logger</build_depend>
+<<<<<<< HEAD
   <build_depend>audio</build_depend>
+=======
+>>>>>>> update-tcp-send
 
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
   <build_export_depend>logger</build_export_depend>
+<<<<<<< HEAD
   <build_export_depend>audio</build_export_depend>
+=======
+>>>>>>> update-tcp-send
 
   <exec_depend>roscpp</exec_depend>
   <exec_depend>std_msgs</exec_depend>
@@ -72,7 +78,10 @@
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>logger</exec_depend>
+<<<<<<< HEAD
   <exec_depend>audio</exec_depend>
+=======
+>>>>>>> update-tcp-send
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

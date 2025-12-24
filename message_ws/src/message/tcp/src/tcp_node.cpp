@@ -11,8 +11,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <map>
+#include <queue>
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
+#include <logger/logger.h>
+
 
 
 std::mutex tcp_send_mtx, tcp_recv_mtx; // 定义互斥锁
@@ -20,9 +23,13 @@ std::condition_variable tcp_send_cv;   // 条件变量
 bool enable_send_tcp, ready_send_tcp;  // 条件变量的条件
 ros::Publisher tcp_data_pub, tcp_raw_message_pub, tcp_toGroundData_pub;
 std::string ground_station_data;
-std_msgs::String tcp_recv_string, tcp_toGroundData;
+std_msgs::String tcp_recv_string;
 
 tcp::message_s tcp_message;
+
+std::queue<std::string> send_queue; // 发送缓冲队列
+std::mutex queue_mutex;             // 保护队列的锁
+std::condition_variable queue_cv;   // 队列非空时的通知
 
 /**
  * @brief  查看Tcp的状态信息，根据状态信息进行处理
@@ -63,6 +70,13 @@ void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr &msg)
     }
 }
 
+void Ros_To_Tcp_Callback(const std_msgs::String::ConstPtr &msg)
+{
+    std::lock_guard<std::mutex> lock(queue_mutex);
+    send_queue.push(msg->data); // 入队
+    queue_cv.notify_one();      // 通知发送线程：有活干了！
+}
+
 /**
  * @brief  Tcp开启服务通信，其他话题通过此函数发送Tcp信息
  * @param  无
@@ -81,39 +95,38 @@ bool Tcp_Srv_SendMessageCallBack(tcp::sendMessage::Request &req, tcp::sendMessag
 }
 
 /**
- * @brief  服务器发送船体信息至上位机，间隔为0.1s
- * @param  无
- * @retval 无
+ * @brief  服务器发送船体信息至上位机
  */
 void Tcp_SendMessage_Thread(int client_socket)
 {
-    char tcp_sbuf[TCP_MAX_SIZE];
-
-    while (true)
+    std_msgs::String tcp_toGroundData;
+    
+    while (ros::ok())
     {
-        std::unique_lock<std::mutex> lock(tcp_send_mtx); // 上锁
-        // while (!enable_send_tcp) tcp_send_cv.wait(lock);
+        std::unique_lock<std::mutex> lock(queue_mutex);
+        // 等待队列不为空
+        queue_cv.wait(lock, []{ return !send_queue.empty(); });
+        
+        // 取出队首数据
+        std::string current_msg = send_queue.front(); 
+        send_queue.pop();
+        
+        lock.unlock(); // 尽早解锁
 
-        if (ready_send_tcp)
-        {
-            ready_send_tcp = false;
-
-            strcpy(tcp_sbuf, ground_station_data.c_str());
-            int tcp_send_flag = Tcp_Server_Send(client_socket, tcp_sbuf);
-
-            if (tcp_send_flag < 0) // 发送失败
-                break;
-            else{
-                tcp_toGroundData.data = ground_station_data;
-                tcp_toGroundData_pub.publish(tcp_toGroundData); // 发送至上位机
-            }
+        LOG_INFO_CONSOLE("Sending data: {}\n", current_msg.c_str()); 
+    
+        int tcp_send_flag = Tcp_Server_Send(client_socket, current_msg);
+        
+        if (tcp_send_flag < 0) {
+            LOG_ERROR("Send failed, closing socket: {}", client_socket);
+            break; 
         }
-        lock.unlock(); // 解锁
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // 在线程中延时 0.1 秒
+        tcp_toGroundData.data = current_msg;
+        tcp_toGroundData_pub.publish(tcp_toGroundData); 
     }
 
-    ROS_INFO("close send thread,socket: %d", client_socket);
+    LOG_INFO("close send thread, socket: {}", client_socket);
 }
 
 /**
@@ -148,7 +161,7 @@ void Tcp_RecvMessage_Thread(int client_socket)
             tcp_data_pub.publish(tcp_message);
         }
     }
-    ROS_WARN("close socket:%d", client_socket);
+    LOG_WARN("close socket:{}", client_socket);
     Tcp_Server_Close(client_socket);
 }
 
@@ -159,7 +172,7 @@ void ServerAccept_Thread()
     char ip_str[20];
 
     int server_local_sockfd = Tcp_Server_Init(SERVER_PORT);
-    ROS_INFO("accepting...");
+    LOG_INFO("accepting...");
     while (true)
     {
         memset(&ClientAddr, 0, sizeof(ClientAddr));
@@ -172,7 +185,7 @@ void ServerAccept_Thread()
         }
         else
         {
-            ROS_WARN("new client connect!:%d", client_socket);
+            LOG_WARN("new client connect!:{}", client_socket);
             /* show client information */
             inet_ntop(AF_INET, &ClientAddr.sin_addr, ip_str, sizeof(ip_str));
             cout << "The client port: " << ClientAddr.sin_port << endl;
@@ -198,6 +211,7 @@ int main(int argc, char *argv[])
     tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 1000);
     tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 1000);
     ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_GetShipInfo_CallBack);
+    ros::Subscriber tcp_request_sub = nh.subscribe<std_msgs::String>("/tcp/tx_request", 1000, Ros_To_Tcp_Callback);
 
     ros::ServiceServer service_connection = nh.advertiseService("/tcp/connection", Tcp_Get_Status_CallBack);
     ros::ServiceServer service_send_message = nh.advertiseService("/tcp/communication", Tcp_Srv_SendMessageCallBack);
