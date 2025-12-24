@@ -84,7 +84,7 @@ void Tcp_SendMessage_Thread(int client_socket)
 
         tcp_toGroundData.data = current_msg;
         tcp_toGroundData_pub.publish(tcp_toGroundData); 
-        LOG_INFO_CONSOLE("tcp_toGroundData:{}\t\n",  tcp_sbuf);
+        LOG_INFO_FILE("tcp_toGroundData:{}\t\n",  current_msg);
     }
 
     LOG_INFO("close send thread, socket: {}", client_socket);
