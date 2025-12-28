@@ -18,8 +18,7 @@
 tcp::ship_info ship_information;
 sensor_msgs::Imu imu;                        // 里程计信息
 sensor_msgs::NavSatFix rtk;                  // 里程计信息
-ros::Publisher ship_info_pub, rtk_point_pub;
-ros::ServiceClient client;
+ros::Publisher ship_info_pub, rtk_point_pub, tcp_tx_pub;
 
 // 定义并初始化常量
 const sensor_msgs::NavSatFix virtual_start_waypoint = [] {
@@ -54,25 +53,6 @@ void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
     ship_information.longitude = rtk.longitude;     // 当前船体纬度
 }
 
-void TcpSend_Thread()
-{
-    tcp::sendMessage tcp_send_message;
-    char ship_info_sbuf[100];
-
-    while (true)
-    {
-        if (ship_information.ship_is_sending)
-        {
-            sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", ship_information.longitude, ship_information.latitude,\
-                ship_information.heading_angle, ship_information.voltage_left_battery, ship_information.voltage_right_battery);
-
-            tcp_send_message.request.str = ship_info_sbuf;
-
-            client.call(tcp_send_message);
-        }            
-    }
-}
-
 /**
   * @brief  Tcp发布处理完的船体信息。与接收分开，Tcp没有通信时也发布。（串口的会更新）
   * @param  无
@@ -80,7 +60,20 @@ void TcpSend_Thread()
   */
 void PubShipMessage_CallBack(const ros::TimerEvent &event)
 {
+    char ship_info_sbuf[100];
+    std_msgs::String tcp_sbuf;
+    
     ship_info_pub.publish(ship_information);
+
+    // 将状态传输给tcp
+    if (ship_information.ship_is_sending)
+    {
+        sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", ship_information.longitude, ship_information.latitude,\
+            ship_information.heading_angle, ship_information.voltage_left_battery, ship_information.voltage_right_battery);
+        
+        tcp_sbuf.data = ship_info_sbuf;
+        tcp_tx_pub.publish(tcp_sbuf);
+    }
 }
 
 /**
@@ -114,7 +107,6 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
         ;
     }
 }
-
 
 void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 {
@@ -172,20 +164,18 @@ int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
     /*--- ROS INIT ----------------------------------------------------------- */
-    ros::init(argc, argv, "system_control_node");
+    ros::init(argc, argv, "sys_status_node");
 
     ros::NodeHandle nh;
 
     ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 1000);
     rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10);
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 1000);
 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
     ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 1000, SubMessage_CallBack);
-
-    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
-    ros::service::waitForService("/tcp/communication", -1);
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 
@@ -199,14 +189,8 @@ int main(int argc, char* argv[])
         &NetworkMonitor::update, 
         &net_monitor
     );
-
-    // 创建线程，传入线程函数
-    std::thread TcpSend(TcpSend_Thread);    
-
+    
     ros::spin();
-
-    // 等待线程结束
-    TcpSend.join();
 
     return 0;
 }
