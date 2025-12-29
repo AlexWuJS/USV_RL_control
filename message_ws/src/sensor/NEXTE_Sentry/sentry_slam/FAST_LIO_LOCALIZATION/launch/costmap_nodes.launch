@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- ============================= Costmap配置 ============================= -->
+	<!-- 参考pb_rm_simulation的实现，使用3D点云构建动态costmap -->
+	
+	<!-- 全局costmap（包含静态地图 + 3D点云障碍物） -->
+	<node pkg="costmap_2d" type="costmap_2d_node" name="global_costmap" output="screen">
+		<rosparam file="$(find fast_lio_localization)/param/global_costmap_params.yaml" command="load" />
+		<rosparam file="$(find fast_lio_localization)/param/costmap_common_params.yaml" command="load" />
+	</node>
+
+	<!-- 局部costmap（滚动窗口，跟随机器人） -->
+	<node pkg="costmap_2d" type="costmap_2d_node" name="local_costmap" output="screen">
+		<rosparam file="$(find fast_lio_localization)/param/local_costmap_params.yaml" command="load" />
+		<rosparam file="$(find fast_lio_localization)/param/costmap_common_params.yaml" command="load" />
+	</node>
+
+</launch>

@@ -1,51 +1,100 @@
 <launch>
-<!-- Launch file for Livox AVIA LiDAR -->
+<!-- Launch file for Livox AVIA LiDAR - 支持全局定位和建图 -->
 
-	<arg name="rviz" default="true" />
-	<arg name="use_sim_time" value="true"/>
-	<arg name="map" default="$(find fast_lio)/PCD/scans.pcd" />
-
-	<!-- fast_lio -->
-	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
-	<param name="feature_extract_enable" type="bool" value="0"/>
-	<!-- <param name="point_filter_num" type="int" value="3"/> -->
-	<param name="point_filter_num" type="int" value="10"/>
-	<param name="max_iteration" type="int" value="3" />
-	<!-- <param name="filter_size_surf" type="double" value="0.5" />
-	<param name="filter_size_map" type="double" value="0.5" /> -->
-	<param name="filter_size_surf" type="double" value="1" />
-	<param name="filter_size_map" type="double" value="1" />
-	<param name="cube_side_length" type="double" value="1000" />
-	<param name="runtime_pos_log_enable" type="bool" value="0" />
-    <node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen" /> 
-
+    <arg name="rviz" default="true" />              <!-- 是否启动RVIZ可视化 -->
+    <arg name="bag_mode" default="false"/>          <!-- BAG模式开关：true=回放bag, false=实时雷达 -->
+    <arg name="enable_localization" default="true"/> <!-- 定位模式开关：true=边建图边定位(有历史地图), false=纯建图模式(第一次建图) -->
+    
+    <!-- 根据bag_mode自动设置use_sim_time -->
+    <param name="/use_sim_time" value="$(arg bag_mode)"/>
+    
+    <arg name="map" default="$(find fast_lio_localization)/PCD/scans.pcd" /> <!-- 设置地图文件路径 -->
 	
-	<!-- loalization-->
-    <node pkg="fast_lio_localization" type="global_localization.py" name="global_localization" output="screen" />
+	
+	<!-- ============================= 建图配置 ============================= -->
+	<!-- fast_lio -->
+	<rosparam command="load" file="$(find fast_lio_localization)/config/mid360.yaml" /> <!-- 加载配置文件 -->
+	<param name="feature_extract_enable" type="bool" value="0"/> <!-- 特征提取开关 -->
+	<param name="point_filter_num" type="int" value="3"/> <!-- 点云滤波参数 -->
+	<param name="max_iteration" type="int" value="3" /> <!-- 最大迭代次数 -->
+	<param name="filter_size_surf" type="double" value="0.5" /> <!-- 表面滤波器大小 -->
+	<param name="filter_size_map" type="double" value="0.5" /> <!-- 地图滤波器大小 -->
+	<param name="cube_side_length" type="double" value="1000" /> <!-- 立方体边长 -->
+	<param name="runtime_pos_log_enable" type="bool" value="0" /> <!-- 运行时位置日志开关 -->
+	<param name="min_display_height" type="double" value="-0.5"/>  <!-- 点云最小高度 -->
+	<param name="max_display_height" type="double" value="5"/>   <!-- 点云最大高度 --> 
+	<param name="voxel_size" value="0.1" /> <!-- 设置体素大小 -->
+	<param name="enable_height_filter" value="true" /> <!-- 是否启用高度过滤 -->
+	<param name="enable_map_loader_downsample" value="true" /> <!-- 是否启用地图加载器的下采样 -->
+	<param name="enable_localization_downsample" value="false" /> <!-- 是否启用重定位ICP的下采样 -->
+	<node pkg="fast_lio_localization" type="fastlio_mapping" name="laserMapping" output="screen" />  <!-- 激光雷达映射节点 -->
 
-	<!-- transform  fusion-->
-    <node pkg="fast_lio_localization" type="transform_fusion.py" name="transform_fusion" output="screen" />
 
-	<!-- glbal map-->
-    <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publishe" output="screen"
-		  args="$(arg map) 5 _frame_id:=map cloud_pcd:=map" /> 
+	<!-- ============================= 重定位配置 ============================= -->
+	<!-- 仅在 enable_localization:=true 时启用（边建图边定位模式） -->
+	<!-- 第一次纯建图请使用：enable_localization:=false -->
+	
+	<group if="$(arg enable_localization)">
+		<!-- loalization-->
+		<node pkg="fast_lio_localization" type="global_localization.py" name="global_localization" output="screen" />  
+		<!-- 全局定位节点 -->
 
-	<group if="$(arg rviz)">
-	<node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio_localization)/rviz_cfg/sentry_build_map.rviz" />
+		<!-- 分块加载地图 -->
+		<node pkg="fast_lio_localization" type="map_chunk_loader.py" name="map_loader" output="screen"> 
+			<param name="pcd_path" value="$(arg map)" /> <!-- 设置点云路径 -->
+			<param name="chunk_size" value="1000000" /> <!-- 设置块大小 -->
+			<param name="publish_rate" value="1.0" /> <!-- 设置发布速率 -->
+			<param name="display_ratio" value="0.8" />  <!-- 显示比例 -->
+			<param name="display_mode" value="random" />  <!-- 显示模式 "random" "first"-->
+		</node>
+
+		<!-- transform  fusion-->
+		<node pkg="fast_lio_localization" type="transform_fusion.py" name="transform_fusion" output="screen" />     
+		<!-- 变换融合节点 -->
+
+		<!-- load 2d map -->
+		<arg name="2dmap" default="scans.yaml" /> <!-- 设置2D地图路径 -->
+		<node name = "map_server" pkg = "map_server" type = "map_server" args="$(find fast_lio_localization)/PCD/map.yaml /map:=prior_map"/> <!-- 启动地图服务器 -->
+	
+		<!-- ============================= Costmap配置 ============================= -->
+		<!-- 参考pb_rm_simulation的实现，使用3D点云构建动态costmap -->
+		
+		<!-- 全局costmap（包含静态地图 + 3D点云障碍物） -->
+		<node pkg="costmap_2d" type="costmap_2d_node" name="global_costmap" output="screen">
+			<rosparam file="$(find fast_lio_localization)/param/global_costmap_params.yaml" command="load" />
+			<rosparam file="$(find fast_lio_localization)/param/costmap_common_params.yaml" command="load" />
+		</node>
+
+		<!-- 局部costmap（滚动窗口，跟随机器人） -->
+		<node pkg="costmap_2d" type="costmap_2d_node" name="local_costmap" output="screen">
+			<rosparam file="$(find fast_lio_localization)/param/local_costmap_params.yaml" command="load" />
+			<rosparam file="$(find fast_lio_localization)/param/costmap_common_params.yaml" command="load" />
+		</node>
+
 	</group>
 
-	<!-- build 2d map -->
-	<include file="$(find fast_lio)/launch/Pointcloud2Map.launch">
-	</include>
+
+	<group if="$(arg rviz)">
+	<node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio_localization)/rviz_cfg/sentry_build_map.rviz" />  
+	<!-- 启动RVIZ可视化 -->
+	</group>
+
+	
+     <!-- glbal map-->
+    <!-- <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publishe" output="screen" -->
+          <!-- args="$(arg map) 5 _frame_id:=map cloud_pcd:=map" />   -->
+    <!-- 发布地图点云 -->
 
 	<!-- pointscloud2 to laserscans -->
-	<include file="$(find fast_lio_localization)/launch/PointsCloud2toLaserscan.launch">
-	</include>
+	<!-- <include file="$(find fast_lio_localization)/launch/PointsCloud2toLaserscan.launch">  点云到激光雷达扫描转换 -->
+	<!-- </include> -->
 
-	<!-- 发布一个雷达body到机器人足端body_foot的静态映射 -->
-	<node pkg="tf2_ros" type="static_transform_publisher" name="tf_pub_1" args="-0.10 -0.11 0 0 0 0 body body_foot" />
-	<!-- 发布一个雷达初始位置camera_init到机器人足端初始位置body_init的静态映射 -->
-	<node pkg="tf2_ros" type="static_transform_publisher" name="tf_pub_2" args="-0.10 -0.11 0 0 0 0 camera_init robot_foot_init" />
+	<!-- build 2d map -->
+	<!-- <include file="$(find fast_lio_localization)/launch/Pointcloud2Map.launch">	  点云到地图转换 -->
+	<!-- </include> -->
 
+	<!-- ============================= TF配置 ============================= -->
+		<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="tf_pub_1" args="-0.10 -0.11 0 0 0 0 body body_foot" /> -->
+	<!-- <node pkg="tf2_ros" type="static_transform_publisher" name="tf_pub_2" args="-0.10 -0.11 0 0 0 0 camera_init robot_foot_init" /> -->
 
 </launch>
