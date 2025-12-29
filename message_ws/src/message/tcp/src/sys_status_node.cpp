@@ -94,7 +94,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 
     for (std::string& recv_strings : raw_recv_strings){
         vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
-        if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
+        if (sub_strings[0] == "M" && sub_strings.size() == 8)      // M帧一共有8个数据
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
             ship_information.voltage_right_battery = stof(sub_strings[2]);
