@@ -1,9 +1,11 @@
 #include "ros/ros.h"
 #include "sensor_msgs/NavSatFix.h"
+#include <geometry_msgs/TwistStamped.h>
 #include "logger/logger.h" // 包含你自定义的 logger 头文件
 
 // 回调函数
-void FixCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+void FixCallback(const sensor_msgs::NavSatFix::ConstPtr &msg)
+{
     // 1. 获取经纬度
     double lat = msg->latitude;
     double lon = msg->longitude;
@@ -20,12 +22,33 @@ void FixCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
     // 3. 使用 LOG_SENSOR_INFO 宏记录
     // 这样数据会自动流向 logs/xxxx-xx-xx/sensor.log
     // 且如果是异步日志，不会阻塞主线程
-    LOG_SENSOR_INFO("GPS Fix: Lat={:.10f}, Lon={:.10f}, Alt={:.2f} | Cov(diag): [{:.20f}, {:.20f}, {:.20f}]", 
+    LOG_SENSOR_INFO("GPS Fix: Lat={:.10f}, Lon={:.10f}, Alt={:.2f} | Cov(diag): [{:.20f}, {:.20f}, {:.20f}]",
                     lat, lon, alt, cov_x, cov_y, cov_z);
-
 }
 
-int main(int argc, char **argv) {
+void VelCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+{
+    // 1. 提取线速度 (Linear Velocity)
+    double vx = msg->twist.linear.x;
+    double vy = msg->twist.linear.y;
+    double vz = msg->twist.linear.z;
+
+    // 2. 提取角速度 (Angular Velocity) - 虽然数据中目前多为0，但也建议记录
+    double wx = msg->twist.angular.x;
+    double wy = msg->twist.angular.y;
+    double wz = msg->twist.angular.z;
+
+    // 3. 计算合成线速度 (可选，方便观察运动状态)
+    // double speed = sqrt(vx*vx + vy*vy + vz*vz);
+
+    // 4. 使用 LOG_SENSOR_INFO 记录到 sensor.log
+    // 使用 {:.6f} 保持浮点数精度，适合记录这类物理量
+    LOG_SENSOR_INFO("GPS Vel: Linear[x:{:.6f}, y:{:.6f}, z:{:.6f}] | Angular[x:{:.6f}, y:{:.6f}, z:{:.6f}]",
+                    vx, vy, vz, wx, wy, wz);
+}
+
+int main(int argc, char **argv)
+{
     // 初始化 ROS 节点
     ros::init(argc, argv, "record_data_node");
     ros::NodeHandle nh;
@@ -35,14 +58,15 @@ int main(int argc, char **argv) {
 
     // 订阅 /fix 话题
     // 队列长度设为 100，防止高频 GPS 数据丢失
-    ros::Subscriber sub = nh.subscribe("/fix", 100, FixCallback);
+    // ros::Subscriber sub = nh.subscribe("/fix", 100, FixCallback);
+    ros::Subscriber sub = nh.subscribe("/vel", 100, VelCallback);
 
     // 进入循环
     ros::spin();
 
     // 【重要】节点退出时的清理工作
     LOG_INFO("Record Data Node Stopping...");
-    
+
     // 强制刷新所有待写入的日志，防止 Ctrl+C 导致最后几条数据丢失
     spdlog::shutdown();
 
