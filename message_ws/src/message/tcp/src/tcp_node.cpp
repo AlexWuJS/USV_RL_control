@@ -72,8 +72,6 @@ void Tcp_SendMessage_Thread(int client_socket)
         send_queue.pop();
         
         lock.unlock(); // 尽早解锁
-
-        LOG_INFO_CONSOLE("Sending data: {}\n", current_msg.c_str()); 
     
         int tcp_send_flag = Tcp_Server_Send(client_socket, current_msg);
         
