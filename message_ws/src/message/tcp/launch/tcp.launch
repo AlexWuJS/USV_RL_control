@@ -1,6 +1,10 @@
+<arg name="audio_volume"       default="40"/>
+
 <launch>
     <!-- <node pkg="usart" type="usart_node" name="usart" output="screen"/> -->
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-    <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen"/>
+    <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen">
+        <param name="audio_volume" value="$(arg audio_volume)"/>
+    </node>
     <!-- <node pkg="control" type="controller_node" name="control" output="screen"/> -->
 </launch>

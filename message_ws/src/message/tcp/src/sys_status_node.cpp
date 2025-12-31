@@ -179,7 +179,12 @@ int main(int argc, char* argv[])
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 
-    AudioManager audio_mgr(nh);
+    // 获取音频音量参数，默认 -1 (不修改系统音量)
+    ros::NodeHandle private_nh("~");
+    int audio_volume = -1;
+    private_nh.param("audio_volume", audio_volume);
+
+    AudioManager audio_mgr(nh, audio_volume);
     NetworkMonitor net_monitor(audio_mgr);
 
     // 3. 创建 Timer，绑定类的成员函数
