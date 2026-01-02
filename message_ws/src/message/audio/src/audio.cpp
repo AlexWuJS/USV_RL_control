@@ -2,11 +2,20 @@
 #include "logger/logger.h"
 #include <ros/package.h> // 必须包含，用于查找包路径
 
-AudioManager::AudioManager(ros::NodeHandle& nh) : sc_(nh, "robotsound") {
+AudioManager::AudioManager(ros::NodeHandle& nh, int default_volume) : sc_(nh, "robotsound") {
+    // 维护默认音量，限制范围 0-100
+    // 如果传入值 < 0，则表示不强制初始化系统音量，也不维护有效默认值（用 -1 标记）
+    if (default_volume < 0) {
+        default_volume_ = -1;
+    } else {
+        if (default_volume > 100) default_volume = 100;
+        default_volume_ = default_volume;
+        // 只有当提供了有效的初始音量时，才设置系统音量
+        InitSystemVolume(default_volume_);
+    }
+
     // 初始化路径映射
     initAudioPaths();
-    InitSystemVolume(40);
-    
 }
 
 AudioManager::~AudioManager() {
@@ -42,7 +51,17 @@ void AudioManager::initAudioPaths() {
     audio_map_[AudioType::TASK_START]  = sound_dir + "task_start.wav";
 }
 
-void AudioManager::play(AudioType type) {
+void AudioManager::play(AudioType type, int volume) {
+    // 确定播放音量
+    int current_volume = (volume == -1) ? default_volume_ : volume;
+    
+    // 限制音量范围 0-100
+    if (current_volume < 0) current_volume = 0;
+    if (current_volume > 100) current_volume = 100;
+
+    // 设置系统音量
+    InitSystemVolume(current_volume);
+
     if (audio_map_.find(type) != audio_map_.end()) {
         std::string file_path = audio_map_[type];
         LOG_INFO("Playing audio: {}", file_path);
