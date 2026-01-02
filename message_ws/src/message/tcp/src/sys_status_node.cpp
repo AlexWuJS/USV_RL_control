@@ -182,8 +182,8 @@ int main(int argc, char* argv[])
     // 获取音频音量参数，默认 -1 (不修改系统音量)
     ros::NodeHandle private_nh("~");
     int audio_volume = -1;
-    private_nh.param("audio_volume", audio_volume);
-
+    private_nh.param("audio_volume", audio_volume, -1);
+    LOG_INFO_CONSOLE("audio_volume:{}", audio_volume);
     AudioManager audio_mgr(nh, audio_volume);
     NetworkMonitor net_monitor(audio_mgr);
 
