@@ -1,0 +1,15 @@
+<launch>
+  <!-- 可配置的 IMU 串口和波特率，支持在命令行覆盖 -->
+  <arg name="port" default="/dev/imu1" />
+  <arg name="baudrate" default="9600" />
+
+  <!-- 发布 IMU 的节点 -->
+  <node pkg="wit_imu"
+        type="wit_imu_node"
+        name="hwt101c_imu_pub"
+        output="screen">
+    <!-- 传给 nh_private("~") 的私有参数 -->
+    <param name="port" value="$(arg port)" />
+    <param name="baudrate" value="$(arg baudrate)" />
+  </node>
+</launch>

@@ -94,7 +94,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 
     for (std::string& recv_strings : raw_recv_strings){
         vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
-        if (sub_strings[0] == "M" && sub_strings.size() == 6)      // M帧一共有6个数据
+        if (sub_strings[0] == "M" && sub_strings.size() == 8)      // M帧一共有8个数据
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
             ship_information.voltage_right_battery = stof(sub_strings[2]);
@@ -179,7 +179,12 @@ int main(int argc, char* argv[])
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 
-    AudioManager audio_mgr(nh);
+    // 获取音频音量参数，默认 -1 (不修改系统音量)
+    ros::NodeHandle private_nh("~");
+    int audio_volume = -1;
+    private_nh.param("audio_volume", audio_volume, -1);
+    LOG_INFO_CONSOLE("audio_volume:{}", audio_volume);
+    AudioManager audio_mgr(nh, audio_volume);
     NetworkMonitor net_monitor(audio_mgr);
 
     // 3. 创建 Timer，绑定类的成员函数
