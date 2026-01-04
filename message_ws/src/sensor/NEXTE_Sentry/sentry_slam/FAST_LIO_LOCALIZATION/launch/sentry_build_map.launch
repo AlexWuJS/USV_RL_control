@@ -21,8 +21,8 @@
 	<param name="filter_size_map" type="double" value="0.5" /> <!-- 地图滤波器大小 -->
 	<param name="cube_side_length" type="double" value="1000" /> <!-- 立方体边长 -->
 	<param name="runtime_pos_log_enable" type="bool" value="0" /> <!-- 运行时位置日志开关 -->
-	<param name="min_display_height" type="double" value="-0.5"/>  <!-- 点云最小高度 -->
-	<param name="max_display_height" type="double" value="5"/>   <!-- 点云最大高度 --> 
+	<param name="min_display_height" type="double" value="-5"/>  <!-- 点云最小高度 -->
+	<param name="max_display_height" type="double" value="8"/>   <!-- 点云最大高度 --> 
 	<param name="voxel_size" value="0.1" /> <!-- 设置体素大小 -->
 	<param name="enable_height_filter" value="true" /> <!-- 是否启用高度过滤 -->
 	<param name="enable_map_loader_downsample" value="true" /> <!-- 是否启用地图加载器的下采样 -->
@@ -54,7 +54,7 @@
 
 		<!-- load 2d map -->
 		<arg name="2dmap" default="scans.yaml" /> <!-- 设置2D地图路径 -->
-		<node name = "map_server" pkg = "map_server" type = "map_server" args="$(find fast_lio_localization)/PCD/map.yaml /map:=prior_map"/> <!-- 启动地图服务器 -->
+		<node name = "map_server" pkg = "map_server" type = "map_server" args="$(find fast_lio_localization)/PCD/scans.yaml /map:=prior_map"/> <!-- 启动地图服务器 -->
 	
 		<!-- ============================= Costmap配置 ============================= -->
 		<!-- 参考pb_rm_simulation的实现，使用3D点云构建动态costmap -->
