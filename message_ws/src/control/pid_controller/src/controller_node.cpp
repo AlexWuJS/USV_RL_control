@@ -1,16 +1,16 @@
 #include <clocale>
+#include <cmath>
 
 #include "ros/ros.h"
 
 #include "control/Motor.h"
-#include "tcp/keyboard.h"
+#include "tcp/joystick.h"
 #include "tcp/ship_info.h"
 
-#define KEYBOARD_ADD_PWM                400     // 前进、后退改变的PWM
-#define KEYBOARD_LEFT_DIFF_MPWM         600     // 左转主推进器的PWM差值,范围：0~1000
-#define KEYBOARD_LEFT_ADD_SMPWM         300     // 左转侧推进器改变的PWM
-#define KEYBOARD_RIGHT_DIFF_MPWM        600     // 右转主推进器的PWM差值,范围：0~1000
-#define KEYBOARD_RIGHT_ADD_SMPWM        300     // 右转侧推进器改变的PWM
+// Joystick control tuning (PWM deltas around neutral)
+#define JOYSTICK_PWM_SPAN               400     // |cmd|=1 -> +/- span around PWM_NEUTRAL
+#define JOYSTICK_SIDE_PWM_SPAN          300     // side thruster assist span
+#define JOYSTICK_DEADBAND_RAW           5       // |x|/|y| below this treated as 0 (raw units, [-100,100])
 
 #define PWM_NEUTRAL                     1500
 #define PWM_MIN                         1000
@@ -59,31 +59,46 @@ void PublishMotorMsgTimer(const ros::TimerEvent &event)
     /* 键盘控制模式 */
     else if (boat_status.is_keyboard_control)
     {
-        const tcp::keyboard& myKeyboard = boat_status.keyboard;
-        if (myKeyboard.W == 1)      // 前进
+        // New protocol: K,x,y, where x/y in [-100,100] represent joystick position.
+        // x: right +100, left -100; y: forward +100, backward -100
+        int raw_x = boat_status.joystick.x;
+        int raw_y = boat_status.joystick.y;
+
+        if (std::abs(raw_x) < JOYSTICK_DEADBAND_RAW) raw_x = 0;
+        if (std::abs(raw_y) < JOYSTICK_DEADBAND_RAW) raw_y = 0;
+
+        double x = static_cast<double>(raw_x) / 100.0;
+        double y = static_cast<double>(raw_y) / 100.0;
+
+        // Clamp to unit circle to avoid diagonal overflow.
+        const double mag = std::sqrt(x * x + y * y);
+        if (mag > 1.0)
         {
-            motor_msg.left_thruster_pwm += KEYBOARD_ADD_PWM;
-            motor_msg.right_thruster_pwm += KEYBOARD_ADD_PWM;
+            x /= mag;
+            y /= mag;
         }
-        if (myKeyboard.S == 1)      // 后退
+
+        // Differential-drive mix:
+        // left_cmd  = y + x
+        // right_cmd = y - x
+        double left_cmd = y + x;
+        double right_cmd = y - x;
+
+        const double max_cmd = std::fmax(std::fabs(left_cmd), std::fabs(right_cmd));
+        if (max_cmd > 1.0)
         {
-            motor_msg.left_thruster_pwm -= KEYBOARD_ADD_PWM;
-            motor_msg.right_thruster_pwm -= KEYBOARD_ADD_PWM;
+            left_cmd /= max_cmd;
+            right_cmd /= max_cmd;
         }
-        if (myKeyboard.A == 1)      // 左转
-        {
-            motor_msg.left_thruster_pwm -= (KEYBOARD_LEFT_DIFF_MPWM/2);
-            motor_msg.right_thruster_pwm += (KEYBOARD_LEFT_DIFF_MPWM/2);
-            motor_msg.left_sideThruster_pwm += KEYBOARD_LEFT_ADD_SMPWM;
-            motor_msg.right_sideThruster_pwm += KEYBOARD_LEFT_ADD_SMPWM;
-        }
-        if (myKeyboard.D == 1)      // 右转
-        {
-            motor_msg.left_thruster_pwm -= (KEYBOARD_RIGHT_DIFF_MPWM/2);
-            motor_msg.right_thruster_pwm += (KEYBOARD_RIGHT_DIFF_MPWM/2);
-            motor_msg.left_sideThruster_pwm -= KEYBOARD_RIGHT_ADD_SMPWM;
-            motor_msg.right_sideThruster_pwm -= KEYBOARD_RIGHT_ADD_SMPWM;
-        }
+
+        motor_msg.left_thruster_pwm = PWM_NEUTRAL + static_cast<int>(left_cmd * JOYSTICK_PWM_SPAN);
+        motor_msg.right_thruster_pwm = PWM_NEUTRAL + static_cast<int>(right_cmd * JOYSTICK_PWM_SPAN);
+
+        // Side thrusters assist yaw more when forward speed is small.
+        const double low_speed_factor = std::fmax(0.0, 1.0 - std::fabs(y));
+        const int side_delta = static_cast<int>((-x) * JOYSTICK_SIDE_PWM_SPAN * low_speed_factor);
+        motor_msg.left_sideThruster_pwm = PWM_NEUTRAL + side_delta;
+        motor_msg.right_sideThruster_pwm = PWM_NEUTRAL + side_delta;
     }
 
     motor_msg.left_thruster_pwm = clamp_pwm(motor_msg.left_thruster_pwm);

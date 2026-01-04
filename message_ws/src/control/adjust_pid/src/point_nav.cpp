@@ -8,7 +8,7 @@ using namespace std;
 #include "control/Motor.h"
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
-#include "tcp/keyboard.h"
+#include "tcp/joystick.h"
 
 
 // 定义并初始化常量

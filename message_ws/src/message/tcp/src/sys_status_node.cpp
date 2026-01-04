@@ -146,10 +146,8 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             case 'K':
                 FormatConversion_Tcp.handle_header_K(*it);
 
-                ship_information.keyboard.W = FormatConversion_Tcp.keyboard.W;
-                ship_information.keyboard.A = FormatConversion_Tcp.keyboard.A;
-                ship_information.keyboard.S = FormatConversion_Tcp.keyboard.S;
-                ship_information.keyboard.D = FormatConversion_Tcp.keyboard.D;
+                ship_information.joystick.x = FormatConversion_Tcp.joystick.x;
+                ship_information.joystick.y = FormatConversion_Tcp.joystick.y;
             break;
 
             default:
