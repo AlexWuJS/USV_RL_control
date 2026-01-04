@@ -151,12 +151,54 @@ def global_localization(pose_estimation):
                                                     scale=1)
     toc = time.time()
     rospy.loginfo('Time: {}'.format(toc - tic))
+    rospy.logwarn('fitness score:{}'.format(fitness)) # 打印拟合度分数
     rospy.loginfo('')
 
     # 当全局定位成功时才更新map2odom
     if fitness > LOCALIZATION_TH:
-        # T_map_to_odom = np.matmul(transformation, pose_estimation)
-        T_map_to_odom = transformation # 更新地图到里程计的变换矩阵
+        # 对新的定位结果进行平滑处理，避免突变导致地图抖动
+        # 使用指数移动平均（EMA）平滑变换矩阵
+        new_T_map_to_odom = transformation
+        
+        if T_map_to_odom is not None:
+            # 计算位置差异
+            pos_diff = np.linalg.norm(new_T_map_to_odom[:3, 3] - T_map_to_odom[:3, 3])
+            
+            # 自适应平滑：变化越大，平滑越强，但始终接受变化
+            # 使用连续函数而不是阶跃函数，让过渡更自然
+            if pos_diff > 3.0:
+                # 超过3米的超大变化（机器人快速运动或重定位跳变）
+                alpha = 0.08  # 极度平滑，需要更多次才完全收敛
+                rospy.logwarn(f"Very large position change: {pos_diff:.3f}m, applying very strong smoothing (alpha={alpha})")
+            elif pos_diff > 1.5:
+                # 1.5-3米的大变化
+                alpha = 0.12
+                rospy.logwarn(f"Large position change: {pos_diff:.3f}m, applying strong smoothing (alpha={alpha})")
+            elif pos_diff > 0.5:
+                # 0.5-1.5米的中等变化
+                alpha = 0.15
+                rospy.loginfo(f"Medium position change: {pos_diff:.3f}m, applying medium smoothing (alpha={alpha})")
+            elif pos_diff > 0.2:
+                # 20-50cm的小变化
+                alpha = 0.25
+            else:
+                # <20cm的微小变化，正常跟踪
+                alpha = 0.35  # 进一步降低，更平滑
+            
+            # 位置平滑
+            T_map_to_odom[:3, 3] = alpha * new_T_map_to_odom[:3, 3] + (1 - alpha) * T_map_to_odom[:3, 3]
+            
+            # 旋转平滑（使用四元数插值）
+            old_quat = tf.transformations.quaternion_from_matrix(T_map_to_odom)
+            new_quat = tf.transformations.quaternion_from_matrix(new_T_map_to_odom)
+            # SLERP插值 - 球面线性插值保证旋转的平滑性
+            smooth_quat = tf.transformations.quaternion_slerp(old_quat, new_quat, alpha)
+            smooth_rot = tf.transformations.quaternion_matrix(smooth_quat)
+            T_map_to_odom[:3, :3] = smooth_rot[:3, :3]
+        else:
+            # 第一次定位，直接使用新结果
+            T_map_to_odom = new_T_map_to_odom
+            rospy.loginfo("First localization, using new transformation directly")
 
         # 发布map_to_odom
         map_to_odom = Odometry()
@@ -178,18 +220,21 @@ def global_localization(pose_estimation):
         return True
     else:
         rospy.logwarn('Not match!!!!') # 如果配准失败，打印警告信息
-        rospy.logwarn('{}'.format(transformation)) # 打印变换矩阵
+        #rospy.logwarn('{}'.format(transformation)) # 打印变换矩阵
         rospy.logwarn('fitness score:{}'.format(fitness)) # 打印拟合度分数
         return False # 返回False表示配准失败
 
 # 对点云进行体素降采样，以减少点的数量，提高处理效率。
 # 参数： pcd：输入的点云对象。 voxel_size：体素的大小，决定降采样的精度。
 def voxel_down_sample(pcd, voxel_size):
+    if voxel_size <= 0:
+        return pcd
     try:
-        pcd_down = pcd.voxel_down_sample(voxel_size) # 使用Open3D的voxel_down_sample函数进行体素降采样
-    except:
+        pcd_down = pcd.voxel_down_sample(voxel_size) # Open3D新版本
+    except Exception as e:
         # for opend3d 0.7 or lower
-        pcd_down = o3d.geometry.voxel_down_sample(pcd, voxel_size) 
+        # 这里其实可以直接raise，不建议用o3d.geometry.voxel_down_sample
+        raise e
     return pcd_down
 
 # 初始化全局地图点云
@@ -222,8 +267,11 @@ def cb_save_cur_scan(pc_msg):
     pc = msg_to_array(pc_msg)
 
     # 添加高度过滤
-    height_mask = (pc[:, 2] >= min_display_height) & (pc[:, 2] <= max_display_height)
-    pc_filtered = pc[height_mask]
+    if enable_height_filter:
+        height_mask = (pc[:, 2] >= min_display_height) & (pc[:, 2] <= max_display_height)
+        pc_filtered = pc[height_mask]
+    else:
+        pc_filtered = pc
 
     cur_scan = o3d.geometry.PointCloud()
     # 使用过滤后的点云
@@ -241,14 +289,22 @@ def thread_localization():
 
 
 if __name__ == '__main__':
-    MAP_VOXEL_SIZE = 0.2  # 地图点云的体素大小
-    SCAN_VOXEL_SIZE = 0.1  # 扫描点云的体素大小
+    # 读取下采样参数 - 使用独立的参数名避免与map_loader冲突
+    enable_downsample = rospy.get_param('enable_localization_downsample', True)
+    if not enable_downsample:
+        SCAN_VOXEL_SIZE = 0.0
+        MAP_VOXEL_SIZE = 0.0
+        rospy.loginfo('Localization downsample disabled')
+    else:
+        SCAN_VOXEL_SIZE = 0.1  # 默认值
+        MAP_VOXEL_SIZE = 0.1  # 默认值
+        rospy.loginfo(f'Localization downsample enabled: SCAN_VOXEL_SIZE={SCAN_VOXEL_SIZE}, MAP_VOXEL_SIZE={MAP_VOXEL_SIZE}')
 
     # 全局定位频率 (HZ)
-    FREQ_LOCALIZATION = 0.5
+    FREQ_LOCALIZATION = 0.3  # 每2秒一次，保持合理的定位更新频率
 
     # 全局定位的阈值，只有那些配准的拟合度高于LOCALIZATION_TH的扫描才会被使用
-    LOCALIZATION_TH = 0.85
+    LOCALIZATION_TH = 0.80  # 保持原始阈值，平衡定位成功率和准确性
 
     # FOV(弧度), 根据你的激光雷达类型修改
     FOV = 6.28
@@ -263,7 +319,10 @@ if __name__ == '__main__':
     global min_display_height, max_display_height
     min_display_height = rospy.get_param('min_display_height', -0.5)
     max_display_height = rospy.get_param('max_display_height', 1.0)
-    rospy.loginfo(f'Height filter range: {min_display_height} to {max_display_height}')
+    # 新增：读取enable_height_filter参数
+    global enable_height_filter
+    enable_height_filter = rospy.get_param('enable_height_filter', True)
+    rospy.loginfo(f'Height filter range: {min_display_height} to {max_display_height}, enable_height_filter: {enable_height_filter}')
 
     # publisher
     pub_pc_in_map = rospy.Publisher('/cur_scan_in_map', PointCloud2, queue_size=1)

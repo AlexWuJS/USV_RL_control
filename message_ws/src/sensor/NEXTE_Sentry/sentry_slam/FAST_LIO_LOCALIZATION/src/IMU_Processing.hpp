@@ -26,7 +26,7 @@
 
 /// *************Preconfiguration
 
-#define MAX_INI_COUNT (20)
+#define MAX_INI_COUNT (10)
 
 const bool time_list(PointType &x, PointType &y) {return (x.curvature < y.curvature);};  // 时间排序
 
@@ -214,16 +214,16 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
 void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI &pcl_out)   // 去畸变点云
 {
   /*** add the imu of the last frame-tail to the of current frame-head ***/
-  auto v_imu = meas.imu;  // IMU数据  
-  v_imu.push_front(last_imu_);  // 将最后一个IMU数据添加到IMU数据队列的前面
-  const double &imu_beg_time = v_imu.front()->header.stamp.toSec();  // IMU数据开始时间
-  const double &imu_end_time = v_imu.back()->header.stamp.toSec();  // IMU数据结束时间
-  const double &pcl_beg_time = meas.lidar_beg_time;  // 激光雷达开始时间
+  auto v_imu = meas.imu;
+  v_imu.push_front(last_imu_);
+  const double &imu_beg_time = v_imu.front()->header.stamp.toSec();
+  const double &imu_end_time = v_imu.back()->header.stamp.toSec();
+  const double &pcl_beg_time = meas.lidar_beg_time;
+  const double &pcl_end_time = meas.lidar_end_time;
   
   /*** sort point clouds by offset time ***/
-  pcl_out = *(meas.lidar);  // 激光雷达点云
-  sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);  // 按照时间排序
-  const double &pcl_end_time = pcl_beg_time + pcl_out.points.back().curvature / double(1000);  // 激光雷达结束时间
+  pcl_out = *(meas.lidar);
+  sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
   // cout<<"[ IMU Process ]: Process lidar from "<<pcl_beg_time<<" to "<<pcl_end_time<<", " \
   //          <<meas.imu.size()<<" imu msgs from "<<imu_beg_time<<" to "<<imu_end_time<<endl;
 
@@ -297,8 +297,9 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   last_lidar_end_time_ = pcl_end_time;  // 激光雷达结束时间
 
   /*** undistort each lidar point (backward propagation) ***/
-  auto it_pcl = pcl_out.points.end() - 1;  // 激光雷达点云结束时间
-  for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)  // 遍历IMU位姿
+  if (pcl_out.points.begin() == pcl_out.points.end()) return;
+  auto it_pcl = pcl_out.points.end() - 1;
+  for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--)
   {
     auto head = it_kp - 1;  // 当前IMU位姿
     auto tail = it_kp;  // 下一个IMU位姿

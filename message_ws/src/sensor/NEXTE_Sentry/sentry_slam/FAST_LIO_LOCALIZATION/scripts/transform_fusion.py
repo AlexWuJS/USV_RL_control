@@ -15,6 +15,7 @@ from nav_msgs.msg import Odometry
 
 cur_odom_to_baselink = None  # 当前里程计到基座的变换矩阵
 cur_map_to_odom = None       # 当前地图到里程计的变换矩阵
+last_tf_timestamp = None     # 上次发布TF的时间戳，避免重复发布
 
 
 def pose_to_mat(pose_msg):      # 将位姿消息转换为变换矩阵
@@ -25,7 +26,7 @@ def pose_to_mat(pose_msg):      # 将位姿消息转换为变换矩阵
 
 
 def transform_fusion():     # 变换融合
-    global cur_odom_to_baselink, cur_map_to_odom
+    global cur_odom_to_baselink, cur_map_to_odom, last_tf_timestamp
 
     br = tf.TransformBroadcaster()    # 创建一个变换广播器
     while True:
@@ -38,10 +39,19 @@ def transform_fusion():     # 变换融合
         else:
             T_map_to_odom = np.eye(4)  # 如果当前地图到里程计的变换矩阵为None，则设置为单位矩阵
 
-        br.sendTransform(tf.transformations.translation_from_matrix(T_map_to_odom),
-                         tf.transformations.quaternion_from_matrix(T_map_to_odom),
-                         rospy.Time.now(),
-                         'camera_init', 'map')  # 发布当前地图到里程计的变换矩阵到/map_to_odom主题        计算并发布map到camera_init的变换
+        # 使用里程计的时间戳，避免在bag回放模式下时间戳重复
+        if cur_odom is not None:
+            tf_timestamp = cur_odom.header.stamp
+        else:
+            tf_timestamp = rospy.Time.now()
+
+        # 只在时间戳变化时才发布TF，避免重复发布相同时间戳的数据
+        if last_tf_timestamp is None or tf_timestamp != last_tf_timestamp:
+            br.sendTransform(tf.transformations.translation_from_matrix(T_map_to_odom),
+                             tf.transformations.quaternion_from_matrix(T_map_to_odom),
+                             tf_timestamp,
+                             'camera_init', 'map')  # 发布当前地图到里程计的变换矩阵到/map_to_odom主题        计算并发布map到camera_init的变换
+            last_tf_timestamp = tf_timestamp
         if cur_odom is not None:
             # 发布全局定位的odometry   如果有里程计数据，计算并发布全局定位信息
             localization = Odometry()

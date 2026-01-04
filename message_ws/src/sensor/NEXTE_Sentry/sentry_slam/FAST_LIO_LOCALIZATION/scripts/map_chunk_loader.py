@@ -28,9 +28,14 @@ class MapChunkLoader:
         
         # 从参数服务器获取配置参数
         self.pcd_path = rospy.get_param('~pcd_path', '')  # 点云文件路径
-        self.voxel_size = rospy.get_param('~voxel_size', 0.2)  # 体素降采样大小
         self.display_ratio = rospy.get_param('~display_ratio', 1.0)  # 点云显示比例
         self.display_mode = rospy.get_param('~display_mode', 'random')  # 点云显示模式
+        self.voxel_size = rospy.get_param('voxel_size', 0.2)
+        self.min_display_height = rospy.get_param('min_display_height', -0.5)
+        self.max_display_height = rospy.get_param('max_display_height', 1.0)
+        # 使用独立的参数名避免与global_localization冲突
+        self.enable_downsample = rospy.get_param('enable_map_loader_downsample', True)
+        self.enable_height_filter = rospy.get_param('enable_height_filter', True)
         
         # 日志打印控制参数
         self.last_log_time = rospy.Time.now()  # 上次日志打印时间
@@ -232,27 +237,40 @@ class MapChunkLoader:
             total_points = len(points) # 计算点云总数
             rospy.loginfo(f"Total points in PCD: {total_points}") # 打印点云总数
             
-            # 计算要显示的点数
-            display_points = int(total_points * self.display_ratio) # 计算要显示的点数
-            
-            if self.display_mode == 'random': # 如果显示模式为随机
-                # 随机采样显示整个地图的百分之多少
-                indices = np.random.choice(total_points, display_points, replace=False) # 随机采样显示整个地图的百分之多少
-                points = points[indices] # 将点云转换为numpy数组
-                rospy.loginfo(f"Randomly sampling {display_points} points ({self.display_ratio*100}% of total)") # 打印随机采样点数
-            else:
-                # 显示前百分之多少的地图
-                points = points[:display_points] # 显示前百分之多少的地图
-                rospy.loginfo(f"Displaying first {display_points} points ({self.display_ratio*100}% of total)") # 打印显示点数
-            
             # 创建点云对象
             self.full_map = o3d.geometry.PointCloud() # 创建点云对象
             self.full_map.points = o3d.utility.Vector3dVector(points) # 将点云转换为numpy数组
             
-            # 降采样
-            if self.voxel_size > 0: # 如果体素大小大于0
-                self.full_map = self.full_map.voxel_down_sample(self.voxel_size) # 降采样
-                rospy.loginfo(f"Points after voxel down sampling: {len(self.full_map.points)}") # 打印降采样后点云数量
+            if self.enable_downsample:
+                # 计算要显示的点数
+                display_points = int(total_points * self.display_ratio) # 计算要显示的点数
+                
+                if self.display_mode == 'random': # 如果显示模式为随机
+                    # 随机采样显示整个地图的百分之多少
+                    indices = np.random.choice(total_points, display_points, replace=False) # 随机采样显示整个地图的百分之多少
+                    points = points[indices] # 将点云转换为numpy数组
+                    rospy.loginfo(f"Randomly sampling {display_points} points ({self.display_ratio*100}% of total)") # 打印随机采样点数
+                else:
+                    # 显示前百分之多少的地图
+                    points = points[:display_points] # 显示前百分之多少的地图
+                    rospy.loginfo(f"Displaying first {display_points} points ({self.display_ratio*100}% of total)") # 打印显示点数
+                
+                # 高度过滤
+                if self.enable_height_filter:
+                    points = np.asarray(self.full_map.points)
+                    height_mask = (points[:, 2] >= self.min_display_height) & (points[:, 2] <= self.max_display_height)
+                    points_filtered = points[height_mask]
+                    self.full_map.points = o3d.utility.Vector3dVector(points_filtered)
+                    rospy.loginfo(f"Points after height filtering: {len(self.full_map.points)}")
+                else:
+                    rospy.loginfo("Height filtering disabled, using all height points")
+                
+                # 降采样
+                if self.voxel_size > 0: # 如果体素大小大于0
+                    self.full_map = self.full_map.voxel_down_sample(self.voxel_size) # 降采样
+                    rospy.loginfo(f"Points after voxel down sampling: {len(self.full_map.points)}") # 打印降采样后点云数量
+            else:
+                rospy.loginfo("Downsampling disabled, using full point cloud")
             
             # 初始化变换后的地图
             self.transformed_map = o3d.geometry.PointCloud() # 创建点云对象
@@ -332,44 +350,51 @@ class MapChunkLoader:
         3. 记录发布时间
         """
         try:
+            # 检查点云是否为空
+            if pcd is None or len(pcd.points) == 0:
+                rospy.logwarn("Empty point cloud, skipping publish")
+                return
+
             # 创建ROS消息头
-            header = rospy.Header()  # 创建ROS消息头
-            header.stamp = rospy.Time.now() # 获取当前时间
-            header.frame_id = frame_id # 设置坐标系ID
+            header = rospy.Header()
+            header.stamp = rospy.Time.now()
+            header.frame_id = frame_id
             
             # 获取点云数据
-            points = np.asarray(pcd.points) # 将点云转换为numpy数组
+            points = np.asarray(pcd.points)
             
+            # 检查点云数据是否有效
+            if points.size == 0:
+                rospy.logwarn("No points in point cloud, skipping publish")
+                return
+                
             # 创建PointCloud2消息
             data = np.zeros(len(points), dtype=[
                 ('x', np.float32), 
                 ('y', np.float32), 
                 ('z', np.float32), 
             ])
-            data['x'] = points[:, 0] # 设置x坐标
-            data['y'] = points[:, 1] # 设置y坐标
-            data['z'] = points[:, 2] # 设置z坐标
+            data['x'] = points[:, 0]
+            data['y'] = points[:, 1]
+            data['z'] = points[:, 2]
             
             # 转换为ROS消息
-            msg = ros_numpy.msgify(PointCloud2, data) # 转换为ROS消息
-            msg.header = header # 设置消息头
+            msg = ros_numpy.msgify(PointCloud2, data)
+            msg.header = header
             
             # 发布消息
-            self.pub.publish(msg) # 发布消息
-            self.last_publish_time = rospy.Time.now() # 更新上次发布时间
+            self.pub.publish(msg)
+            self.last_publish_time = rospy.Time.now()
             
-            # 只在第一次发布或点云数量变化时打印消息
-            if verbose: # 如果verbose为True
-                current_time = rospy.Time.now() # 获取当前时间
-                if not hasattr(self, 'last_published_points') or len(points) != self.last_published_points: # 如果点云数量发生变化
-                    rospy.loginfo(f"Published map with {len(points)} points in {frame_id} frame") # 打印发布点云数量
-                    self.last_published_points = len(points) # 更新上次发布点云数量
+            # 打印详细信息
+            # if verbose:
+            #     rospy.loginfo(f"Published map with {len(points)} points in {frame_id} frame")
+            #     rospy.loginfo(f"Point cloud bounds: X[{points[:,0].min():.2f}, {points[:,0].max():.2f}], "
+            #                 f"Y[{points[:,1].min():.2f}, {points[:,1].max():.2f}], "
+            #                 f"Z[{points[:,2].min():.2f}, {points[:,2].max():.2f}]")
             
         except Exception as e:
-            current_time = rospy.Time.now() # 获取当前时间  
-            if current_time - self.last_log_time > self.log_interval: # 如果当前时间减去上次日志时间大于日志间隔
-                rospy.logerr(f"Error publishing map: {str(e)}") # 打印错误
-                self.last_log_time = current_time # 更新上次日志时间
+            rospy.logerr(f"Error publishing map: {str(e)}")
 
 if __name__ == '__main__':
     try:

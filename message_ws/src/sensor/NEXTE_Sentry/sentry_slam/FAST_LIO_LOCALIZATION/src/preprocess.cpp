@@ -6,28 +6,29 @@
 Preprocess::Preprocess()
   :feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)  // 初始化成员变量
 {
-  inf_bound = 10;  // 设置信息边界
-  N_SCANS   = 6;  // 设置扫描线数量
-  group_size = 8;  // 设置组大小
-  disA = 0.01;  // 设置距离A
-  disA = 0.1; // B?  // 设置距离A（可能是B）
-  p2l_ratio = 225;  // 设置点到线的比例
-  limit_maxmid =6.25;  // 设置最大中间限制
-  limit_midmin =6.25;  // 设置中间最小限制
-  limit_maxmin = 3.24;  // 设置最大最小限制
-  jump_up_limit = 170.0;  // 设置跳跃上限
-  jump_down_limit = 8.0;  // 设置跳跃下限
-  cos160 = 160.0;  // 设置160度的余弦值
-  edgea = 2;  // 设置边缘a
-  edgeb = 0.1;  // 设置边缘b
-  smallp_intersect = 172.5;  // 设置小p交点
-  smallp_ratio = 1.2;  // 设置小p比例
-  given_offset_time = false;  // 设置给定偏移时间标志
+  inf_bound = 10;
+  N_SCANS   = 6;
+  SCAN_RATE = 10;
+  group_size = 8;
+  disA = 0.01;
+  disA = 0.1; // B?
+  p2l_ratio = 225;
+  limit_maxmid =6.25;
+  limit_midmin =6.25;
+  limit_maxmin = 3.24;
+  jump_up_limit = 170.0;
+  jump_down_limit = 8.0;
+  cos160 = 160.0;
+  edgea = 2;
+  edgeb = 0.1;
+  smallp_intersect = 172.5;
+  smallp_ratio = 1.2;
+  given_offset_time = false;
 
-  jump_up_limit = cos(jump_up_limit/180*M_PI);  // 计算跳跃上限的余弦值
-  jump_down_limit = cos(jump_down_limit/180*M_PI);  // 计算跳跃下限的余弦值
-  cos160 = cos(cos160/180*M_PI);  // 计算160度的余弦值
-  smallp_intersect = cos(smallp_intersect/180*M_PI);  // 计算小p交点的余弦值
+  jump_up_limit = cos(jump_up_limit/180*M_PI);
+  jump_down_limit = cos(jump_down_limit/180*M_PI);
+  cos160 = cos(cos160/180*M_PI);
+  smallp_intersect = cos(smallp_intersect/180*M_PI);
 }
 
 Preprocess::~Preprocess() {}  // 析构函数
@@ -48,7 +49,26 @@ void Preprocess::process(const livox_ros_driver2::CustomMsg::ConstPtr &msg, Poin
 
 void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
-  switch (lidar_type)  // 根据雷达类型选择处理函数
+  switch (time_unit)
+  {
+    case SEC:
+      time_unit_scale = 1.e3f;
+      break;
+    case MS:
+      time_unit_scale = 1.f;
+      break;
+    case US:
+      time_unit_scale = 1.e-3f;
+      break;
+    case NS:
+      time_unit_scale = 1.e-6f;
+      break;
+    default:
+      time_unit_scale = 1.f;
+      break;
+  }
+
+  switch (lidar_type)
   {
   case OUST64:
     oust64_handler(msg);  // 调用OUST64处理函数
@@ -121,14 +141,14 @@ void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
       plsize--;  // 减少点云大小
       for(uint i=0; i<plsize; i++)  // 遍历点云
       {
-        types[i].range = pl[i].x * pl[i].x + pl[i].y * pl[i].y;  // 计算点的距离
-        vx = pl[i].x - pl[i + 1].x;  // 计算x方向的差值
-        vy = pl[i].y - pl[i + 1].y;  // 计算y方向的差值
-        vz = pl[i].z - pl[i + 1].z;  // 计算z方向的差值
-        types[i].dista = vx * vx + vy * vy + vz * vz;  // 计算距离平方
+        types[i].range = sqrt(pl[i].x * pl[i].x + pl[i].y * pl[i].y);
+        vx = pl[i].x - pl[i + 1].x;
+        vy = pl[i].y - pl[i + 1].y;
+        vz = pl[i].z - pl[i + 1].z;
+        types[i].dista = sqrt(vx * vx + vy * vy + vz * vz);
       }
-      types[plsize].range = pl[plsize].x * pl[plsize].x + pl[plsize].y * pl[plsize].y;  // 计算最后一个点的距离
-      give_feature(pl, types);  // 提取特征
+      types[plsize].range = sqrt(pl[plsize].x * pl[plsize].x + pl[plsize].y * pl[plsize].y);
+      give_feature(pl, types);
       // pl_surf += pl;
     }
     time += omp_get_wtime() - t0;  // 计算特征提取时间
@@ -143,20 +163,18 @@ void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
         valid_num ++;  // 增加有效点数量
         if (valid_num % point_filter_num == 0)  // 如果有效点数量满足过滤条件
         {
-          pl_full[i].x = msg->points[i].x;  // 设置点的x坐标
-          pl_full[i].y = msg->points[i].y;  // 设置点的y坐标
-          pl_full[i].z = msg->points[i].z;  // 设置点的z坐标
-          pl_full[i].intensity = msg->points[i].reflectivity;  // 设置点的反射强度
-          pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // 使用曲率作为每个激光点的时间
+          pl_full[i].x = msg->points[i].x;
+          pl_full[i].y = msg->points[i].y;
+          pl_full[i].z = msg->points[i].z;
+          pl_full[i].intensity = msg->points[i].reflectivity;
+          pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points, curvature unit: ms
 
-          if((abs(pl_full[i].x - pl_full[i-1].x) > 1e-7) 
+          if(((abs(pl_full[i].x - pl_full[i-1].x) > 1e-7) 
               || (abs(pl_full[i].y - pl_full[i-1].y) > 1e-7)
-              || (abs(pl_full[i].z - pl_full[i-1].z) > 1e-7)
-              && (pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y > blind))  // 检查点是否为新点且不在盲区内
+              || (abs(pl_full[i].z - pl_full[i-1].z) > 1e-7))
+              && (pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y + pl_full[i].z * pl_full[i].z > (blind * blind)))
           {
-            if(pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y < max_scan_range * max_scan_range){  // 检查点是否在最大扫描范围内
-                pl_surf.push_back(pl_full[i]);  // 将点添加到表面点云
-            }
+            pl_surf.push_back(pl_full[i]);
           }
         }
       }
@@ -176,26 +194,26 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
   pl_surf.reserve(plsize);  // 预留表面点云空间
   if (feature_enabled)  // 如果启用特征提取
   {
-    for (int i = 0; i < N_SCANS; i++)  // 遍历扫描线
+    for (int i = 0; i < N_SCANS; i++)
     {
-      pl_buff[i].clear();  // 清空缓冲区
-      pl_buff[i].reserve(plsize);  // 预留缓冲区空间
+      pl_buff[i].clear();
+      pl_buff[i].reserve(plsize);
     }
 
-    for (uint i = 0; i < plsize; i++)  // 遍历点云
+    for (uint i = 0; i < plsize; i++)
     {
-      double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y + pl_orig.points[i].z * pl_orig.points[i].z;  // 计算点的距离
-      if (range < blind) continue;  // 如果点在盲区内，跳过
-      Eigen::Vector3d pt_vec;  // 定义三维向量
-      PointType added_pt;  // 定义点类型
-      added_pt.x = pl_orig.points[i].x;  // 设置点的x坐标
-      added_pt.y = pl_orig.points[i].y;  // 设置点的y坐标
-      added_pt.z = pl_orig.points[i].z;  // 设置点的z坐标
-      added_pt.intensity = pl_orig.points[i].intensity;  // 设置点的反射强度
-      added_pt.normal_x = 0;  // 设置点的法向量x分量
-      added_pt.normal_y = 0;  // 设置点的法向量y分量
-      added_pt.normal_z = 0;  // 设置点的法向量z分量
-      double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.3;  // 计算偏航角
+      double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y + pl_orig.points[i].z * pl_orig.points[i].z;
+      if (range < (blind * blind)) continue;
+      Eigen::Vector3d pt_vec;
+      PointType added_pt;
+      added_pt.x = pl_orig.points[i].x;
+      added_pt.y = pl_orig.points[i].y;
+      added_pt.z = pl_orig.points[i].z;
+      added_pt.intensity = pl_orig.points[i].intensity;
+      added_pt.normal_x = 0;
+      added_pt.normal_y = 0;
+      added_pt.normal_z = 0;
+      double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.3;
       if (yaw_angle >= 180.0)
         yaw_angle -= 360.0;  // 调整偏航角
       if (yaw_angle <= -180.0)
@@ -203,7 +221,8 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
       added_pt.curvature = pl_orig.points[i].t / 1e6;  // 设置点的曲率
 
-      if(pl_orig.points[i].ring < N_SCANS)  // 如果点的环号小于扫描线数量
+      added_pt.curvature = pl_orig.points[i].t * time_unit_scale;
+      if(pl_orig.points[i].ring < N_SCANS)
       {
         pl_buff[pl_orig.points[i].ring].push_back(added_pt);  // 将点添加到缓冲区
       }
@@ -240,24 +259,18 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
       double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y + pl_orig.points[i].z * pl_orig.points[i].z;  // 计算点的距离
       
-      if (range < blind) continue;  // 如果点在盲区内，跳过
+      if (range < (blind * blind)) continue;
       
-      Eigen::Vector3d pt_vec;  // 定义三维向量
-      PointType added_pt;  // 定义点类型
-      added_pt.x = pl_orig.points[i].x;  // 设置点的x坐标
-      added_pt.y = pl_orig.points[i].y;  // 设置点的y坐标
-      added_pt.z = pl_orig.points[i].z;  // 设置点的z坐标
-      added_pt.intensity = pl_orig.points[i].intensity;  // 设置点的反射强度
-      added_pt.normal_x = 0;  // 设置点的法向量x分量
-      added_pt.normal_y = 0;  // 设置点的法向量y分量
-      added_pt.normal_z = 0;  // 设置点的法向量z分量
-      double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.3;  // 计算偏航角
-      if (yaw_angle >= 180.0)
-        yaw_angle -= 360.0;  // 调整偏航角
-      if (yaw_angle <= -180.0)
-        yaw_angle += 360.0;  // 调整偏航角
-
-      added_pt.curvature = pl_orig.points[i].t / 1e6;  // 设置点的曲率
+      Eigen::Vector3d pt_vec;
+      PointType added_pt;
+      added_pt.x = pl_orig.points[i].x;
+      added_pt.y = pl_orig.points[i].y;
+      added_pt.z = pl_orig.points[i].z;
+      added_pt.intensity = pl_orig.points[i].intensity;
+      added_pt.normal_x = 0;
+      added_pt.normal_y = 0;
+      added_pt.normal_z = 0;
+      added_pt.curvature = pl_orig.points[i].t * time_unit_scale; // curvature unit: ms
 
       pl_surf.points.push_back(added_pt);  // 将点添加到表面点云
     }
@@ -268,21 +281,22 @@ void Preprocess::oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
 void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 {
-    pl_surf.clear();  // 清空表面点云
-    pl_corn.clear();  // 清空角点云
-    pl_full.clear();  // 清空完整点云
+    pl_surf.clear();
+    pl_corn.clear();
+    pl_full.clear();
 
-    pcl::PointCloud<velodyne_ros::Point> pl_orig;  // 定义原始点云
-    pcl::fromROSMsg(*msg, pl_orig);  // 从ROS消息转换为点云
-    int plsize = pl_orig.points.size();  // 获取点云大小
-    pl_surf.reserve(plsize);  // 预留表面点云空间
+    pcl::PointCloud<velodyne_ros::Point> pl_orig;
+    pcl::fromROSMsg(*msg, pl_orig);
+    int plsize = pl_orig.points.size();
+    if (plsize == 0) return;
+    pl_surf.reserve(plsize);
 
-    /*** 这些变量仅在没有给定点时间戳时有效 ***/
-    double omega_l=3.61;  // 扫描角速度
-    std::vector<bool> is_first(N_SCANS,true);  // 标记每条扫描线的第一个点
-    std::vector<double> yaw_fp(N_SCANS, 0.0);  // 每条扫描线第一个点的偏航角
-    std::vector<float> yaw_last(N_SCANS, 0.0);  // 每条扫描线最后一个点的偏航角
-    std::vector<float> time_last(N_SCANS, 0.0);  // 每条扫描线最后一个点的时间偏移
+    /*** These variables only works when no point timestamps given ***/
+    double omega_l = 0.361 * SCAN_RATE;       // scan angular velocity
+    std::vector<bool> is_first(N_SCANS,true);
+    std::vector<double> yaw_fp(N_SCANS, 0.0);      // yaw of first scan point
+    std::vector<float> yaw_last(N_SCANS, 0.0);   // yaw of last scan point
+    std::vector<float> time_last(N_SCANS, 0.0);  // last offset time
     /*****************************************************************/
 
     if (pl_orig.points[plsize - 1].time > 0)  // 如果点云中最后一个点的时间大于0
@@ -315,19 +329,19 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
       
       for (int i = 0; i < plsize; i++)  // 遍历点云
       {
-        PointType added_pt;  // 定义点类型
-        added_pt.normal_x = 0;  // 设置点的法向量x分量
-        added_pt.normal_y = 0;  // 设置点的法向量y分量
-        added_pt.normal_z = 0;  // 设置点的法向量z分量
-        int layer  = pl_orig.points[i].ring;  // 获取点的环号
-        if (layer >= N_SCANS) continue;  // 如果环号大于等于扫描线数量，跳过
-        added_pt.x = pl_orig.points[i].x;  // 设置点的x坐标
-        added_pt.y = pl_orig.points[i].y;  // 设置点的y坐标
-        added_pt.z = pl_orig.points[i].z;  // 设置点的z坐标
-        added_pt.intensity = pl_orig.points[i].intensity;  // 设置点的反射强度
-        added_pt.curvature = pl_orig.points[i].time / 1000.0; // 设置点的曲率，单位为毫秒
+        PointType added_pt;
+        added_pt.normal_x = 0;
+        added_pt.normal_y = 0;
+        added_pt.normal_z = 0;
+        int layer  = pl_orig.points[i].ring;
+        if (layer >= N_SCANS) continue;
+        added_pt.x = pl_orig.points[i].x;
+        added_pt.y = pl_orig.points[i].y;
+        added_pt.z = pl_orig.points[i].z;
+        added_pt.intensity = pl_orig.points[i].intensity;
+        added_pt.curvature = pl_orig.points[i].time * time_unit_scale; // units: ms
 
-        if (!given_offset_time)  // 如果没有给定偏移时间
+        if (!given_offset_time)
         {
           double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.2957;  // 计算偏航角
           if (is_first[layer])  // 如果是该层的第一个点
@@ -387,16 +401,16 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
         PointType added_pt;  // 定义点类型
         // cout<<"!!!!!!"<<i<<" "<<plsize<<endl;
         
-        added_pt.normal_x = 0;  // 设置点的法向量x分量
-        added_pt.normal_y = 0;  // 设置点的法向量y分量
-        added_pt.normal_z = 0;  // 设置点的法向量z分量
-        added_pt.x = pl_orig.points[i].x;  // 设置点的x坐标
-        added_pt.y = pl_orig.points[i].y;  // 设置点的y坐标
-        added_pt.z = pl_orig.points[i].z;  // 设置点的z坐标
-        added_pt.intensity = pl_orig.points[i].intensity;  // 设置点的反射强度
-        added_pt.curvature = pl_orig.points[i].time / 1000.0;  // 设置点的曲率
+        added_pt.normal_x = 0;
+        added_pt.normal_y = 0;
+        added_pt.normal_z = 0;
+        added_pt.x = pl_orig.points[i].x;
+        added_pt.y = pl_orig.points[i].y;
+        added_pt.z = pl_orig.points[i].z;
+        added_pt.intensity = pl_orig.points[i].intensity;
+        added_pt.curvature = pl_orig.points[i].time * time_unit_scale;  // curvature unit: ms // cout<<added_pt.curvature<<endl;
 
-        if (!given_offset_time)  // 如果没有给定偏移时间
+        if (!given_offset_time)
         {
           int layer = pl_orig.points[i].ring;  // 获取点的环号
           double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.2957;  // 计算偏航角
@@ -430,7 +444,7 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 
         if (i % point_filter_num == 0)  // 如果点满足过滤条件
         {
-          if(added_pt.x*added_pt.x+added_pt.y*added_pt.y+added_pt.z*added_pt.z > blind)  // 如果点不在盲区内
+          if(added_pt.x*added_pt.x+added_pt.y*added_pt.y+added_pt.z*added_pt.z > (blind * blind))
           {
             pl_surf.points.push_back(added_pt);  // 将点添加到表面点云
           }

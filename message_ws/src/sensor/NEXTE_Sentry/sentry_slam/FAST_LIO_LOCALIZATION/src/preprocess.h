@@ -10,10 +10,11 @@ using namespace std;  // 使用标准命名空间
 typedef pcl::PointXYZINormal PointType;  // 定义点类型为PCL的XYZI法线点
 typedef pcl::PointCloud<PointType> PointCloudXYZI;  // 定义点云类型为PCL的点云
 
-enum LID_TYPE{AVIA = 1, VELO16, OUST64}; // 定义激光雷达类型枚举
-enum Feature{Nor, Poss_Plane, Real_Plane, Edge_Jump, Edge_Plane, Wire, ZeroPoint};  // 定义特征类型枚举
-enum Surround{Prev, Next};  // 定义周围点枚举
-enum E_jump{Nr_nor, Nr_zero, Nr_180, Nr_inf, Nr_blind};  // 定义跳跃类型枚举
+enum LID_TYPE{AVIA = 1, VELO16, OUST64}; //{1, 2, 3}
+enum TIME_UNIT{SEC = 0, MS = 1, US = 2, NS = 3};
+enum Feature{Nor, Poss_Plane, Real_Plane, Edge_Jump, Edge_Plane, Wire, ZeroPoint};
+enum Surround{Prev, Next};
+enum E_jump{Nr_nor, Nr_zero, Nr_180, Nr_inf, Nr_blind};
 
 struct orgtype  // 定义一个结构体用于存储点的原始信息
 {
@@ -90,15 +91,16 @@ class Preprocess  // 定义一个预处理类
   void process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);  // 处理ROS点云消息
   void set(bool feat_en, int lid_type, double bld, int pfilt_num);  // 设置预处理参数
 
-  // sensor_msgs::PointCloud2::ConstPtr pointcloud;  // 点云消息指针
-  PointCloudXYZI pl_full, pl_corn, pl_surf;  // 定义完整、角点和表面点云
-  PointCloudXYZI pl_buff[128]; // 定义点云缓冲区，最大支持128线激光雷达
-  vector<orgtype> typess[128]; // 定义点类型缓冲区，最大支持128线激光雷达
-  int lidar_type, point_filter_num, N_SCANS;  // 定义激光雷达类型、点过滤数量和扫描线数
-  double blind;  // 定义盲区距离
-  double max_scan_range;  // 定义最大扫描距离
-  bool feature_enabled, given_offset_time;  // 定义特征提取开关和时间偏移标志
-  ros::Publisher pub_full, pub_surf, pub_corn;  // 定义ROS发布者，用于发布完整、表面和角点云
+  // sensor_msgs::PointCloud2::ConstPtr pointcloud;
+  PointCloudXYZI pl_full, pl_corn, pl_surf;
+  PointCloudXYZI pl_buff[128]; //maximum 128 line lidar
+  vector<orgtype> typess[128]; //maximum 128 line lidar
+  float time_unit_scale;
+  int lidar_type, point_filter_num, N_SCANS, SCAN_RATE, time_unit;
+  double blind;
+  bool feature_enabled, given_offset_time;
+  ros::Publisher pub_full, pub_surf, pub_corn;
+    
 
   private:
   void avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg);  // 处理Livox消息
