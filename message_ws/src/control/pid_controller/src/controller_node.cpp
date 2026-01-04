@@ -1,14 +1,10 @@
-#include <iostream>
-using namespace std;
+#include <clocale>
+
 #include "ros/ros.h"
-#include <nav_msgs/Odometry.h>
-#include <tf/transform_datatypes.h>
-#include <std_msgs/String.h>
-#include <string>
+
 #include "control/Motor.h"
-#include "tcp/tcp_connection.h"
-#include "tcp/ship_info.h"
 #include "tcp/keyboard.h"
+#include "tcp/ship_info.h"
 
 #define KEYBOARD_ADD_PWM                400     // 前进、后退改变的PWM
 #define KEYBOARD_LEFT_DIFF_MPWM         600     // 左转主推进器的PWM差值,范围：0~1000
