@@ -1,0 +1,13 @@
+<launch>
+    <node pkg="octomap_server" type="octomap_server_node" name="octomap_server">  <!-- 启动octomap_server节点，用于生成三维占据栅格地图 -->
+
+        <param name="resolution" value="0.1" />  <!-- 设置地图的分辨率为0.1米 -->
+        <param name="frame_id" type="str" value="camera_init" />  <!-- 设置地图的坐标系为camera_init -->
+        <param name="sensor_model/max_range" value="1000.0" />  <!-- 设置传感器的最大范围为1000米 -->
+        <param name="latch" value="true" />  <!-- 设置latch为true，确保订阅者在连接后能接收到最新的消息 -->
+        <param name="pointcloud_max_z" value="0.5" />  <!-- 设置点云的最大z值为1米，过滤掉更高的点 -->
+        <param name="pointcloud_min_z" value="-0.5" />  <!-- 设置点云的最小z值为0米，过滤掉更低的点 -->
+
+        <remap from="cloud_in" to="/cloud_registered" />  <!-- 将输入点云话题重映射为/cloud_registered -->
+    </node>
+</launch>

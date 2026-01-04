@@ -1,0 +1,22 @@
+# Local costmap configuration
+# 局部代价地图配置 - 参考pb_rm_simulation的实现
+
+costmap:
+  global_frame: camera_init      # 全局参考系（使用camera_init，SLAM的局部参考系）
+  robot_base_frame: body         # 机器人基座坐标系（地图会以此为中心滚动）
+ 
+  update_frequency: 5.0          # 代价地图更新频率 (Hz) - 降低以减少计算负担
+  publish_frequency: 2.0         # 代价地图的发布频率 (Hz) - 降低以减少网络负担
+  transform_tolerance: 5.0       # 等待坐标变换发布信息的超时时间 (秒) - 大幅增加以处理bag模式的TF延迟
+ 
+  static_map: false              # 不使用静态地图（局部costmap不需要）
+  rolling_window: true           # 使用滚动窗口（跟随机器人移动）
+  
+  width: 20.0                    # 局部地图宽度 (m) - 增大到20米
+  height: 20.0                   # 局部地图高度 (m) - 增大到20米
+  resolution: 0.1                # 局部地图分辨率 (m/cell) - 从0.05改为0.1，提升性能
+  
+  # 插件配置（局部costmap不需要静态层）
+  plugins:
+    - {name: obstacle_layer,    type: "costmap_2d::VoxelLayer"}
+    - {name: inflation_layer,   type: "costmap_2d::InflationLayer"}
