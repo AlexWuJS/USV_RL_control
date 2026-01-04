@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   tf2
+  tf2_ros
 
   control
 )
@@ -108,7 +109,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
  LIBRARIES huamo
- CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2
+ CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2 tf2_ros control
 #  DEPENDS system_lib
 )
 

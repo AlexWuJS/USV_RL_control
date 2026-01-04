@@ -1,0 +1,56 @@
+﻿# Hybrid-Astar-ESDF
+
+使用**ros noetic**版本
+
+放到工作空间下，直接编译
+
+```
+catkin_make
+```
+
+## hybrid A*版本
+
+```
+source devel/setup.bash
+roslaunch hybrid_a_star run_hybrid_a_star.launch
+```
+
+得到下面界面,按照图片指示操作
+
+<p align="center">
+    <img src="fig/hy1.gif" alt="hy1.gif" />
+</p>
+
+注：优化过程只考虑路径点位置，没有优化偏航角，末端有时会不够平滑，如果有大佬知道如何改进，请随时在**b站**留言交流
+
+## 纯A*版本
+```
+source devel/setup.bash
+roslaunch hybrid_a_star astar_run.launch
+```
+
+## 简易泊车演示
+
+直接使用**hybrid A***原始路径，修改**hybrid_a_star_node.cpp**
+
+>188行，PublishVehiclePath替换为187行内容
+
+>194行，for (const auto &pose: quintic_path)内的路径换为path
+
+>224行，修改移动频率为ros::Duration(0.1).sleep();
+
+>run_hybrid_a_star.launch中，使用另一个地图
+33行，注释掉，换为32行
+
+```
+catkin_make
+source devel/setup.bash
+roslaunch hybrid_a_star run_hybrid_a_star.launch
+```
+
+<p align="center">
+    <img src="fig/parking1.png" alt="parking.png" style="width: 60%;"/>
+</p>
+
+
+**如果觉得对您有帮助，麻烦随手点个star，多谢**

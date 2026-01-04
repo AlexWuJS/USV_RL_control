@@ -15,6 +15,7 @@ using namespace std;
 #include "tcp/ship_info.h"
 #include <cmath>
 #include <nav_msgs/Odometry.h>
+#include <sstream>
 
 
 ros::Publisher controller_pub;
@@ -25,7 +26,7 @@ PID PositionPid;
 AnglePID AnglePid;
 ros::ServiceClient client;
 tcp::ship_info boat_status;
-
+ros::Publisher tcp_tx_pub;
 
 /**
   * @brief  从节点中读取上位机发送的参数等信息
@@ -39,6 +40,8 @@ void Tcp_SubBoatMessage_CallBack(const tcp::ship_info::ConstPtr& msg)
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
+    std_msgs::String tcp_sbuf;
+
     /* 到达目的地附近 */
     if (boat_distance < 1.5) // 1.5
     {
@@ -81,6 +84,16 @@ void Pid_Callback(const ros::TimerEvent &event)
 
     /* 发布pwm消息 */
     controller_pub.publish(thruster_msg);
+
+    std::stringstream ss;
+
+    ss << "location_pid:" << location_pid_output << "," 
+       << boat_distance << "," 
+       << thruster_msg.left_thruster_pwm << "," 
+       << thruster_msg.right_thruster_pwm << ",\n";
+
+    tcp_sbuf.data = ss.str();
+    tcp_tx_pub.publish(tcp_sbuf);
 }
 
 
@@ -115,23 +128,23 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     }
 }
 
-void TcpSend_Thread()
-{
-    tcp::sendMessage tcp_send_message;
-    char tcp_sbuf[100];
+// void TcpSend_Thread()
+// {
+//     tcp::sendMessage tcp_send_message;
+//     char tcp_sbuf[100];
 
-    while (true)
-    {
-        // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
-        //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-        // sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-        sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%d,%d,\n", location_pid_output, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-        tcp_send_message.request.str = tcp_sbuf;
+//     while (true)
+//     {
+//         // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
+//         //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
+//         // sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+//         sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%d,%d,\n", location_pid_output, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
+//         tcp_send_message.request.str = tcp_sbuf;
 
-        client.call(tcp_send_message);   
-        // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
-    }
-}
+//         client.call(tcp_send_message);   
+//         // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
+//     }
+// }
 
 int main(int argc, char* argv[])
 {
@@ -142,11 +155,13 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<control::Motor>("/controller", 1000);
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 1000);
+
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 1000, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1, odomCallback);
     ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatMessage_CallBack);
 
-    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
+    // client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
@@ -166,12 +181,12 @@ int main(int argc, char* argv[])
 
 
     // 创建线程，传入线程函数
-    std::thread TcpSend(TcpSend_Thread); 
+    // std::thread TcpSend(TcpSend_Thread); 
 
     ros::spin();
 
     // 等待线程结束
-    TcpSend.join();
+    // TcpSend.join();
 
     return 0;
 }  

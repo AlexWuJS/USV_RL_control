@@ -5,9 +5,14 @@
 #include <chrono>
 #include <ctime>
 #include <sstream>
+#include <memory>
 #include <sensor_msgs/Imu.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/exceptions.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
 
@@ -33,6 +38,9 @@ static ros::Publisher controller_pub;
 control::Motor thruster_msg;
 
 ros::Publisher motion_path_pub, global_path_pub,LOS_path_pub;
+
+std::unique_ptr<tf2_ros::Buffer> tf_buffer_ptr;
+std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr;
 
 void odomCallback(const nav_msgs::Odometry &msg)
 {
@@ -80,8 +88,37 @@ void odomCallback(const nav_msgs::Odometry &msg)
 
 void pathCallback(const nav_msgs::Path &path)
 {
-    path_ = path;
-    has_path_ = true;
+    if (!tf_buffer_ptr) {
+        ROS_WARN_THROTTLE(1.0, "TF buffer not ready, skip path update");
+        return;
+    }
+
+    const std::string target_frame = "camera_init";
+    path_.header = path.header;
+    path_.poses.clear();
+
+    for (const auto &pose : path.poses) {
+        geometry_msgs::PoseStamped in_pose = pose;
+        if (in_pose.header.frame_id.empty()) {
+            in_pose.header.frame_id = path.header.frame_id;
+        }
+
+        if (in_pose.header.frame_id != target_frame) {
+            try {
+                geometry_msgs::PoseStamped transformed = tf_buffer_ptr->transform(in_pose, target_frame, ros::Duration(0.1));
+                path_.poses.emplace_back(transformed);
+            } catch (tf2::TransformException &ex) {
+                ROS_WARN_THROTTLE(1.0, "Failed to transform path pose to %s: %s", target_frame.c_str(), ex.what());
+            }
+        } else {
+            path_.poses.emplace_back(in_pose);
+        }
+    }
+
+    path_.header.frame_id = target_frame;
+    path_.header.stamp = path.header.stamp;
+
+    has_path_ = !path_.poses.empty();
 }
 
 void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_data)
@@ -153,6 +190,9 @@ int main(int argc, char* argv[])
     // ros::Rate r(10);
 
     ros::NodeHandle nh;
+
+    tf_buffer_ptr = std::make_unique<tf2_ros::Buffer>();
+    tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr);
 
     // ros::Subscriber odom_sub = nh.subscribe("/odom_local",10,odomCallback);
     // ros::Subscriber imu_sub = nh.subscribe("/imu/data",10,imuCallback);

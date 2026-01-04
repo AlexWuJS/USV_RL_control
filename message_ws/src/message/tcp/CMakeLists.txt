@@ -17,6 +17,9 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
   geometry_msgs
   nav_msgs
+
+  logger
+  audio
 )
 
 ## System dependencies are found with CMake's conventions
@@ -115,7 +118,7 @@ generate_messages(
 catkin_package(
  INCLUDE_DIRS include
 #  LIBRARIES tcp
- CATKIN_DEPENDS roscpp std_msgs message_runtime sensor_msgs
+ CATKIN_DEPENDS roscpp std_msgs message_runtime sensor_msgs logger audio
 #  DEPENDS system_lib
 )
 
@@ -149,10 +152,15 @@ add_executable(tcp_node
   src/format_conversion.cpp
 )
 
-add_executable(system_control_node 
-  src/system_control_node.cpp
+add_executable(sys_status_node 
+  src/sys_status_node.cpp
   src/Tcp.cpp
   src/format_conversion.cpp
+  src/network_monitor.cpp
+)
+
+add_executable(example_ros_tx_tcp_node 
+  src/example_ros_tx_tcp_node.cpp
 )
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -164,14 +172,19 @@ add_executable(system_control_node
 ## same as for the library above
 
 add_dependencies(tcp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(system_control_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(sys_status_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(example_ros_tx_tcp_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(tcp_node
   ${catkin_LIBRARIES}
 )
 
-target_link_libraries(system_control_node
+target_link_libraries(sys_status_node
+  ${catkin_LIBRARIES}
+)
+
+target_link_libraries(example_ros_tx_tcp_node
   ${catkin_LIBRARIES}
 )
 #############

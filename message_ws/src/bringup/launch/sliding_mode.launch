@@ -13,7 +13,8 @@
 
     <!-- 启用滑模控制 -->
     <node pkg="huamo" type="huamo_node" name="huamo" output="screen">
-        <remap from="my_path" to="a_star_path" />
+        <!-- 让 huamo 订阅 A* 输出的 /waypoints_path -->
+        <remap from="my_path" to="/waypoints_path" />
     </node>
 
 </launch>

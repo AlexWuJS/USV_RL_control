@@ -16,6 +16,7 @@
   <!-- 启动地图服务器 -->
   <!-- <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" respawn="true">
     <param name="frame_id" value="$(arg map_frame)" />
+    <remap from="map" to="prior_map" />
   </node> -->
   
   <!-- 启动A星规划器节点 -->

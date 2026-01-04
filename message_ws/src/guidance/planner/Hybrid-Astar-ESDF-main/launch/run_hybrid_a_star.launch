@@ -1,0 +1,28 @@
+<launch>
+    <!-- Note: Ensure map_server is running and publishing to /prior_map (or remap it) -->
+    <!-- Note: Ensure TF map -> body is available (provided by SLAM/Localization) -->
+
+    <node pkg="hybrid_a_star" type="run_hybrid_astar" name="run_hybrid_astar" output="screen">
+        <param name="planner/steering_angle" value="15.0"/>
+        <param name="planner/steering_angle_discrete_num" value="1"/>
+        <param name="planner/wheel_base" value="1.0"/>
+        <param name="planner/segment_length" value="1.6"/>
+        <param name="planner/segment_length_discrete_num" value="8"/>
+        <param name="planner/steering_penalty" value="1.5"/>
+        <param name="planner/reversing_penalty" value="2.0"/>
+        <param name="planner/steering_change_penalty" value="2.0"/>
+        <param name="planner/shot_distance" value="5.0"/>
+
+        <!-- use or not use reference path cost -->
+        <!-- <param name="planner/w_ref" value="0.03"/> -->
+        <param name="planner/w_ref" value="0.0"/>
+
+        <!-- use dubins or rs , dubins:0, rs:1 -->
+        <param name="planner/use_dubins_or_rs" value="1"/>
+        
+        <!-- Remap topics if necessary -->
+        <!-- <remap from="/prior_map" to="/map"/> -->
+        <!-- <remap from="/waypoints_path" to="/my_path"/> -->
+    </node>
+    
+</launch>

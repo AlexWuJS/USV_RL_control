@@ -18,7 +18,7 @@ AStarPlanner::AStarPlanner() : tf_listener_(tf_buffer_) {
     goal_sub_ = nh_.subscribe("/move_base_simple/goal", 1, &AStarPlanner::goalCallback, this);
     
     // 发布路径和膨胀地图
-    path_pub_ = nh_.advertise<nav_msgs::Path>("/a_star_path", 1);
+    path_pub_ = nh_.advertise<nav_msgs::Path>("/waypoints_path", 1);
     inflated_map_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/inflated_map", 1);
     
     // 加载参数
@@ -302,7 +302,7 @@ void AStarPlanner::publishPath(const std::vector<Node*>& path) {
     
     current_path_.header = current_map_.header;
     current_path_.header.stamp = ros::Time::now();
-    current_path_.header.frame_id = "camera_init";
+    current_path_.header.frame_id = "map";
     
     for (const Node* node : path) {
         geometry_msgs::PoseStamped pose;

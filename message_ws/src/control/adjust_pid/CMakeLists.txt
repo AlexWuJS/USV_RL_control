@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_geometry_msgs
 
   tcp
+  logger
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES adjust_pid
- CATKIN_DEPENDS roscpp sensor_msgs std_msgs tcp
+ CATKIN_DEPENDS roscpp sensor_msgs std_msgs tcp logger
 #  DEPENDS system_lib
 )
 
@@ -161,6 +162,10 @@ add_executable(adjust_angle_pid_node
   src/pid.cpp
   src/point_nav.cpp
 )
+
+ add_executable(record_data_node 
+  src/record_data_node.cpp
+)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -174,6 +179,7 @@ add_dependencies(adjust_angle_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${cat
 add_dependencies(adjust_speed_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(adjust_location_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(point_nav_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(record_data_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(adjust_angle_pid_node
@@ -186,6 +192,9 @@ target_link_libraries(adjust_location_pid_node
   ${catkin_LIBRARIES}
 )
 target_link_libraries(point_nav_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(record_data_node
   ${catkin_LIBRARIES}
 )
 #############

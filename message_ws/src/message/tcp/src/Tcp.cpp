@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include "tcp/Tcp.h"
 
+
 // 静态变量声明
 static int connfd_server; // 服务器连接文件描述符
 static int sockfd_client; // 客户端套接字文件描述符
@@ -63,29 +64,58 @@ int Tcp_Server_Init(uint16_t port)
 }
 
 /**
- * @brief 服务器发送数据
+ * @brief 服务器发送数据 (Char* 版本，支持指定长度)
  * @param client_socket 客户端套接字
  * @param buf 要发送的数据缓冲区
+ * @param len 要发送的数据长度 (字节数)
  * @return 成功返回0，失败返回负值
  */
-int Tcp_Server_Send(int client_socket, const char *buf)
+int Tcp_Server_Send(int client_socket, const char *buf, int len)
 {
-    // 检查套接字有效性
+    // 1. 检查套接字有效性
     if (client_socket <= 0)
     {
-        cout << "Server send failed! Please check your network, maybe your socket is not running as expected." << endl;
+        cout << "[Tcp Error] Server send failed: Invalid socket." << endl;
         return -1;
     }
 
-    // 发送数据
-    if (-1 == send(client_socket, buf, TCP_MAX_SIZE, 0))
+    // 2. 检查数据有效性
+    if (buf == nullptr || len <= 0)
+    {
+        cout << "[Tcp Error] Server send failed: Empty data or invalid length." << endl;
+        return -1;
+    }
+
+    // 3. 安全检查：防止发送超过缓冲区定义的最大长度 (可选，视需求而定)
+    if (len > TCP_MAX_SIZE) 
+    {
+        cout << "[Tcp Warning] Data too long, truncated to TCP_MAX_SIZE." << endl;
+        len = TCP_MAX_SIZE; 
+    }
+
+    ssize_t sent_bytes = send(client_socket, buf, len, 0);
+
+    if (-1 == sent_bytes)
     {
         perror("server send failed");
-        printf("This message failed to send:\r\n\t%s\r\n", buf);
+        // 为了防止打印乱码，这里只打印前一部分
+        printf("Failed to send data (len=%d)\n", len); 
         return -2;
     }
 
     return 0;
+}
+
+/**
+ * @brief 服务器发送数据 (String 重载版本)
+ * @param client_socket 客户端套接字
+ * @param data 要发送的 string 数据
+ * @return 成功返回0，失败返回负值
+ */
+int Tcp_Server_Send(int client_socket, const std::string &data)
+{
+    // 直接调用 char* 版本，自动获取长度
+    return Tcp_Server_Send(client_socket, data.c_str(), static_cast<int>(data.length()));
 }
 
 /**
@@ -128,108 +158,120 @@ void Tcp_Server_Close(int client_socket)
     close(client_socket);
 }
 
-/**
- * @brief 初始化TCP客户端
- * @param port 服务器端口号
- * @param IP 服务器IP地址
- * @return 成功返回客户端套接字文件描述符，失败返回-1
- */
-int Tcp_Client_Init(uint16_t port, const char *IP)
-{
-    struct sockaddr_in ServerAddr;
-    socklen_t ServerAddr_len = sizeof(ServerAddr);
+TcpClient::TcpClient() : sock_fd_(-1), is_connected_(false) {
+}
 
-    memset(&ServerAddr, 0, sizeof(ServerAddr));
+TcpClient::~TcpClient() {
+    closeConnection();
+}
 
-    // 填充服务器地址结构
-    ServerAddr.sin_family = AF_INET;
-    ServerAddr.sin_port = htons(SERVER_PORT);
+void TcpClient::setSocketTimeout(int fd, int sec) {
+    struct timeval timeout;
+    timeout.tv_sec = sec;
+    timeout.tv_usec = 0;
+    setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(struct timeval));
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval));
+}
+
+bool TcpClient::connectToServer(const string& ip, uint16_t port, int timeout_sec) {
+    // 如果已经连着，先断开，防止逻辑混乱
+    if (is_connected_) {
+        closeConnection();
+    }
+
+    // 1. 创建 Socket
+    sock_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_fd_ < 0) {
+        perror("[TcpClient] Create socket failed");
+        return false;
+    }
+
+    // 2. 设置超时 (防止卡死 ROS)
+    setSocketTimeout(sock_fd_, timeout_sec);
+
+    // 3. 准备地址
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(port);
+    if (inet_pton(AF_INET, ip.c_str(), &server_addr.sin_addr) <= 0) {
+        perror("[TcpClient] Invalid IP");
+        closeConnection();
+        return false;
+    }
+
+    // 4. 发起连接
+    cout << "[TcpClient] Connecting to " << ip << ":" << port << " ..." << endl;
+    if (connect(sock_fd_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("[TcpClient] Connect failed");
+        closeConnection(); // 失败要清理 fd
+        return false;
+    }
+
+    is_connected_ = true;
+    return true;
+}
+
+int TcpClient::sendMsg(const string& data) {
+    return sendMsg(data.c_str(), data.length());
+}
+
+int TcpClient::sendMsg(const char* data, size_t len) {
+    if (!is_connected_ || sock_fd_ < 0) return -1;
+
+    int ret = send(sock_fd_, data, len, 0);
+    if (ret < 0) {
+        perror("[TcpClient] Send failed");
+        // 发送失败通常意味着连接断了
+        closeConnection();
+    }
+    return ret;
+}
+
+int TcpClient::readMsg(char* buffer, int max_len) {
+    if (!is_connected_ || sock_fd_ < 0) return -1;
+
+    int ret = recv(sock_fd_, buffer, max_len, 0);
+    if (ret <= 0) {
+        if (ret == 0) cout << "[TcpClient] Server closed connection." << endl;
+        else perror("[TcpClient] Recv error");
+        
+        closeConnection();
+        return -1;
+    }
+    return ret;
+}
+
+void TcpClient::closeConnection() {
+    if (sock_fd_ >= 0) {
+        close(sock_fd_);
+        sock_fd_ = -1;
+    }
+    is_connected_ = false;
+}
+
+bool TcpClient::checkNetStatus(const string& test_ip, uint16_t port, int timeout_sec) {
+    int temp_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (temp_fd < 0) return false;
+
+    // 设置超时
+    setSocketTimeout(temp_fd, timeout_sec);
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
     
-    if (-1 == inet_pton(AF_INET, IP, &ServerAddr.sin_addr.s_addr))
-    {
-        perror("client get IP failed");
-        return -1;
+    // IP转换
+    if (inet_pton(AF_INET, test_ip.c_str(), &addr.sin_addr) <= 0) {
+        close(temp_fd);
+        return false;
     }
 
-    // 创建套接字
-    sockfd_client = socket(AF_INET, SOCK_STREAM, 0);
-    if (-1 == sockfd_client)
-    {
-        perror("create socket failed");
-        return -1;
-    }
+    // 尝试连接
+    int ret = connect(temp_fd, (struct sockaddr *)&addr, sizeof(addr));
+    
+    close(temp_fd);
 
-    // 连接服务器
-    cout << "connecting..." << endl;
-    while (-1 == connect(sockfd_client, (struct sockaddr *)&ServerAddr, ServerAddr_len))
-    {
-        perror("client connect failed");
-    }
-    cout << "client: connect success!" << endl;
-
-    return sockfd_client;
-}
-
-/**
- * @brief 客户端发送数据
- * @param buf 要发送的数据缓冲区
- * @return 成功返回0，失败返回-1
- */
-int Tcp_Client_Send(const char *buf)
-{
-    static int n = 0;
-
-    // 检查套接字有效性
-    if (sockfd_client <= 0)
-    {
-        cout << "Client send failed! Please check your network, maybe your socket is not running as expected." << endl;
-        return -1;
-    }
-
-    // 发送数据
-    if (-1 == send(sockfd_client, buf, TCP_MAX_SIZE, 0))
-    {
-        perror("client send failed");
-        printf("This message failed to send:\r\n\t%s\r\n", buf);
-        return -1;
-    }
-    else
-    {
-        cout << "client send message: " << ++n << endl;
-    }
-
-    return 0;
-}
-
-/**
- * @brief 客户端接收数据
- * @param buf 接收数据的缓冲区
- * @return 成功返回0，失败返回-1
- */
-int Tcp_Client_Read(char *buf)
-{
-    // 检查套接字有效性
-    if (sockfd_client <= 0)
-    {
-        cout << "Client read failed! Please check your network, maybe your socket is not running as expected." << endl;
-        return -1;
-    }
-
-    // 接收数据
-    if (-1 == recv(sockfd_client, buf, TCP_MAX_SIZE, 0))
-    {
-        perror("client read failed");
-        return -1;
-    }
-    cout << "client read: " << buf << endl;
-
-    return 0;
-}
-
-/**
- * @brief 关闭客户端连接
- */
-void Tcp_Client_Close(void)
-{
-    close(sockfd_client);
+    return (ret == 0); // 0 表示成功，即有网
 }

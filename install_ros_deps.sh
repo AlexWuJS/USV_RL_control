@@ -30,6 +30,9 @@ if [ "$choice" -eq 1 ] || [ "$choice" -eq 2 ]; then
     # 安装Eigen3
     sudo apt-get install -y libeigen3-dev
     sudo ln -s /usr/include/eigen3/Eigen /usr/include/Eigen
+    # 安装sound_play
+    sudo apt-get install -y ros-noetic-sound-play
+fi
 #------------------------------------------------------------
 # 检查安装是否成功
 if [ $? -eq 0 ]; then

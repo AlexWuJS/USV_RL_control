@@ -1,0 +1,65 @@
+#ifndef AUDIO_SRC_AUDIO_H
+#define AUDIO_SRC_AUDIO_H
+
+#include <ros/ros.h>
+#include <sound_play/sound_play.h>
+#include <map>
+#include <string>
+
+// 1. 定义枚举类型，列出所有需要播报的情况
+enum class AudioType {
+    NETWORK_CONNECTED,  // 网络连接正常
+    
+    CAMERA_ERR,         // 相机故障
+    NETWORK_ERR,        // 网络异常
+    RTK_ERR,            // RTK 定位故障
+    LIDAR_ERR,          // 雷达故障
+    RC_COMM_ERR,        // 遥控器通信异常
+    MCU_COMM_ERR,       // 单片机通信异常
+
+    IMU_DISCONNECTED,   // 未连接到惯导
+    LIDAR_DISCONNECTED, // 未连接到激光雷达
+
+    BATTERY_LOW,        // 电量低
+    TASK_START          // 任务开始
+};
+
+class AudioManager {
+public:
+    /**
+     * @brief 构造函数
+     * @param nh 传入节点的 NodeHandle
+     * @param default_volume 默认音量百分比 (如果 < 0，则不修改系统音量)
+     */
+    AudioManager(ros::NodeHandle& nh, int default_volume = -1);
+    ~AudioManager();
+
+    /**
+     * @brief 核心接口：根据枚举播放对应的语音
+     * @param type 传入枚举变量 (e.g., AudioType::CAMERA_ERR)
+     * @param volume 播放音量 (0-100), -1表示使用默认音量
+     */
+    void play(AudioType type, int volume = -1);
+
+    /**
+     * @brief 停止所有正在播放的声音
+     */
+    void stop();
+
+    static void InitSystemVolume(int volume_percent);
+
+private:
+    // sound_play 客户端
+    sound_play::SoundClient sc_;
+    
+    // 默认音量
+    int default_volume_;
+
+    // 用于存储枚举到文件路径的映射
+    std::map<AudioType, std::string> audio_map_;
+
+    // 初始化文件路径的方法
+    void initAudioPaths();
+};
+
+#endif
