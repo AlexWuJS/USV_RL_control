@@ -20,5 +20,5 @@ float64 voltage_left_battery
 float64 voltage_right_battery
 float64 temperature
 
-# 'K' 报文 键盘控制
-tcp/keyboard keyboard
+# 'K' 报文 摇杆控制
+tcp/joystick joystick

@@ -154,12 +154,12 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<control::Motor>("/controller", 1000);
-    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 1000);
+    controller_pub = nh.advertise<control::Motor>("/controller", 10);
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
 
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 1000, Tcp_SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1, odomCallback);
-    ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatMessage_CallBack);
+    ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_SubBoatMessage_CallBack);
 
     // client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 

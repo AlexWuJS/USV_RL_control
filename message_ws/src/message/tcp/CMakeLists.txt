@@ -60,7 +60,7 @@ add_message_files(
   FILES
   ship_info.msg
   pid.msg
-  keyboard.msg
+  joystick.msg
   system_identification.msg
   sliding_mode.msg
   message_s.msg
