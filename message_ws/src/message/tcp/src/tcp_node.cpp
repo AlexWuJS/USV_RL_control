@@ -167,11 +167,11 @@ int main(int argc, char *argv[])
 
     ros::NodeHandle nh;
 
-    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 1000);
-    tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 1000);
-    tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 1000);
-    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_GetShipInfo_CallBack);
-    ros::Subscriber tcp_request_sub = nh.subscribe<std_msgs::String>("/tcp/tx_request", 1000, TxRequestCallback);
+    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10);
+    tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 10);
+    tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 10);
+    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_GetShipInfo_CallBack);
+    ros::Subscriber tcp_request_sub = nh.subscribe<std_msgs::String>("/tcp/tx_request", 10, TxRequestCallback);
 
     /*--- End of ROS INIT ----------------------------------------------------------- */
 
