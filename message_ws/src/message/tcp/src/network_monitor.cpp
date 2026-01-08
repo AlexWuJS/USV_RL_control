@@ -3,6 +3,7 @@
 
 #include "logger/logger.h"
 #include <audio/audio.h>
+#include <algorithm>
 
 
 NetworkMonitor::NetworkMonitor(AudioManager& audio) 
@@ -37,28 +38,32 @@ void NetworkMonitor::update(const ros::TimerEvent& event) {
     // ---------------------------------------------------------
     if (pass) {
         // --- 检测成功 ---
+        const int prev_fail_count = fail_count_;
         fail_count_ = 0; // 只要成功一次，计数器清零
         
         // 只有状态从“离线”变成了“在线”才播报
         if (!is_online_) { 
             is_online_ = true;
-            LOG_INFO("[NetMonitor] Status Changed: RECOVERED (Online)");
+            LOG_INFO("[NetMonitor] Status Changed: RECOVERED (Online), fail_count reset {} -> 0", prev_fail_count);
             audio_mgr_.play(AudioType::NETWORK_CONNECTED);
         }
     } else {
         // --- 检测失败 ---
-        fail_count_++;
+        // 离线状态下不再累积/打印失败次数，避免误以为“计数器没重置”
+        if (!is_online_) {
+            fail_count_ = NET_MAX_FAIL_COUNT;
+            return;
+        }
+
+        fail_count_ = std::min(fail_count_ + 1, NET_MAX_FAIL_COUNT);
         LOG_WARN_FILE("[NetMonitor] Network Check Failed {} time, try again...", fail_count_);
         
         // 只有连续失败次数达到阈值，且当前认为是“在线”时，才播报断网
         if (fail_count_ >= NET_MAX_FAIL_COUNT) {
-            if (is_online_) { 
-                is_online_ = false;
-                LOG_WARN("[NetMonitor] Status Changed: LOST (Offline)");
-                audio_mgr_.play(AudioType::NETWORK_ERR);
-            }
-            // 锁定计数器，防止无限增加溢出 (虽然 int 很难溢出，但这是好习惯)
-            fail_count_ = NET_MAX_FAIL_COUNT; 
+            is_online_ = false;
+            LOG_WARN("[NetMonitor] Status Changed: LOST (Offline)");
+            audio_mgr_.play(AudioType::NETWORK_ERR);
+            fail_count_ = NET_MAX_FAIL_COUNT;
         }
     }
 }
