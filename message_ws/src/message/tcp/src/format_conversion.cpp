@@ -232,20 +232,17 @@ int FormatConversionClass::handle_header_K(std::string s)
         return -1;
     }
 
-    /* 接收键盘数据并记录 */
+    /* 接收摇杆数据并记录: K,x,y,  (x/y in [-100,100]) */
     string_values = get_value_from_string(s, ',');
-    if (string_values.size() != 5)      // K帧一共有5个数据
+    if (string_values.size() < 3)      // K帧最少3个数据: K,x,y
     {
         return -2;
     }
     else
     {
-        keyboard.W = (bool)(string_values[1][0] - '0');
-        keyboard.A = (bool)(string_values[2][0] - '0');
-        keyboard.S = (bool)(string_values[3][0] - '0');
-        keyboard.D = (bool)(string_values[4][0] - '0');
+        joystick.x = stoi(string_values[1]);
+        joystick.y = stoi(string_values[2]);
     }
 
     return 0;
 }
-

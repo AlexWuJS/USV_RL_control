@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <map>
 #include <queue>
+#include <atomic>
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
 #include <logger/logger.h>
@@ -29,6 +30,7 @@ tcp::message_s tcp_message;
 std::queue<std::string> send_queue; // 发送缓冲队列
 std::mutex queue_mutex;             // 保护队列的锁
 std::condition_variable queue_cv;   // 队列非空时的通知
+std::atomic<size_t> max_send_queue_size{50};
 
 void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr &msg)
 {
@@ -48,6 +50,11 @@ void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr &msg)
 void TxRequestCallback(const std_msgs::String::ConstPtr &msg)
 {
     std::lock_guard<std::mutex> lock(queue_mutex);
+    // 限制发送队列长度，避免 TCP 断连/慢链路时队列无限增长并回放旧消息。
+    const size_t max_q = max_send_queue_size.load();
+    while (send_queue.size() >= max_q) {
+        send_queue.pop(); // 丢弃最旧的一条
+    }
     send_queue.push(msg->data); // 入队
     queue_cv.notify_one();      // 通知发送线程：有活干了！
 }
@@ -166,12 +173,20 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "tcp_node");
 
     ros::NodeHandle nh;
+    ros::NodeHandle private_nh("~");
 
-    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 1000);
-    tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 1000);
-    tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 1000);
-    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_GetShipInfo_CallBack);
-    ros::Subscriber tcp_request_sub = nh.subscribe<std_msgs::String>("/tcp/tx_request", 1000, TxRequestCallback);
+    int max_send_queue = 50;
+    private_nh.param("max_send_queue", max_send_queue, max_send_queue);
+    if (max_send_queue < 1) {
+        max_send_queue = 1;
+    }
+    max_send_queue_size.store(static_cast<size_t>(max_send_queue));
+
+    tcp_raw_message_pub = nh.advertise<std_msgs::String>("/tcp/raw_data", 10);
+    tcp_data_pub = nh.advertise<tcp::message_s>("/tcp/data", 10);
+    tcp_toGroundData_pub = nh.advertise<std_msgs::String>("/tcp/toGroundData", 10);
+    ros::Subscriber ship_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_GetShipInfo_CallBack);
+    ros::Subscriber tcp_request_sub = nh.subscribe<std_msgs::String>("/tcp/tx_request", 10, TxRequestCallback);
 
     /*--- End of ROS INIT ----------------------------------------------------------- */
 

@@ -137,7 +137,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "pub_ground_waypoints");
     ros::NodeHandle nh;
 
-    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 1000, Tcp_SubMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     waypoints_pub = nh.advertise<nav_msgs::Path>("/waypoints_path", 10);
     point_marker_pub = nh.advertise<visualization_msgs::Marker>("/point", 10);
 

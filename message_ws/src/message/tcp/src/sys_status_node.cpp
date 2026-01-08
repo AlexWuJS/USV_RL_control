@@ -146,10 +146,8 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             case 'K':
                 FormatConversion_Tcp.handle_header_K(*it);
 
-                ship_information.keyboard.W = FormatConversion_Tcp.keyboard.W;
-                ship_information.keyboard.A = FormatConversion_Tcp.keyboard.A;
-                ship_information.keyboard.S = FormatConversion_Tcp.keyboard.S;
-                ship_information.keyboard.D = FormatConversion_Tcp.keyboard.D;
+                ship_information.joystick.x = FormatConversion_Tcp.joystick.x;
+                ship_information.joystick.y = FormatConversion_Tcp.joystick.y;
             break;
 
             default:
@@ -168,14 +166,14 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 1000);
+    ship_info_pub = nh.advertise<tcp::ship_info>("/ship/ship_info", 10);
     rtk_point_pub = nh.advertise<sensor_msgs::NavSatFix>("/ship/rtk_point", 10);
-    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 1000);
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
 
-    ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
-    ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
-    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 1000, SubUsartMessage_CallBack);
-    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 1000, SubMessage_CallBack);
+    ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 10, odomCallback);
+    ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 10, rtkCallback); 
+    ros::Subscriber tcp_environment_sub = nh.subscribe<std_msgs::String>("/usart/data", 10, SubUsartMessage_CallBack);
+    ros::Subscriber tcp_message_sub = nh.subscribe<std_msgs::String>("/tcp/raw_data", 10, SubMessage_CallBack);
 
     ros::Timer timer_tcp_pub = nh.createTimer(ros::Duration(0.1), PubShipMessage_CallBack);
 

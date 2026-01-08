@@ -8,12 +8,10 @@
 #include <sensor_msgs/NavSatFix.h>
 using namespace std;
 
-/* 键盘控制结构体 */
+/* 摇杆控制结构体 */
 typedef struct {
-    bool W;
-    bool A;
-    bool S;
-    bool D;
+    int x;
+    int y;
 }KeyboardStructure;
 
 
@@ -45,7 +43,7 @@ public:
     bool boat_keep_nav;
     float voltage_left_battery;
     float voltage_right_battery;
-    KeyboardStructure keyboard;
+    KeyboardStructure joystick;
 
 };
 

@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
 
     // 创建发布者，向 /tcp/tx_request 话题发布消息
-    ros::Publisher tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 1000);
+    ros::Publisher tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
 
     // 等待发布者连接（确保有订阅者）
     ros::Duration(1.0).sleep();
