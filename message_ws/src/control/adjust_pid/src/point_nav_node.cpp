@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
     /*--- ROS INIT ----------------------------------------------------------- */
-    ros::init(argc, argv, "controller_node");
+    ros::init(argc, argv, "point_nav_node");
     ros::NodeHandle nh;
 
     ros::Publisher boat_auto_control_pub = nh.advertise<control::Motor>("/auto_thruster_pwm", 100);

@@ -28,7 +28,7 @@
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
     <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen"/>
-    <node pkg="control" type="controller_node" name="controller" output="screen">
+    <node pkg="control" type="thruster_manager_node" name="thruster_manager_node" output="screen">
             <param name="angle_kp" value="$(arg angle_kp)" />
         <param name="angle_ki" value="$(arg angle_ki)" />
         <param name="angle_kd" value="$(arg angle_kd)" />

@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
     /*--- ROS INIT ----------------------------------------------------------- */
-    ros::init(argc, argv, "controller_node");
+    ros::init(argc, argv, "thruster_manager_node");
 
     ros::NodeHandle nh;
 
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
     ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_SubBoatStatus_CallBack);
     ros::Subscriber boat_auto_control_sub = nh.subscribe<control::Motor>("/auto_thruster_pwm", 10, GetAutoThrusterPwm_CallBack);
 
-    ROS_INFO("controller_node run success.");
+    ROS_INFO("thruster_manager_node run success.");
     auto_thruster.left_thruster_pwm = PWM_NEUTRAL;
     auto_thruster.left_sideThruster_pwm = PWM_NEUTRAL;
     auto_thruster.right_thruster_pwm = PWM_NEUTRAL;
