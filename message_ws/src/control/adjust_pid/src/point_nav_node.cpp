@@ -5,7 +5,7 @@ using namespace std;
 #include <tf/transform_datatypes.h>
 #include <std_msgs/String.h>
 #include <string>
-#include "thruster_manager/Motor.h"
+#include "thruster_manager/Thruster.h"
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "adjust_pid/point_nav.h"
@@ -14,7 +14,7 @@ using namespace std;
 #include <logger/logger.h>
 
 Point_Nav point_nav;
-thruster_manager::Motor thruster_msg;
+thruster_manager::Thruster thruster_msg;
 sensor_msgs::NavSatFix current_position;
 double current_heading_angle;
 
@@ -49,7 +49,7 @@ int main(int argc, char* argv[])
     ros::init(argc, argv, "point_nav_node");
     ros::NodeHandle nh;
 
-    ros::Publisher boat_auto_control_pub = nh.advertise<thruster_manager::Motor>("/auto_thruster_pwm", 100);
+    ros::Publisher boat_auto_control_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 100);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
