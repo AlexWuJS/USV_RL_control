@@ -11,10 +11,11 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  message_generation
   tf2
   tf2_ros
 
-  control
+  thruster_manager
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,7 +110,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
  LIBRARIES huamo
- CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2 tf2_ros control
+ CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2 tf2_ros thruster_manager
 #  DEPENDS system_lib
 )
 

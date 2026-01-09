@@ -5,7 +5,7 @@ using namespace std;
 #include <tf/transform_datatypes.h>
 #include <std_msgs/String.h>
 #include "adjust_pid/point_nav.h"
-#include "control/Motor.h"
+#include "thruster_manager/Motor.h"
 #include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "tcp/joystick.h"

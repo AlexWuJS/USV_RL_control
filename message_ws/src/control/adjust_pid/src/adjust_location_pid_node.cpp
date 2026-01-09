@@ -8,7 +8,7 @@ using namespace std;
 #include <string>
 #include "adjust_pid/pid.h"
 #include <tf2/utils.h>
-#include <control/Motor.h>
+#include <thruster_manager/Motor.h>
 #include "common.h"
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
@@ -19,7 +19,7 @@ using namespace std;
 
 
 ros::Publisher controller_pub;
-control::Motor thruster_msg;
+thruster_manager::Motor thruster_msg;
 double desired_angle, heading_angle, boat_distance, desired_position_x, desired_position_y, location_pid_output, angle_pid_output;
 geometry_msgs::Point boat_position;                
 PID PositionPid;
@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<control::Motor>("/controller", 10);
+    controller_pub = nh.advertise<thruster_manager::Motor>("/controller", 10);
     tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
 
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);

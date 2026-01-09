@@ -3,7 +3,7 @@
 
 #include "ros/ros.h"
 
-#include "control/Motor.h"
+#include "thruster_manager/Motor.h"
 #include "tcp/joystick.h"
 #include "tcp/ship_info.h"
 
@@ -17,7 +17,7 @@
 #define PWM_MAX                         2000
 
 ros::Publisher controller_pub;
-control::Motor auto_thruster;
+thruster_manager::Motor auto_thruster;
 tcp::ship_info boat_status;
 
 static int clamp_pwm(int value)
@@ -37,14 +37,14 @@ void Tcp_SubBoatStatus_CallBack(const tcp::ship_info::ConstPtr& msg)
     boat_status = *msg;
 }
 
-void GetAutoThrusterPwm_CallBack(const control::Motor::ConstPtr& msg)
+void GetAutoThrusterPwm_CallBack(const thruster_manager::Motor::ConstPtr& msg)
 {
     auto_thruster = *msg;
 }
 
 void PublishMotorMsgTimer(const ros::TimerEvent &event)
 {
-    control::Motor motor_msg;
+    thruster_manager::Motor motor_msg;
     motor_msg.left_thruster_pwm = PWM_NEUTRAL;
     motor_msg.left_sideThruster_pwm = PWM_NEUTRAL;
     motor_msg.right_thruster_pwm = PWM_NEUTRAL;
@@ -117,9 +117,9 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<control::Motor>("/controller", 10);
+    controller_pub = nh.advertise<thruster_manager::Motor>("/controller", 10);
     ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_SubBoatStatus_CallBack);
-    ros::Subscriber boat_auto_control_sub = nh.subscribe<control::Motor>("/auto_thruster_pwm", 10, GetAutoThrusterPwm_CallBack);
+    ros::Subscriber boat_auto_control_sub = nh.subscribe<thruster_manager::Motor>("/auto_thruster_pwm", 10, GetAutoThrusterPwm_CallBack);
 
     ROS_INFO("thruster_manager_node run success.");
     auto_thruster.left_thruster_pwm = PWM_NEUTRAL;

@@ -1,7 +1,6 @@
 #include <ros/ros.h>
 #include <vector>
 #include <tf2/utils.h>
-#include <control/Motor.h>
 #include <nav_msgs/Odometry.h>
 #include "common.h"
 

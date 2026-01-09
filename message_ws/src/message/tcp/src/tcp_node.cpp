@@ -1,7 +1,6 @@
 #include "ros/ros.h"
 #include <std_msgs/String.h>
 #include "tcp/Tcp.h"
-#include <control/Motor.h>
 #include "tcp/tcp_connection.h"
 #include <tcp/format_conversion.h>
 #include <mutex>

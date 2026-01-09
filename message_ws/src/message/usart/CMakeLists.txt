@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   message_generation
 
-  control
+  thruster_manager
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +108,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
  LIBRARIES usart
- CATKIN_DEPENDS roscpp rospy std_msgs control
+ CATKIN_DEPENDS roscpp rospy std_msgs thruster_manager
 #  DEPENDS system_lib
 )
 

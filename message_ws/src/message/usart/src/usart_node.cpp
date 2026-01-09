@@ -6,7 +6,7 @@ using namespace std;
 #include <tf/transform_datatypes.h>
 #include <std_msgs/String.h>
 #include <string>
-#include <control/Motor.h>
+#include <thruster_manager/Motor.h>
 #include "string.h"
 
 #define USART1_PORT		(char* )"/dev/32port"
@@ -15,7 +15,7 @@ double yaw, pitch, roll;
 static char USART1_rbuf[100];
 
 ros::Publisher mcu_pub, toMcu_pub;
-control::Motor motor_msg;
+thruster_manager::Motor motor_msg;
 
 void SendToStm32_CallBack(const ros::TimerEvent &event)
 {
@@ -48,7 +48,7 @@ void Usart_GetMcuMessage(const ros::TimerEvent &event)
   * @param  无
   * @retval 无
   */
-void Get_ThrusterPwm_CallBack(const control::Motor::ConstPtr& msg)
+void Get_ThrusterPwm_CallBack(const thruster_manager::Motor::ConstPtr& msg)
 {
     motor_msg = *msg;   // 得到pwm值
 }
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 
     mcu_pub = nh.advertise<std_msgs::String>("/usart/data", 100);
     toMcu_pub = nh.advertise<std_msgs::String>("/usart/toMcu", 100);
-    ros::Subscriber controller_sub = nh.subscribe<control::Motor>("/controller", 1, Get_ThrusterPwm_CallBack);
+    ros::Subscriber controller_sub = nh.subscribe<thruster_manager::Motor>("/controller", 1, Get_ThrusterPwm_CallBack);
 
     /*--- USART1 INIT ------------------------------------------- */
     char* device_usart1 = USART1_PORT;

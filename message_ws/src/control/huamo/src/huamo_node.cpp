@@ -19,7 +19,7 @@
 #include "huamo/guidance.h"
 #include "huamo/huamo.h"
 #include "huamo/pwm_data.h"
-#include <control/Motor.h>
+#include <thruster_manager/Motor.h>
 
 bool data_flag = false;
 bool has_odom_ = false;
@@ -35,7 +35,7 @@ nav_msgs::Path motion_path, path_, LOS_path;
 nav_msgs::Odometry odom_;
 
 static ros::Publisher controller_pub;
-control::Motor thruster_msg;
+thruster_manager::Motor thruster_msg;
 
 ros::Publisher motion_path_pub, global_path_pub,LOS_path_pub;
 
@@ -200,7 +200,7 @@ int main(int argc, char* argv[])
     ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
     // ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
 
-    controller_pub = nh.advertise<control::Motor>("/auto_thruster_pwm", 1000);
+    controller_pub = nh.advertise<thruster_manager::Motor>("/auto_thruster_pwm", 1000);
     global_path_pub = nh.advertise<nav_msgs::Path>("/global_path",1);
     motion_path_pub = nh.advertise<nav_msgs::Path>("/motion_path", 1);
     LOS_path_pub = nh.advertise<nav_msgs::Path>("/LOS_path", 1);
@@ -230,4 +230,3 @@ int main(int argc, char* argv[])
 
     return 0;
 }
-

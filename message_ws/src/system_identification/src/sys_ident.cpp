@@ -1,5 +1,5 @@
 #include <ros/ros.h>
-#include <control/Motor.h>
+#include <thruster_manager/Motor.h>
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <std_msgs/String.h>
@@ -44,7 +44,7 @@ public:
         motor_sub_ = nh_.subscribe("/controller", 1000, &SystemIdentification::motorCallback, this);
         tcp_sub_ = nh_.subscribe("/tcp/data", 1000, &SystemIdentification::tcpCallback, this);
 
-        motor_pub_ = nh_.advertise<control::Motor>("/controller", 100);
+        motor_pub_ = nh_.advertise<thruster_manager::Motor>("/controller", 100);
         tcp_pub_ = nh_.advertise<tcp::ship_info>("/tcp/raw_data", 100);
 
         experiment_running_ = false;
@@ -142,7 +142,7 @@ private:
         weidu = ship_info_.longitude;
     }
 
-    void motorCallback(const control::Motor::ConstPtr &msg)
+    void motorCallback(const thruster_manager::Motor::ConstPtr &msg)
     {
         left_thruster_pwm = msg->left_thruster_pwm;
         right_thruster_pwm = msg->right_thruster_pwm;
@@ -200,7 +200,7 @@ private:
         if (!experiment_running_)
             return;
 
-        control::Motor motor_msg;
+        thruster_manager::Motor motor_msg;
 
         if (current_experiment_ == 1) // 定常回转试验
         {
@@ -285,7 +285,7 @@ private:
     void endExperiment()
     {
         experiment_running_ = false;
-        control::Motor motor_msg;
+        thruster_manager::Motor motor_msg;
         motor_msg.left_thruster_pwm = PWM_NEUTRAL;
         motor_msg.right_thruster_pwm = PWM_NEUTRAL;
         motor_pub_.publish(motor_msg);

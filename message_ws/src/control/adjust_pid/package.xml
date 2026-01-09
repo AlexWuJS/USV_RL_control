@@ -56,13 +56,13 @@
   <build_depend>tf2_ros</build_depend>
   <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>tcp</build_depend>
-  <build_depend>control</build_depend>
+  <build_depend>thruster_manager</build_depend>
   <build_depend>logger</build_depend>
 
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>sensor_msgs</build_export_depend>
   <build_export_depend>std_msgs</build_export_depend>
-  <build_export_depend>control</build_export_depend>
+  <build_export_depend>thruster_manager</build_export_depend>
   <build_export_depend>logger</build_export_depend>
 
   <exec_depend>roscpp</exec_depend>
@@ -72,7 +72,7 @@
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>tcp</exec_depend>
-  <exec_depend>control</exec_depend>
+  <exec_depend>thruster_manager</exec_depend>
   <exec_depend>logger</exec_depend>
   <!-- The export tag contains other, unspecified, tags -->
   <export>

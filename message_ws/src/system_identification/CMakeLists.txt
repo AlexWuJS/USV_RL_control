@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   tf2_geometry_msgs
   tf2_ros
-  control
+  thruster_manager
   tcp
   
 )
@@ -111,7 +111,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES system_identification
- CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2 tf2_geometry_msgs tf2_ros control
+ CATKIN_DEPENDS roscpp sensor_msgs std_msgs tf2 tf2_geometry_msgs tf2_ros thruster_manager tcp
 #  DEPENDS system_lib
 )
 

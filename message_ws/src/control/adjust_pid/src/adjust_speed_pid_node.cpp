@@ -10,7 +10,7 @@
 #include <string>
 #include "adjust_pid/pid.h"
 #include <tf2/utils.h>
-#include <control/Motor.h>
+#include <thruster_manager/Motor.h>
 #include "common.h"
 #include "tcp/message_s.h"
 #include "tcp/sendMessage.h"
@@ -18,7 +18,7 @@
 #include <geometry_msgs/TwistStamped.h> 
 
 ros::Publisher controller_pub;
-control::Motor thruster_msg;
+thruster_manager::Motor thruster_msg;
 double heading_angle, angle_pid_output, speed_pid_output;
 sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<control::Motor>("/controller", 10);
+    controller_pub = nh.advertise<thruster_manager::Motor>("/controller", 10);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 10, odomCallback);
     ros::Subscriber rtk_speed_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vel", 10, rtkSpeedCallback);
