@@ -4,8 +4,6 @@
 #include <Eigen/Dense>
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
-#include <thread>
-#include <sys/socket.h>
 #include <std_msgs/String.h>
 #include <string>
 #include "adjust_pid/pid.h"
@@ -13,16 +11,15 @@
 #include <thruster_manager/Thruster.h>
 #include "common.h"
 #include "tcp/message_s.h"
-#include "tcp/sendMessage.h"
 #include <cmath>
 #include <geometry_msgs/TwistStamped.h> 
 
 ros::Publisher controller_pub;
+ros::Publisher tcp_tx_pub;
 thruster_manager::Thruster thruster_msg;
 double heading_angle, angle_pid_output, speed_pid_output;
 sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
-ros::ServiceClient client;
 Eigen::Vector2d desired_speed, course_speed, filtered_speed, unfilter_speed;
 PID SpeedPid;
 AnglePID AnglePid;
@@ -168,27 +165,18 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr &msg)
     }
 }
 
-void TcpSend_Thread()
+void TcpSendTimerCallback(const ros::TimerEvent &)
 {
-    tcp::sendMessage tcp_send_message;
+    std_msgs::String tcp_msg;
     char tcp_sbuf[200];
 
-    while (ros::ok())
-    {
-        snprintf(tcp_sbuf, sizeof(tcp_sbuf), "\nspeed_pid:%f,%f,%f,%d,%d,%f,%f\n",
-                 desired_speed(1), course_speed(1), unfilter_speed(1),
-                 thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm,
-                 course_speed(0), heading_angle);
+    snprintf(tcp_sbuf, sizeof(tcp_sbuf), "\nspeed_pid:%f,%f,%f,%d,%d,%f,%f\n",
+             desired_speed(1), course_speed(1), unfilter_speed(1),
+             thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm,
+             course_speed(0), heading_angle);
 
-        tcp_send_message.request.str = tcp_sbuf;
-
-        if (!client.call(tcp_send_message))
-        {
-            ROS_ERROR("Failed to send TCP message");
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
+    tcp_msg.data = tcp_sbuf;
+    tcp_tx_pub.publish(tcp_msg);
 }
 
 int main(int argc, char *argv[])
@@ -199,12 +187,13 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
 
     controller_pub = nh.advertise<thruster_manager::Thruster>("/controller", 10);
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 10, odomCallback);
     ros::Subscriber rtk_speed_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vel", 10, rtkSpeedCallback);
-    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
+    ros::Timer timer_tcp_send = nh.createTimer(ros::Duration(0.1), TcpSendTimerCallback);
 
     nh.getParam("/adjust_speed_pid/angle_kp", AnglePid.kp);
     nh.getParam("/adjust_speed_pid/angle_ki", AnglePid.ki);
@@ -221,11 +210,7 @@ int main(int argc, char *argv[])
 
     ROS_INFO("adjust_speed_pid_node run success.");
 
-    std::thread TcpSend(TcpSend_Thread);
-
     ros::spin();
-
-    TcpSend.join();
 
     return 0;
 }

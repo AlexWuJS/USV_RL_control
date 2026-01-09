@@ -1,7 +1,6 @@
 #include "ros/ros.h"
 #include <std_msgs/String.h>
 #include "tcp/Tcp.h"
-#include "tcp/tcp_connection.h"
 #include <tcp/format_conversion.h>
 #include <mutex>
 #include <condition_variable>
@@ -13,7 +12,6 @@
 #include <queue>
 #include <atomic>
 #include "tcp/message_s.h"
-#include "tcp/sendMessage.h"
 #include <logger/logger.h>
 
 

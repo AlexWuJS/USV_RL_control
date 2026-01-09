@@ -1,5 +1,0 @@
-# 客户端请求时发送的tcp连接状态
-string str
----
-# 服务器响应发送的数据
-int8 tcp_send_flag

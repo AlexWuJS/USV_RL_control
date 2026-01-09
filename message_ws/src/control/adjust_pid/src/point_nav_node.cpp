@@ -6,7 +6,6 @@ using namespace std;
 #include <std_msgs/String.h>
 #include <string>
 #include "thruster_manager/Thruster.h"
-#include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "adjust_pid/point_nav.h"
 #include <sensor_msgs/Imu.h>
@@ -54,7 +53,6 @@ int main(int argc, char* argv[])
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
-    // ros::ServiceClient client = nh.serviceClient<tcp::tcp_connection>("/tcp_connection");
     ros::Rate rate(0.1);
     
     // 设置PID参数

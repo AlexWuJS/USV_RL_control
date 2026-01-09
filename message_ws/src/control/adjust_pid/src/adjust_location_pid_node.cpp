@@ -2,8 +2,6 @@
 using namespace std;
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
-#include <thread>
-#include <sys/socket.h>
 #include <std_msgs/String.h>
 #include <string>
 #include "adjust_pid/pid.h"
@@ -11,7 +9,6 @@ using namespace std;
 #include <thruster_manager/Thruster.h>
 #include "common.h"
 #include "tcp/message_s.h"
-#include "tcp/sendMessage.h"
 #include "tcp/ship_info.h"
 #include <cmath>
 #include <nav_msgs/Odometry.h>
@@ -24,7 +21,6 @@ double desired_angle, heading_angle, boat_distance, desired_position_x, desired_
 geometry_msgs::Point boat_position;                
 PID PositionPid;
 AnglePID AnglePid;
-ros::ServiceClient client;
 tcp::ship_info boat_status;
 ros::Publisher tcp_tx_pub;
 
@@ -128,24 +124,6 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
     }
 }
 
-// void TcpSend_Thread()
-// {
-//     tcp::sendMessage tcp_send_message;
-//     char tcp_sbuf[100];
-
-//     while (true)
-//     {
-//         // sprintf(tcp_sbuf, "\npid:%f,%f,%f,%f,%.2f,%.2f,%.2f,%f,%d,%d,\n",  desired_position_x, desired_position_y, boat_position.x, boat_position.y, \
-//         //     desired_angle+heading_angle, heading_angle,desired_angle, boat_distance, thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
-//         // sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%f,%d,%d,\n", desired_angle, heading_angle, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-//         sprintf(tcp_sbuf, "\nlocation_pid:%f,%f,%d,%d,\n", location_pid_output, boat_distance,thruster_msg.left_thruster_pwm,thruster_msg.right_thruster_pwm );
-//         tcp_send_message.request.str = tcp_sbuf;
-
-//         client.call(tcp_send_message);   
-//         // std::this_thread::sleep_for(std::chrono::milliseconds(100));    // 在线程中延时 0.1 秒       
-//     }
-// }
-
 int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
@@ -160,8 +138,6 @@ int main(int argc, char* argv[])
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom_local", 1, odomCallback);
     ros::Subscriber tcp_boat_info_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 10, Tcp_SubBoatMessage_CallBack);
-
-    // client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
   
@@ -179,14 +155,7 @@ int main(int argc, char* argv[])
 
     ROS_INFO("adjust_location_pid_node run success.");
 
-
-    // 创建线程，传入线程函数
-    // std::thread TcpSend(TcpSend_Thread); 
-
     ros::spin();
-
-    // 等待线程结束
-    // TcpSend.join();
 
     return 0;
 }  

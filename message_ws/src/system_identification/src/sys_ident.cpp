@@ -9,11 +9,9 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <vector>
-#include <thread>
 #include <deque> // 添加这行
 #include <random>
 #include "tcp/message_s.h"
-#include "tcp/sendMessage.h"
 
 // 定义电机PWM范围和特性
 const int PWM_MIN = 1000;
@@ -29,7 +27,7 @@ double rudder;
 double yaw_rate; // 航向角速度
 sensor_msgs::Imu imu;
 double jingdu, weidu;
-ros::ServiceClient client;
+ros::Publisher tcp_tx_pub;
 
 class SystemIdentification
 {
@@ -109,7 +107,8 @@ private:
             yaw_diff -= 2 * M_PI;
         if (yaw_diff < -M_PI)
             yaw_diff += 2 * M_PI;
-        double yaw_rate = yaw_diff / dt; // 使用计算得到的角速度
+        yaw1 = current_yaw;
+        yaw_rate = dt > 1e-6 ? (yaw_diff / dt) : 0.0;
 
         if (experiment_running_)
         {
@@ -490,32 +489,6 @@ private:
     }
 };
 
-void TcpSend_Thread(SystemIdentification &system_identification)
-{
-    tcp::sendMessage tcp_send_message;
-    char tcp_sbuf[200];
-    ros::Rate rate(5); // 修改为2Hz以匹配采样频率 10Hz
-
-    while (ros::ok())
-    {
-        snprintf(tcp_sbuf, sizeof(tcp_sbuf),
-                 "Data:%.6f,%.6f,%.2f,%.2f,%d,%d\n",
-                 jingdu,
-                 weidu,
-                 yaw1 * 180 / M_PI,
-                 yaw_rate * 180 / M_PI,
-                 system_identification.left_thruster_pwm,
-                 system_identification.right_thruster_pwm);
-
-        tcp_send_message.request.str = tcp_sbuf;
-        if (!client.call(tcp_send_message))
-        {
-            ROS_ERROR("发送TCP消息失败");
-        }
-        rate.sleep();
-    }
-}
-
 int main(int argc, char *argv[])
 {
     setlocale(LC_ALL, "");
@@ -523,10 +496,27 @@ int main(int argc, char *argv[])
     SystemIdentification system_identification;
 
     ros::NodeHandle nh;
-    client = nh.serviceClient<tcp::sendMessage>("/tcp/communication");
+    tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
 
-    std::thread TcpSend(TcpSend_Thread, std::ref(system_identification));
+    ros::Timer timer_tcp_send = nh.createTimer(
+        ros::Duration(0.1),
+        [&](const ros::TimerEvent &) {
+            char tcp_sbuf[200];
+            std_msgs::String tcp_msg;
+
+            snprintf(tcp_sbuf, sizeof(tcp_sbuf),
+                     "Data:%.6f,%.6f,%.2f,%.2f,%d,%d\n",
+                     jingdu,
+                     weidu,
+                     yaw1 * 180 / M_PI,
+                     yaw_rate * 180 / M_PI,
+                     system_identification.left_thruster_pwm,
+                     system_identification.right_thruster_pwm);
+
+            tcp_msg.data = tcp_sbuf;
+            tcp_tx_pub.publish(tcp_msg);
+        }
+    );
     system_identification.runExperiment();
-    TcpSend.join();
     return 0;
 }

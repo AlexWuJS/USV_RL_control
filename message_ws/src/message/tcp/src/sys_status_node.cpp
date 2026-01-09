@@ -7,7 +7,6 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/NavSatFix.h>
 #include "tcp/ship_info.h"
-#include "tcp/sendMessage.h"
 #include <thread>
 
 #include "logger/logger.h"

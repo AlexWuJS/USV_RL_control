@@ -6,7 +6,6 @@ using namespace std;
 #include <std_msgs/String.h>
 #include "adjust_pid/point_nav.h"
 #include "thruster_manager/Thruster.h"
-#include "tcp/tcp_connection.h"
 #include "tcp/ship_info.h"
 #include "tcp/joystick.h"
 
