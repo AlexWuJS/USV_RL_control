@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<thruster_manager::Thruster>("/controller", 10);
+    controller_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 10);
     tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 10, odomCallback);

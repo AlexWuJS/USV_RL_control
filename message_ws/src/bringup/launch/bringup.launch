@@ -13,7 +13,7 @@
     <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen" >
             <param name="audio_volume" value="$(arg audio_volume)"/>
     </node>
-    <node pkg="thruster_manager" type="thruster_manager_node" name="thruster_manager_node" output="screen"/>
+    <node pkg="thruster_manager" type="thruster_manager_node" name="thruster_manager" output="screen"/>
 
   
     <!-- 是否使用imu -->

@@ -1,6 +1,4 @@
 #include <iostream>
-#include <deque>
-#include <numeric>
 #include <Eigen/Dense>
 #include "ros/ros.h"
 #include "sensor_msgs/Imu.h"
@@ -20,61 +18,9 @@ thruster_manager::Thruster thruster_msg;
 double heading_angle, angle_pid_output, speed_pid_output;
 sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
-Eigen::Vector2d desired_speed, course_speed, filtered_speed, unfilter_speed;
+Eigen::Vector2d desired_speed, course_speed, unfilter_speed;
 PID SpeedPid;
 AnglePID AnglePid;
-const int BUFFER_SIZE = 10;
-std::deque<Eigen::Vector2d> speed_buffer;
-Eigen::Matrix2d P;
-
-// 改进的低通滤波
-Eigen::Vector2d lowPassFilter(const Eigen::Vector2d &input, const Eigen::Vector2d &prev_output, double alpha)
-{
-    return alpha * input + (1 - alpha) * prev_output;
-}
-
-// 改进的卡尔曼滤波
-void updateKalmanFilter(const Eigen::Vector2d &measurement)
-{
-    static const double Q = 0.005; // 降低过程噪声
-    static const double R = 0.2;   // 增加测量噪声
-    static const Eigen::Matrix2d I = Eigen::Matrix2d::Identity();
-
-    Eigen::Matrix2d F = Eigen::Matrix2d::Identity();
-    filtered_speed = F * filtered_speed;
-    P = F * P * F.transpose() + Q * I;
-
-    Eigen::Matrix2d H = Eigen::Matrix2d::Identity();
-    Eigen::Matrix2d K = P * H.transpose() * (H * P * H.transpose() + R * I).inverse();
-    filtered_speed = filtered_speed + K * (measurement - H * filtered_speed);
-    P = (I - K * H) * P;
-}
-
-// 互补滤波
-Eigen::Vector2d complementaryFilter(const Eigen::Vector2d &acc, const Eigen::Vector2d &gyro, double dt, double alpha)
-{
-    static Eigen::Vector2d angle = Eigen::Vector2d::Zero();
-    angle = alpha * (angle + gyro * dt) + (1 - alpha) * acc;
-    return angle;
-}
-
-// 平滑处理
-Eigen::Vector2d smoothSpeed(const Eigen::Vector2d &input_speed)
-{
-    static std::deque<Eigen::Vector2d> speed_history;
-    speed_history.push_back(input_speed);
-    if (speed_history.size() > 5)
-    {
-        speed_history.pop_front();
-    }
-
-    Eigen::Vector2d smoothed_speed = Eigen::Vector2d::Zero();
-    for (const auto &speed : speed_history)
-    {
-        smoothed_speed += speed;
-    }
-    return smoothed_speed / speed_history.size();
-}
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
@@ -94,47 +40,14 @@ void Pid_Callback(const ros::TimerEvent &event)
 
 void rtkSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
 {
-    static ros::Time last_time = ros::Time::now();
-    ros::Time current_time = ros::Time::now();
-    double dt = (current_time - last_time).toSec();
-    last_time = current_time;
-
     rtk_speed = *msg;
 
     Eigen::Vector2d current_speed;
     current_speed(0) = std::atan2(rtk_speed.twist.linear.y, rtk_speed.twist.linear.x) * 180 / M_PI;
-    unfilter_speed(1) = current_speed(1) = sqrt(pow(rtk_speed.twist.linear.x, 2) + pow(rtk_speed.twist.linear.y, 2));
+    current_speed(1) = std::sqrt(std::pow(rtk_speed.twist.linear.x, 2) + std::pow(rtk_speed.twist.linear.y, 2));
 
-    static Eigen::Vector2d prev_filtered_speed = Eigen::Vector2d::Zero();
-    Eigen::Vector2d low_pass_filtered = lowPassFilter(current_speed, prev_filtered_speed, 0.1);
-    prev_filtered_speed = low_pass_filtered;
-
-    // 使用互补滤波
-    static Eigen::Vector2d prev_speed = Eigen::Vector2d::Zero();
-    Eigen::Vector2d gyro_speed = (current_speed - prev_speed) / dt;
-    Eigen::Vector2d comp_filtered = complementaryFilter(low_pass_filtered, gyro_speed, dt, 0.98);
-    prev_speed = current_speed;
-
-    // 使用卡尔曼滤波
-    updateKalmanFilter(comp_filtered);
-
-    // 平滑处理
-    Eigen::Vector2d smoothed_speed = smoothSpeed(filtered_speed);
-
-    speed_buffer.push_back(smoothed_speed);
-    if (speed_buffer.size() > BUFFER_SIZE)
-    {
-        speed_buffer.pop_front();
-    }
-
-    Eigen::Vector2d avg_speed = Eigen::Vector2d::Zero();
-    for (const auto &speed : speed_buffer)
-    {
-        avg_speed += speed;
-    }
-    avg_speed /= speed_buffer.size();
-
-    course_speed = avg_speed;
+    unfilter_speed = current_speed;
+    course_speed = current_speed;
 }
 
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg)
@@ -186,7 +99,7 @@ int main(int argc, char *argv[])
 
     ros::NodeHandle nh;
 
-    controller_pub = nh.advertise<thruster_manager::Thruster>("/controller", 10);
+    controller_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 10);
     tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 10, odomCallback);
@@ -205,8 +118,6 @@ int main(int argc, char *argv[])
     nh.getParam("/adjust_speed_pid/maxOutput", AnglePid.maxOutput);
     nh.getParam("/adjust_speed_pid/maxIntegral", SpeedPid.maxIntegral);
     nh.getParam("/adjust_speed_pid/maxOutput", SpeedPid.maxOutput);
-
-    P = Eigen::Matrix2d::Identity() * 1000;
 
     ROS_INFO("adjust_speed_pid_node run success.");
 

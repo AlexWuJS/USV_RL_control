@@ -11,6 +11,16 @@
     <arg name="maxIntegral" default="800.0" />
     <arg name="maxOutput" default="1800.0" />
 
+
+    <!-- 启用机器人 -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="use_imu"         default="false"/>
+        <arg name="use_wit_imu"     default="true"/>
+        <arg name="use_rtk"         default="true"/>
+        <arg name="use_lidar"       default="false"/>
+        <arg name="audio_volume"    default="30"/>
+    </include>
+
     <node pkg="adjust_pid" type="adjust_speed_pid_node" name="adjust_speed_pid" output="screen">
         <param name="angle_kp" value="$(arg angle_kp)" />
         <param name="angle_ki" value="$(arg angle_ki)" />
@@ -24,10 +34,4 @@
 
     </node>
 
-    <node pkg="usart" type="usart_node" name="usart" output="screen"/>
-    <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
-    <!-- 运行imu -->
-    <include file="$(find sanchi_amov)/launch/imu_100D4.launch"/>
-    <!-- 运行rtk -->
-    <include file="$(find gps_common)/launch/rtk_nmealaunch"/>
 </launch>
