@@ -8,9 +8,8 @@
 #include "tcp/ship_info.h"
 
 // Joystick control tuning (PWM deltas around neutral)
-#define JOYSTICK_PWM_SPAN               400     // |cmd|=1 -> +/- span around PWM_NEUTRAL
-#define JOYSTICK_SIDE_PWM_SPAN          300     // side thruster assist span
-#define JOYSTICK_DEADBAND_RAW           5       // |x|/|y| below this treated as 0 (raw units, [-100,100])
+#define JOYSTICK_PWM_SPAN               300     // 主推进器PWM变化范围 (归一化输入 1.0 对应 PWM 变化量)
+#define JOYSTICK_DEADBAND_RAW           0.05    // 摇杆死区 (输入已归一化到 [-1, 1])，绝对值小于此数视为 0
 
 #define PWM_NEUTRAL                     1500
 #define PWM_MIN                         1000
@@ -56,21 +55,23 @@ void PublishMotorMsgTimer(const ros::TimerEvent &event)
         motor_msg.left_thruster_pwm = auto_thruster.left_thruster_pwm;
         motor_msg.right_thruster_pwm = auto_thruster.right_thruster_pwm;
     }
-    /* 键盘控制模式 */
+    /* 摇杆控制模式 */
     else if (boat_status.is_keyboard_control)
     {
-        // New protocol: K,x,y, where x/y in [-100,100] represent joystick position.
-        // x: right +100, left -100; y: forward +100, backward -100
-        int raw_x = boat_status.joystick.x;
-        int raw_y = boat_status.joystick.y;
+        // 输入已归一化到 [-1, 1]
+        // X为左右(右+)，Y为前后(前+)
+        double x = static_cast<double>(boat_status.joystick.x);
+        double y = static_cast<double>(boat_status.joystick.y);
 
-        if (std::abs(raw_x) < JOYSTICK_DEADBAND_RAW) raw_x = 0;
-        if (std::abs(raw_y) < JOYSTICK_DEADBAND_RAW) raw_y = 0;
+        // 死区处理 (防止回中抖动)
+        if (std::abs(x) < JOYSTICK_DEADBAND_RAW) x = 0.0;
+        if (std::abs(y) < JOYSTICK_DEADBAND_RAW) y = 0.0;
 
-        double x = static_cast<double>(raw_x) / 100.0;
-        double y = static_cast<double>(raw_y) / 100.0;
+        // 安全钳制，避免上游异常值导致输出过大
+        x = std::fmax(-1.0, std::fmin(1.0, x));
+        y = std::fmax(-1.0, std::fmin(1.0, y));
 
-        // Clamp to unit circle to avoid diagonal overflow.
+        // 圆形限制 (防止对角线溢出)，确保向量模长不超过 1.0，保证各个方向最大速度一致
         const double mag = std::sqrt(x * x + y * y);
         if (mag > 1.0)
         {
@@ -78,12 +79,14 @@ void PublishMotorMsgTimer(const ros::TimerEvent &event)
             y /= mag;
         }
 
-        // Differential-drive mix:
-        // left_cmd  = y + x
-        // right_cmd = y - x
+        // 差速混合算法 (Differential Drive Mixing)
+        // 左电机 = 前进分量 + 转向分量
+        // 右电机 = 前进分量 - 转向分量
         double left_cmd = y + x;
         double right_cmd = y - x;
 
+        // 6. 输出饱和处理
+        // 如果计算结果 > 1.0 (例如全速前进且全速右转)，按比例缩放回 1.0
         const double max_cmd = std::fmax(std::fabs(left_cmd), std::fabs(right_cmd));
         if (max_cmd > 1.0)
         {
@@ -93,12 +96,6 @@ void PublishMotorMsgTimer(const ros::TimerEvent &event)
 
         motor_msg.left_thruster_pwm = PWM_NEUTRAL + static_cast<int>(left_cmd * JOYSTICK_PWM_SPAN);
         motor_msg.right_thruster_pwm = PWM_NEUTRAL + static_cast<int>(right_cmd * JOYSTICK_PWM_SPAN);
-
-        // Side thrusters assist yaw more when forward speed is small.
-        const double low_speed_factor = std::fmax(0.0, 1.0 - std::fabs(y));
-        const int side_delta = static_cast<int>((-x) * JOYSTICK_SIDE_PWM_SPAN * low_speed_factor);
-        motor_msg.left_sideThruster_pwm = PWM_NEUTRAL + side_delta;
-        motor_msg.right_sideThruster_pwm = PWM_NEUTRAL + side_delta;
     }
 
     motor_msg.left_thruster_pwm = clamp_pwm(motor_msg.left_thruster_pwm);
