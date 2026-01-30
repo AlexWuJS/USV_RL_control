@@ -12,8 +12,8 @@
 #define JOYSTICK_DEADBAND_RAW           0.05    // 摇杆死区 (输入已归一化到 [-1, 1])，绝对值小于此数视为 0
 
 #define PWM_NEUTRAL                     1500
-#define PWM_MIN                         1000
-#define PWM_MAX                         2000
+#define PWM_MIN                         1200
+#define PWM_MAX                         1800
 
 ros::Publisher controller_pub;
 thruster_manager::Thruster auto_thruster;
