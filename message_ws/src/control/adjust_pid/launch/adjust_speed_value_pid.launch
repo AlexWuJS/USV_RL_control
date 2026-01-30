@@ -1,0 +1,33 @@
+<launch>
+    <!-- 线速度pid -->
+    <arg name="speed_kp" default="0.0" />
+    <arg name="speed_ki" default="0.0" />
+    <arg name="speed_kd" default="0.0" />
+
+    <arg name="maxIntegral" default="800.0" />
+    <arg name="maxOutput" default="300.0" />
+
+
+    <!-- 启用机器人 -->
+    <include file="$(find bringup)/launch/bringup.launch">
+        <arg name="use_imu"         default="false"/>
+        <arg name="use_wit_imu"     default="true"/>
+        <arg name="use_rtk"         default="true"/>
+        <arg name="use_lidar"       default="false"/>
+        <arg name="audio_volume"    default="30"/>
+    </include>
+
+    <node pkg="adjust_pid" type="adjust_speed_value_pid_node" name="adjust_speed_value_pid" output="screen">
+        <param name="angle_kp" value="$(arg angle_kp)" />
+        <param name="angle_ki" value="$(arg angle_ki)" />
+        <param name="angle_kd" value="$(arg angle_kd)" />
+        <param name="speed_kp" value="$(arg speed_kp)" />
+        <param name="speed_ki" value="$(arg speed_ki)" />
+        <param name="speed_kd" value="$(arg speed_kd)" />
+
+        <param name="maxIntegral" value="$(arg maxIntegral)" />
+        <param name="maxOutput" value="$(arg maxOutput)" />
+
+    </node>
+
+</launch>

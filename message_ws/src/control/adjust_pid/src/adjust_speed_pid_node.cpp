@@ -27,9 +27,8 @@ void Pid_Callback(const ros::TimerEvent &event)
     angle_pid_output = AnglePid.update(desired_speed(0), course_speed(0));
     speed_pid_output = SpeedPid.update(desired_speed(1), course_speed(1));
 
-    ROS_WARN("speed_pid_output:%f", speed_pid_output);
-    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
-    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
+    thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM - 0.5 * angle_pid_output + 0.5 * speed_pid_output ;
+    thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + 0.5 * angle_pid_output + 0.5 * speed_pid_output ;
 
     // 越界判断
     thruster_msg.left_thruster_pwm = std::max(THRUSTER_MIN_PWM, std::min(THRUSTER_MAX_PWM, thruster_msg.left_thruster_pwm));
@@ -43,7 +42,7 @@ void rtkSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
     rtk_speed = *msg;
 
     Eigen::Vector2d current_speed;
-    current_speed(0) = std::atan2(rtk_speed.twist.linear.y, rtk_speed.twist.linear.x) * 180 / M_PI;
+    current_speed(0) = std::atan2(rtk_speed.twist.linear.x, rtk_speed.twist.linear.y) * 180 / M_PI;     // 用x/y，而不是y/x，计算航向角
     current_speed(1) = std::sqrt(std::pow(rtk_speed.twist.linear.x, 2) + std::pow(rtk_speed.twist.linear.y, 2));
 
     unfilter_speed = current_speed;

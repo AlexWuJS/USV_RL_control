@@ -153,6 +153,11 @@ add_executable(adjust_angle_pid_node
  src/pid.cpp
  )
 
+ add_executable(adjust_speed_value_pid_node
+ src/adjust_speed_pid_node.cpp
+ src/pid.cpp
+ )
+
  add_executable(adjust_location_pid_node
  src/adjust_location_pid_node.cpp
  src/pid.cpp
@@ -178,6 +183,7 @@ add_executable(adjust_angle_pid_node
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(adjust_angle_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(adjust_speed_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(adjust_speed_value_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(adjust_location_pid_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(point_nav_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(record_data_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -187,6 +193,9 @@ target_link_libraries(adjust_angle_pid_node
   ${catkin_LIBRARIES}
 )
 target_link_libraries(adjust_speed_pid_node
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(adjust_speed_value_pid_node
   ${catkin_LIBRARIES}
 )
 target_link_libraries(adjust_location_pid_node

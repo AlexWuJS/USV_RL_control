@@ -3,7 +3,7 @@
     <arg name="angle_ki" default="0.0" />
     <arg name="angle_kd" default="0.0" />
     <arg name="maxIntegral" default="800.0" />
-    <arg name="maxOutput" default="1800.0" />
+    <arg name="maxOutput" default="300.0" />
 
     <!-- 启用机器人 -->
     <include file="$(find bringup)/launch/bringup.launch">
