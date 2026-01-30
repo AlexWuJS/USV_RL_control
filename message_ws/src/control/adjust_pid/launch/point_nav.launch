@@ -1,12 +1,12 @@
 <launch>
-    <arg name="angle_kp" default="20.0" />
+    <arg name="angle_kp" default="12.0" />
     <arg name="angle_ki" default="0.0" />
-    <arg name="angle_kd" default="125.0" />
+    <arg name="angle_kd" default="100.0" />
     <arg name="location_kp" default="-60.0" />
     <arg name="location_ki" default="0.0" />
     <arg name="location_kd" default="0.0" />
-    <arg name="maxIntegral" default="800.0" />
-    <arg name="maxOutput" default="1800.0" />
+    <arg name="maxIntegral" default="200.0" />
+    <arg name="maxOutput" default="300.0" />
 
     <include file="$(find bringup)/launch/bringup.launch">
         <arg name="use_imu"         default="true"/>
