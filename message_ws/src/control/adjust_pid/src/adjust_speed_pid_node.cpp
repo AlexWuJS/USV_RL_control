@@ -82,10 +82,10 @@ void TcpSendTimerCallback(const ros::TimerEvent &)
     std_msgs::String tcp_msg;
     char tcp_sbuf[200];
 
-    snprintf(tcp_sbuf, sizeof(tcp_sbuf), "\nspeed_pid:%f,%f,%f,%d,%d,%f,%f\n",
-             desired_speed(1), course_speed(1), unfilter_speed(1),
+    snprintf(tcp_sbuf, sizeof(tcp_sbuf), "\nspeed_pid:%f,%f,%d,%d,%f,%f\n",
+             desired_speed(1), course_speed(1), 
              thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm,
-             course_speed(0), heading_angle);
+             desired_speed(0), course_speed(0));
 
     tcp_msg.data = tcp_sbuf;
     tcp_tx_pub.publish(tcp_msg);

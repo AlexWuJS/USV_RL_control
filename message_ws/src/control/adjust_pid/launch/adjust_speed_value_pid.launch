@@ -1,7 +1,7 @@
 <launch>
     <!-- 线速度pid -->
-    <arg name="speed_kp" default="0.0" />
-    <arg name="speed_ki" default="0.0" />
+    <arg name="speed_kp" default="150.0" />
+    <arg name="speed_ki" default="10.0" />
     <arg name="speed_kd" default="0.0" />
 
     <arg name="maxIntegral" default="200.0" />
@@ -18,9 +18,6 @@
     </include>
 
     <node pkg="adjust_pid" type="adjust_speed_value_pid_node" name="adjust_speed_value_pid" output="screen">
-        <param name="angle_kp" value="$(arg angle_kp)" />
-        <param name="angle_ki" value="$(arg angle_ki)" />
-        <param name="angle_kd" value="$(arg angle_kd)" />
         <param name="speed_kp" value="$(arg speed_kp)" />
         <param name="speed_ki" value="$(arg speed_ki)" />
         <param name="speed_kd" value="$(arg speed_kd)" />

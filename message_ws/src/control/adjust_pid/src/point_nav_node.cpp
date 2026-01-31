@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
     ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
-    ros::Rate rate(0.1);
+    ros::Rate rate(100);
     
     // 设置PID参数
     point_nav.setPidParams(nh);

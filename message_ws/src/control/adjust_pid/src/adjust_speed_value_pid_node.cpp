@@ -17,7 +17,7 @@
 ros::Publisher controller_pub;
 ros::Publisher tcp_tx_pub;
 thruster_manager::Thruster thruster_msg;
-double heading_angle, angle_pid_output, speed_pid_output;
+double heading_angle, angle_pid_output, speed_pid_output, yaw_rate = 0.0;
 sensor_msgs::Imu imu;
 geometry_msgs::TwistStamped rtk_speed;
 Eigen::Vector2d desired_speed, course_speed, unfilter_speed;
@@ -27,7 +27,6 @@ AnglePID AnglePid;
 void Pid_Callback(const ros::TimerEvent &event)
 {
     speed_pid_output = SpeedPid.update(desired_speed(1), course_speed(1));
-
     thruster_msg.left_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
     thruster_msg.right_thruster_pwm = THRUSTER_MID_PWM + speed_pid_output ;
 
@@ -54,6 +53,7 @@ void odomCallback(const sensor_msgs::Imu::ConstPtr &msg)
 {
     imu = *msg;
     heading_angle = tf2::getYaw(imu.orientation) * 180 / M_PI;
+    yaw_rate = imu.angular_velocity.z * 180.0 / M_PI;
 }
 
 void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr &msg)
@@ -81,7 +81,20 @@ void TcpSendTimerCallback(const ros::TimerEvent &)
 
     tcp_msg.data = tcp_sbuf;
     tcp_tx_pub.publish(tcp_msg);
-    LOG_INFO("desired_speed:{}, current_speed:{}, kp ki kd:{} {} {},", desired_speed(1), course_speed(1), SpeedPid.kp, SpeedPid.ki, SpeedPid.kd);
+    // LOG_INFO("desired_speed:{}, current_speed:{}, kp ki kd:{} {} {},", desired_speed(1), course_speed(1), SpeedPid.kp, SpeedPid.ki, SpeedPid.kd);
+}
+
+void RecordData_CallBack(const ros::TimerEvent &event)
+{
+    double timestamp = ros::Time::now().toSec();
+    LOG_SENSOR_INFO("timestamp:{}, angle:{:.4f}, v_total:{:.4f}, yaw_rate:{:.4f}, pwm_L:{}, pwm_R:{}", 
+            timestamp,              // 1. 时间
+            heading_angle,          // 2. 航向角
+            course_speed(1),          // 3. 合成速度 (v_total)
+            yaw_rate,               // 4. 角速度
+            thruster_msg.left_thruster_pwm,                  // 5. 左电机
+            thruster_msg.right_thruster_pwm                   // 6. 右电机
+    );
 }
 
 int main(int argc, char *argv[])
@@ -90,6 +103,7 @@ int main(int argc, char *argv[])
     ros::init(argc, argv, "adjust_speed_pid");
 
     ros::NodeHandle nh;
+    ros::NodeHandle pnh("~"); // 【关键】创建私有句柄！
 
     controller_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 10);
     tcp_tx_pub = nh.advertise<std_msgs::String>("/tcp/tx_request", 10);
@@ -99,14 +113,13 @@ int main(int argc, char *argv[])
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
     ros::Timer timer_tcp_send = nh.createTimer(ros::Duration(0.1), TcpSendTimerCallback);
+    ros::Timer timer_record = nh.createTimer(ros::Duration(0.1), RecordData_CallBack);
 
-    nh.getParam("/adjust_speed_pid/speed_kp", SpeedPid.kp);
-    nh.getParam("/adjust_speed_pid/speed_ki", SpeedPid.ki);
-    nh.getParam("/adjust_speed_pid/speed_kd", SpeedPid.kd);
-    nh.getParam("/adjust_speed_pid/maxIntegral", AnglePid.maxIntegral);
-    nh.getParam("/adjust_speed_pid/maxOutput", AnglePid.maxOutput);
-    nh.getParam("/adjust_speed_pid/maxIntegral", SpeedPid.maxIntegral);
-    nh.getParam("/adjust_speed_pid/maxOutput", SpeedPid.maxOutput);
+    pnh.param<double>("speed_kp", SpeedPid.kp, 0.0);
+    pnh.param<double>("speed_ki", SpeedPid.ki, 0.0);
+    pnh.param<double>("speed_kd", SpeedPid.kd, 0.0);
+    pnh.param<double>("maxIntegral", SpeedPid.maxIntegral, 200.0);
+    pnh.param<double>("maxOutput", SpeedPid.maxOutput, 300.0);
 
     ROS_INFO("adjust_speed_value_pid_node run success.");
 

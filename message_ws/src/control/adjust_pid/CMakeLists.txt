@@ -154,7 +154,7 @@ add_executable(adjust_angle_pid_node
  )
 
  add_executable(adjust_speed_value_pid_node
- src/adjust_speed_pid_node.cpp
+ src/adjust_speed_value_pid_node.cpp
  src/pid.cpp
  )
 

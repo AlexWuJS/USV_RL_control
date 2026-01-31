@@ -3,9 +3,9 @@
     <!-- 标签 -->
     <arg name="use_imu"         default="false"/>
     <arg name="use_wit_imu"     default="true"/>
-    <arg name="use_rtk"         default="false"/>
-    <arg name="use_lidar"       default="true"/>
-    <arg name="audio_volume"    default="0"/>
+    <arg name="use_rtk"         default="true"/>
+    <arg name="use_lidar"       default="false"/>
+    <arg name="audio_volume"    default="40"/>
 
     <!-- 启动机器人 -->
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>

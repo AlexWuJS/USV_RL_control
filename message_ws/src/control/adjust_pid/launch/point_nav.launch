@@ -9,9 +9,11 @@
     <arg name="maxOutput" default="300.0" />
 
     <include file="$(find bringup)/launch/bringup.launch">
-        <arg name="use_imu"         default="true"/>
+        <arg name="use_imu"         default="false"/>
+        <arg name="use_wit_imu"     default="true"/>
         <arg name="use_rtk"         default="true"/>
         <arg name="use_lidar"       default="false"/>
+        <arg name="audio_volume"    default="30"/>
     </include>
 
     <node pkg="adjust_pid" type="point_nav_node" name="point_nav" output="screen">
