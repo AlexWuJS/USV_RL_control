@@ -10,8 +10,8 @@ using namespace std;
 
 /* 摇杆控制结构体 */
 typedef struct {
-    int x;
-    int y;
+    float x;
+    float y;
 }KeyboardStructure;
 
 

@@ -1,5 +1,5 @@
-# Joystick X/Y axes, integer in [-100, 100]
-# x: right +100, left -100
-# y: forward +100, backward -100
-int16 x
-int16 y
+# Joystick X/Y axes, normalized in [-1, 1]
+# x: right +1.0, left -1.0
+# y: forward +1.0, backward -1.0
+float32 x
+float32 y

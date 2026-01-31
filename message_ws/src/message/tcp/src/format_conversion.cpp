@@ -232,7 +232,7 @@ int FormatConversionClass::handle_header_K(std::string s)
         return -1;
     }
 
-    /* 接收摇杆数据并记录: K,x,y,  (x/y in [-100,100]) */
+    /* 接收摇杆数据并记录: K,x,y,  (x/y in [-1,1]) */
     string_values = get_value_from_string(s, ',');
     if (string_values.size() < 3)      // K帧最少3个数据: K,x,y
     {
@@ -240,8 +240,8 @@ int FormatConversionClass::handle_header_K(std::string s)
     }
     else
     {
-        joystick.x = stoi(string_values[1]);
-        joystick.y = stoi(string_values[2]);
+        joystick.x = stof(string_values[1]);
+        joystick.y = stof(string_values[2]);
     }
 
     return 0;
