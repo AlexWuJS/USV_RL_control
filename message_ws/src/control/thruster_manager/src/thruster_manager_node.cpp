@@ -50,7 +50,7 @@ void PublishMotorMsgTimer(const ros::TimerEvent &event)
     motor_msg.right_sideThruster_pwm = PWM_NEUTRAL;
 
     /* 自主巡航模式 */
-    if (boat_status.is_auto_control || boat_status.boat_is_smart_remote_mode)
+    if (boat_status.is_auto_control)
     {
         motor_msg.left_thruster_pwm = auto_thruster.left_thruster_pwm;
         motor_msg.right_thruster_pwm = auto_thruster.right_thruster_pwm;
