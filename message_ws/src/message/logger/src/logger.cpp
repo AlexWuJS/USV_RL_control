@@ -3,11 +3,14 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdint>
 #include <vector>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <dirent.h>
 #include <sys/stat.h> // mkdir
+#include <unistd.h>   // unlink, rmdir
 
 // !!! 必须包含 ROS 包管理头文件 !!!
 #include <ros/package.h> 
@@ -25,6 +28,7 @@ namespace {
 
 constexpr size_t kMaxLogFileSizeBytes = 1024 * 1024 * 10; // 10MB
 constexpr size_t kMaxLogFiles = 3;
+constexpr std::uint64_t kMaxTotalLogBytes = 1024ull * 1024ull * 1024ull; // 1GB
 
 static bool EnsureDirectory(const std::string& dir_path)
 {
@@ -43,6 +47,180 @@ static bool EnsureDirectory(const std::string& dir_path)
   }
   if (::mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) return false;
   return true;
+}
+
+static bool IsDotOrDotDot(const char* name)
+{
+  if (!name) return true;
+  return (name[0] == '.' && (name[1] == '\0' || (name[1] == '.' && name[2] == '\0')));
+}
+
+static std::string JoinPath(const std::string& base, const std::string& name)
+{
+  if (base.empty()) return name;
+  if (base.back() == '/') return base + name;
+  return base + "/" + name;
+}
+
+static bool LooksLikeDateDirName(const std::string& name)
+{
+  // Expected: YYYY-MM-DD
+  if (name.size() != 10) return false;
+  if (name[4] != '-' || name[7] != '-') return false;
+  for (size_t i : {0u, 1u, 2u, 3u, 5u, 6u, 8u, 9u})
+  {
+    const unsigned char c = static_cast<unsigned char>(name[i]);
+    if (!std::isdigit(c)) return false;
+  }
+  return true;
+}
+
+static std::uint64_t DirectorySizeBytes(const std::string& path)
+{
+  struct stat st;
+  if (::lstat(path.c_str(), &st) != 0) return 0;
+
+  // Never follow symlinks (avoid path traversal).
+  if (S_ISLNK(st.st_mode)) return 0;
+  if (S_ISREG(st.st_mode)) return static_cast<std::uint64_t>(st.st_size);
+  if (!S_ISDIR(st.st_mode)) return 0;
+
+  std::uint64_t total = 0;
+  DIR* dir = ::opendir(path.c_str());
+  if (!dir) return 0;
+
+  struct dirent* entry = nullptr;
+  while ((entry = ::readdir(dir)) != nullptr)
+  {
+    if (IsDotOrDotDot(entry->d_name)) continue;
+    const std::string child = JoinPath(path, entry->d_name);
+    total += DirectorySizeBytes(child);
+  }
+
+  ::closedir(dir);
+  return total;
+}
+
+static bool RemoveTree(const std::string& path)
+{
+  struct stat st;
+  if (::lstat(path.c_str(), &st) != 0) return false;
+
+  if (S_ISLNK(st.st_mode) || S_ISREG(st.st_mode))
+  {
+    return (::unlink(path.c_str()) == 0);
+  }
+
+  if (!S_ISDIR(st.st_mode)) return false;
+
+  DIR* dir = ::opendir(path.c_str());
+  if (!dir) return false;
+
+  bool ok = true;
+  struct dirent* entry = nullptr;
+  while ((entry = ::readdir(dir)) != nullptr)
+  {
+    if (IsDotOrDotDot(entry->d_name)) continue;
+    const std::string child = JoinPath(path, entry->d_name);
+    if (!RemoveTree(child)) ok = false;
+  }
+  ::closedir(dir);
+
+  if (::rmdir(path.c_str()) != 0) ok = false;
+  return ok;
+}
+
+static double BytesToGiB(const std::uint64_t bytes)
+{
+  constexpr double kBytesPerGiB = 1024.0 * 1024.0 * 1024.0;
+  return static_cast<double>(bytes) / kBytesPerGiB;
+}
+
+struct LogPruneStats
+{
+  bool scanned = false;
+  std::uint64_t total_before_bytes = 0;
+  std::uint64_t total_after_bytes = 0;
+  size_t deleted_day_dirs = 0;
+};
+
+static LogPruneStats PruneOldLogsIfNeeded(
+  const std::string& logs_base_dir,
+  const std::string& current_date_dir_name,
+  std::uint64_t max_total_bytes)
+{
+  LogPruneStats stats;
+  DIR* dir = ::opendir(logs_base_dir.c_str());
+  if (!dir) return stats;
+
+  struct DateDirInfo {
+    std::string name;
+    std::string path;
+    std::uint64_t size_bytes;
+  };
+
+  std::vector<DateDirInfo> date_dirs;
+  struct dirent* entry = nullptr;
+  while ((entry = ::readdir(dir)) != nullptr)
+  {
+    if (IsDotOrDotDot(entry->d_name)) continue;
+    const std::string name(entry->d_name);
+    if (!LooksLikeDateDirName(name)) continue;
+
+    const std::string full_path = JoinPath(logs_base_dir, name);
+    struct stat st;
+    if (::lstat(full_path.c_str(), &st) != 0) continue;
+    if (!S_ISDIR(st.st_mode)) continue;
+
+    date_dirs.push_back(DateDirInfo{name, full_path, 0});
+  }
+
+  ::closedir(dir);
+
+  stats.scanned = true;
+  if (date_dirs.empty()) return stats;
+
+  for (auto& d : date_dirs)
+  {
+    d.size_bytes = DirectorySizeBytes(d.path);
+  }
+
+  std::uint64_t total = 0;
+  for (const auto& d : date_dirs) total += d.size_bytes;
+
+  stats.total_before_bytes = total;
+  stats.total_after_bytes = total;
+
+  if (total <= max_total_bytes) return stats;
+
+  std::sort(date_dirs.begin(), date_dirs.end(), [](const DateDirInfo& a, const DateDirInfo& b) {
+    return a.name < b.name; // YYYY-MM-DD sorts chronologically
+  });
+
+  for (const auto& d : date_dirs)
+  {
+    if (total <= max_total_bytes) break;
+    if (d.name == current_date_dir_name) continue; // never delete today's logs
+
+    if (RemoveTree(d.path))
+    {
+      total = (d.size_bytes <= total) ? (total - d.size_bytes) : 0;
+      ++stats.deleted_day_dirs;
+    }
+  }
+
+  stats.total_after_bytes = total;
+
+  if (total > max_total_bytes)
+  {
+    // Only older log dirs are removed; if still above limit, today's logs alone exceed the cap.
+    fprintf(stderr,
+            "[Logger] Warning: total log size still above limit after pruning (total=%llu, limit=%llu)\n",
+            static_cast<unsigned long long>(total),
+            static_cast<unsigned long long>(max_total_bytes));
+  }
+
+  return stats;
 }
 
 static std::string SanitizeSegment(const std::string& segment)
@@ -139,13 +317,63 @@ Logger::Logger() {
         base_path = "/tmp/logger_logs/";
     }
 
+    // Enforce a maximum total log size by deleting older day folders under base_path.
+    // This runs before opening sinks, and keeps today's folder even if it alone exceeds the limit.
+    EnsureDirectory(base_path);
+    const LogPruneStats prune_stats = PruneOldLogsIfNeeded(base_path, date_str, kMaxTotalLogBytes);
+    if (prune_stats.scanned)
+    {
+      const std::uint64_t remaining_bytes =
+        (prune_stats.total_after_bytes >= kMaxTotalLogBytes) ? 0 : (kMaxTotalLogBytes - prune_stats.total_after_bytes);
+      if (prune_stats.deleted_day_dirs > 0)
+      {
+        printf("[Logger] Log storage: total=%.2fGiB (before=%.2fGiB, pruned=%zu day(s)), remaining=%.2fGiB, limit=%.2fGiB\n",
+               BytesToGiB(prune_stats.total_after_bytes),
+               BytesToGiB(prune_stats.total_before_bytes),
+               prune_stats.deleted_day_dirs,
+               BytesToGiB(remaining_bytes),
+               BytesToGiB(kMaxTotalLogBytes));
+      }
+      else
+      {
+        printf("[Logger] Log storage: total=%.2fGiB, remaining=%.2fGiB, limit=%.2fGiB\n",
+               BytesToGiB(prune_stats.total_after_bytes),
+               BytesToGiB(remaining_bytes),
+               BytesToGiB(kMaxTotalLogBytes));
+      }
+    }
+
     log_root_dir_ = base_path + date_str + "/";
     if (!EnsureDirectory(log_root_dir_))
     {
       fprintf(stderr,
               "\033[1;31m[Logger] Error: Cannot create log dir: %s. Saving to /tmp/ instead.\033[0m\n",
               log_root_dir_.c_str());
-      log_root_dir_ = std::string("/tmp/logger_logs/") + date_str + "/";
+      base_path = "/tmp/logger_logs/";
+      EnsureDirectory(base_path);
+      const LogPruneStats fallback_prune_stats = PruneOldLogsIfNeeded(base_path, date_str, kMaxTotalLogBytes);
+      if (fallback_prune_stats.scanned)
+      {
+        const std::uint64_t remaining_bytes =
+          (fallback_prune_stats.total_after_bytes >= kMaxTotalLogBytes) ? 0 : (kMaxTotalLogBytes - fallback_prune_stats.total_after_bytes);
+        if (fallback_prune_stats.deleted_day_dirs > 0)
+        {
+          printf("[Logger] Log storage (/tmp): total=%.2fGiB (before=%.2fGiB, pruned=%zu day(s)), remaining=%.2fGiB, limit=%.2fGiB\n",
+                 BytesToGiB(fallback_prune_stats.total_after_bytes),
+                 BytesToGiB(fallback_prune_stats.total_before_bytes),
+                 fallback_prune_stats.deleted_day_dirs,
+                 BytesToGiB(remaining_bytes),
+                 BytesToGiB(kMaxTotalLogBytes));
+        }
+        else
+        {
+          printf("[Logger] Log storage (/tmp): total=%.2fGiB, remaining=%.2fGiB, limit=%.2fGiB\n",
+                 BytesToGiB(fallback_prune_stats.total_after_bytes),
+                 BytesToGiB(remaining_bytes),
+                 BytesToGiB(kMaxTotalLogBytes));
+        }
+      }
+      log_root_dir_ = base_path + date_str + "/";
       EnsureDirectory(log_root_dir_);
     }
 
