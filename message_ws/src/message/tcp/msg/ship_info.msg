@@ -1,15 +1,15 @@
 # 'S'报文
 bool push_is_open
-bool ship_is_sending
+bool telemetry_enabled
 bool tcp_is_connecting
 # char control_mode
 bool is_auto_control
 bool is_keyboard_control
-bool boat_keep_nav
+bool loop_mode_enabled
 # 'M'报文
-bool boat_is_active
-bool boat_is_running
-bool boat_is_smart_remote_mode
+bool is_armed
+bool is_moving
+bool is_station_keeping
 # 'P'报文
 
 # 'R'报文

@@ -40,7 +40,7 @@ public:
     bool is_recieving;
     bool is_connecting;
     char control_mode;
-    bool boat_keep_nav;
+    bool loop_mode_enabled;
     float voltage_left_battery;
     float voltage_right_battery;
     KeyboardStructure joystick;

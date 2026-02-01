@@ -65,7 +65,7 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
     ship_info_pub.publish(ship_information);
 
     // 将状态传输给tcp
-    if (ship_information.ship_is_sending)
+    if (ship_information.telemetry_enabled)
     {
         sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", ship_information.longitude, ship_information.latitude,\
             ship_information.heading_angle, ship_information.voltage_left_battery, ship_information.voltage_right_battery);
@@ -97,9 +97,9 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
             ship_information.voltage_right_battery = stof(sub_strings[2]);
-            ship_information.boat_is_active = stof(sub_strings[3]);
-            ship_information.boat_is_running = stof(sub_strings[4]);
-            ship_information.boat_is_smart_remote_mode = stof(sub_strings[5]);
+            ship_information.is_armed = stof(sub_strings[3]);
+            ship_information.is_moving = stof(sub_strings[4]);
+            ship_information.is_station_keeping = stof(sub_strings[5]);
         }
         else
             // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
@@ -122,12 +122,12 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                 FormatConversion_Tcp.handle_header_S(*it);
 
                 ship_information.push_is_open = FormatConversion_Tcp.push_is_open;
-                ship_information.ship_is_sending = FormatConversion_Tcp.is_recieving;
+                ship_information.telemetry_enabled = FormatConversion_Tcp.is_recieving;
                 ship_information.tcp_is_connecting = FormatConversion_Tcp.is_connecting;
                 // ship_information.control_mode = FormatConversion_Tcp.control_mode;
                 ship_information.is_auto_control = FormatConversion_Tcp.is_auto_control;
                 ship_information.is_keyboard_control = FormatConversion_Tcp.is_keyboard_control;
-                ship_information.boat_keep_nav = FormatConversion_Tcp.boat_keep_nav;
+                ship_information.loop_mode_enabled = FormatConversion_Tcp.loop_mode_enabled;
             break;
 
             case 'P':

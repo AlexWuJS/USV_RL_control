@@ -170,8 +170,8 @@ int FormatConversionClass::handle_header_S(std::string s)
         if (string_values[4] == "#") {is_auto_control = true;is_keyboard_control = false;}        /* #为自动控制，@为键盘控制 */
         else if (string_values[4] == "@") {is_keyboard_control = true;is_auto_control = false;}
 
-        if (string_values[5] == "1")  boat_keep_nav = true;        /* 1为打开，0为关闭 */
-        else if (string_values[5] == "0")  boat_keep_nav = false;             
+        if (string_values[5] == "1")  loop_mode_enabled = true;        /* 1为打开，0为关闭 */
+        else if (string_values[5] == "0")  loop_mode_enabled = false;             
     }
 
     return 0;
