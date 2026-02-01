@@ -93,13 +93,16 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 
     for (std::string& recv_strings : raw_recv_strings){
         vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
-        if (sub_strings[0] == "M" && sub_strings.size() == 8)      // M帧一共有8个数据
+        // New MCU format:
+        // M,V_value,V2,control_mode,is_armed,is_moving,is_station_keeping,left_pwm,right_pwm,
+        if (sub_strings.size() >= 9 && sub_strings[0] == "M")
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
             ship_information.voltage_right_battery = stof(sub_strings[2]);
-            ship_information.is_armed = stof(sub_strings[3]);
-            ship_information.is_moving = stof(sub_strings[4]);
-            ship_information.is_station_keeping = stof(sub_strings[5]);
+            ship_information.control_mode = std::stoi(sub_strings[3]);
+            ship_information.is_armed = std::stoi(sub_strings[4]) != 0;
+            ship_information.is_moving = std::stoi(sub_strings[5]) != 0;
+            ship_information.is_station_keeping = std::stoi(sub_strings[6]) != 0;
         }
         else
             // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");

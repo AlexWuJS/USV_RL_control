@@ -2,11 +2,11 @@
 bool push_is_open
 bool telemetry_enabled
 bool tcp_is_connecting
-# char control_mode
 bool is_auto_control
 bool is_keyboard_control
 bool loop_mode_enabled
 # 'M'报文
+int32 control_mode
 bool is_armed
 bool is_moving
 bool is_station_keeping
