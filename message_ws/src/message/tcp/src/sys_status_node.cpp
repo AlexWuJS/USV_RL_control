@@ -67,8 +67,13 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
     // 将状态传输给tcp
     if (ship_information.telemetry_enabled)
     {
-        sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", ship_information.longitude, ship_information.latitude,\
-            ship_information.heading_angle, ship_information.voltage_left_battery, ship_information.voltage_right_battery);
+        sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", 
+            ship_information.longitude, 
+            ship_information.latitude,
+            ship_information.heading_angle, 
+            ship_information.voltage_left_battery, 
+            ship_information.voltage_right_battery
+        );
         
         tcp_sbuf.data = ship_info_sbuf;
         tcp_tx_pub.publish(tcp_sbuf);
