@@ -6,18 +6,25 @@ using namespace std;
 #include <string>
 #include "adjust_pid/pid.h"
 #include <tf2/utils.h>
+#include <geometry_msgs/TwistStamped.h> 
 #include <thruster_manager/Thruster.h>
 #include "common.h"
 #include "tcp/message_s.h"
 #include <cmath>
+#include <logger/logger.h>
+#include <Eigen/Dense>
+
 
 ros::Publisher controller_pub;
 ros::Publisher tcp_tx_pub;
 thruster_manager::Thruster thruster_msg;
-double desired_angle, heading_angle, pid_output;
+geometry_msgs::TwistStamped rtk_speed;
+double desired_angle, heading_angle, pid_output, yaw_rate = 0.0;
 sensor_msgs::Imu imu;                    
 // PID myPid;
 AnglePID AnglePid;
+Eigen::Vector2d current_speed;
+
 
 void Pid_Callback(const ros::TimerEvent &event)
 {
@@ -52,6 +59,7 @@ void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     imu = *msg;
 
     heading_angle = tf2::getYaw(imu.orientation)*180/M_PI;  // 当前船体的航向角
+    yaw_rate = imu.angular_velocity.z * 180.0 / M_PI;
 }
 
 void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
@@ -84,6 +92,30 @@ void TcpSendTimerCallback(const ros::TimerEvent &)
     tcp_tx_pub.publish(tcp_msg);
 }
 
+void rtkSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+{
+    rtk_speed = *msg;
+
+    current_speed(0) = std::atan2(rtk_speed.twist.linear.x, rtk_speed.twist.linear.y) * 180 / M_PI;     // 用x/y，而不是y/x，完成从ENU到NED的转换
+    current_speed(1) = std::sqrt(std::pow(rtk_speed.twist.linear.x, 2) + std::pow(rtk_speed.twist.linear.y, 2));
+}
+
+
+void RecordDataCallback(const ros::TimerEvent &)
+{
+    LOG_INFO_TO("test",  "{:.8f},{:.8f},{:.8f},{:.8f},{},{},{},{},{}", 
+        desired_angle,
+        heading_angle,
+        yaw_rate,
+        current_speed(1),
+        AnglePid.kp,
+        AnglePid.ki,
+        AnglePid.kd,
+        thruster_msg.left_thruster_pwm,
+        thruster_msg.right_thruster_pwm
+    );
+}
+
 int main(int argc, char* argv[])
 {
     setlocale(LC_ALL, " ");     
@@ -99,6 +131,7 @@ int main(int argc, char* argv[])
 
     ros::Timer timer_pid = nh.createTimer(ros::Duration(0.1), Pid_Callback);
     ros::Timer timer_tcp_send = nh.createTimer(ros::Duration(0.1), TcpSendTimerCallback);
+    ros::Timer timer_record = nh.createTimer(ros::Duration(0.1), RecordDataCallback);
   
     //pid
     nh.getParam("/adjust_angle_pid_node/angle_kp", AnglePid.kp);
