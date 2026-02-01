@@ -105,8 +105,7 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             ship_information.is_station_keeping = std::stoi(sub_strings[6]) != 0;
         }
         else
-            // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
-        ;
+            LOG_INFO_FILE("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
     }
 }
 
@@ -127,7 +126,6 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                 ship_information.push_is_open = FormatConversion_Tcp.push_is_open;
                 ship_information.telemetry_enabled = FormatConversion_Tcp.is_recieving;
                 ship_information.tcp_is_connecting = FormatConversion_Tcp.is_connecting;
-                // ship_information.control_mode = FormatConversion_Tcp.control_mode;
                 ship_information.is_auto_control = FormatConversion_Tcp.is_auto_control;
                 ship_information.is_keyboard_control = FormatConversion_Tcp.is_keyboard_control;
                 ship_information.loop_mode_enabled = FormatConversion_Tcp.loop_mode_enabled;
@@ -153,7 +151,7 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             default:
-                // ROS_INFO("Message recognize error: \"%s\" is not fit for the protocol!", (*it).c_str());
+                LOG_INFO_FILE("Message recognize error: \"{}\" is not fit for the protocol!", (*it).c_str());
             break;
         }
     }
