@@ -36,7 +36,7 @@ void Tcp_GetShipInfo_CallBack(const tcp::ship_info::ConstPtr &msg)
         // ROS_INFO("Handle header P: close server.");
         // Tcp_Server_Close(client_socket);
     }
-    if (msg->ship_is_sending == false){
+    if (msg->telemetry_enabled == false){
         enable_send_tcp = false;  // 条件变量改变，禁止Tcp发送
     }
     else{

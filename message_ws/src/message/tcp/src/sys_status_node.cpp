@@ -65,10 +65,15 @@ void PubShipMessage_CallBack(const ros::TimerEvent &event)
     ship_info_pub.publish(ship_information);
 
     // 将状态传输给tcp
-    if (ship_information.ship_is_sending)
+    if (ship_information.telemetry_enabled)
     {
-        sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", ship_information.longitude, ship_information.latitude,\
-            ship_information.heading_angle, ship_information.voltage_left_battery, ship_information.voltage_right_battery);
+        sprintf(ship_info_sbuf, "R,%.6f,%.6f,%.3f,%.3f,%.3f\n", 
+            ship_information.longitude, 
+            ship_information.latitude,
+            ship_information.heading_angle, 
+            ship_information.voltage_left_battery, 
+            ship_information.voltage_right_battery
+        );
         
         tcp_sbuf.data = ship_info_sbuf;
         tcp_tx_pub.publish(tcp_sbuf);
@@ -93,17 +98,19 @@ void SubUsartMessage_CallBack(const std_msgs::String::ConstPtr& msg)
 
     for (std::string& recv_strings : raw_recv_strings){
         vector<string> sub_strings = FormatConversion_usart.get_value_from_string(recv_strings, ',');
-        if (sub_strings[0] == "M" && sub_strings.size() == 8)      // M帧一共有8个数据
+        // New MCU format:
+        // M,V_value,V2,control_mode,is_armed,is_moving,is_station_keeping,left_pwm,right_pwm,
+        if (sub_strings.size() >= 9 && sub_strings[0] == "M")
         {
             ship_information.voltage_left_battery = stof(sub_strings[1]);
             ship_information.voltage_right_battery = stof(sub_strings[2]);
-            ship_information.boat_is_active = stof(sub_strings[3]);
-            ship_information.boat_is_running = stof(sub_strings[4]);
-            ship_information.boat_is_smart_remote_mode = stof(sub_strings[5]);
+            ship_information.control_mode = std::stoi(sub_strings[3]);
+            ship_information.is_armed = std::stoi(sub_strings[4]) != 0;
+            ship_information.is_moving = std::stoi(sub_strings[5]) != 0;
+            ship_information.is_station_keeping = std::stoi(sub_strings[6]) != 0;
         }
         else
-            // ROS_INFO("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
-        ;
+            LOG_INFO_FILE("Sub_Usart error: Please check the message, maybe the message is not fit for the protocol!");
     }
 }
 
@@ -122,12 +129,11 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
                 FormatConversion_Tcp.handle_header_S(*it);
 
                 ship_information.push_is_open = FormatConversion_Tcp.push_is_open;
-                ship_information.ship_is_sending = FormatConversion_Tcp.is_recieving;
+                ship_information.telemetry_enabled = FormatConversion_Tcp.is_recieving;
                 ship_information.tcp_is_connecting = FormatConversion_Tcp.is_connecting;
-                // ship_information.control_mode = FormatConversion_Tcp.control_mode;
                 ship_information.is_auto_control = FormatConversion_Tcp.is_auto_control;
                 ship_information.is_keyboard_control = FormatConversion_Tcp.is_keyboard_control;
-                ship_information.boat_keep_nav = FormatConversion_Tcp.boat_keep_nav;
+                ship_information.loop_mode_enabled = FormatConversion_Tcp.loop_mode_enabled;
             break;
 
             case 'P':
@@ -150,7 +156,7 @@ void SubMessage_CallBack(const std_msgs::String::ConstPtr& msg)
             break;
 
             default:
-                // ROS_INFO("Message recognize error: \"%s\" is not fit for the protocol!", (*it).c_str());
+                LOG_INFO_FILE("Message recognize error: \"{}\" is not fit for the protocol!", (*it).c_str());
             break;
         }
     }
