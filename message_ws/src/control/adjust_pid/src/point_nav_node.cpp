@@ -11,11 +11,14 @@ using namespace std;
 #include <sensor_msgs/Imu.h>
 #include <tf2/utils.h>
 #include <logger/logger.h>
+#include <geometry_msgs/TwistStamped.h>
+#include <cmath>
 
 Point_Nav point_nav;
 thruster_manager::Thruster thruster_msg;
 sensor_msgs::NavSatFix current_position;
-double current_heading_angle;
+double current_heading_angle = 0.0;
+double current_speed = 0.0;
 
 void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
     current_position = *msg;
@@ -23,6 +26,13 @@ void rtkCallback(const sensor_msgs::NavSatFix::ConstPtr &msg) {
 
 void odomCallback(const sensor_msgs::Imu::ConstPtr &msg) {
     current_heading_angle = tf2::getYaw(msg->orientation)*180/M_PI;  // 当前船体的航向角
+}
+
+void velCallback(const geometry_msgs::TwistStamped::ConstPtr &msg)
+{
+    const double vx = msg->twist.linear.x;
+    const double vy = msg->twist.linear.y;
+    current_speed = std::sqrt(vx * vx + vy * vy);
 }
 
 void Recv_NavSatFix_CallBack(const sensor_msgs::NavSatFix::ConstPtr& msg)
@@ -51,6 +61,7 @@ int main(int argc, char* argv[])
     ros::Publisher boat_auto_control_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 100);
     ros::Subscriber rtk_sub = nh.subscribe<sensor_msgs::NavSatFix>("/fix", 1000, rtkCallback); 
     ros::Subscriber odom_sub = nh.subscribe<sensor_msgs::Imu>("/imu/data", 1000, odomCallback);
+    ros::Subscriber vel_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vel", 1000, velCallback);
     ros::Subscriber rtk_point_sub = nh.subscribe<sensor_msgs::NavSatFix>("/ship/rtk_point", 10, Recv_NavSatFix_CallBack);
     // ros::Subscriber boat_status_sub = nh.subscribe<tcp::ship_info>("/ship/ship_info", 1000, Tcp_SubBoatStatus_CallBack);
     ros::Rate rate(100);
@@ -61,7 +72,7 @@ int main(int argc, char* argv[])
     LOG_INFO("point_nav_node run success.");
     while (ros::ok())
     {
-        point_nav.run(current_position, current_heading_angle);
+        point_nav.run(current_position, current_heading_angle, current_speed);
         std::pair<int, int> current_pwm = point_nav.get_thruster_pwm();
         thruster_msg.left_thruster_pwm = current_pwm.first;
         thruster_msg.right_thruster_pwm = current_pwm.second;

@@ -20,7 +20,7 @@ public:
     // Point_Nav();
     Point_Nav() = default;
     void get_nh_param(const ros::NodeHandle& nh);
-    void run(sensor_msgs::NavSatFix current_position, double now_angle);
+    void run(sensor_msgs::NavSatFix current_position, double now_angle, double current_speed);
     void update_recv_waypoints(void);
     bool recv_first_waypoint(sensor_msgs::NavSatFix waypoint) const;
     bool recv_last_waypoint(sensor_msgs::NavSatFix waypoint) const;
@@ -35,7 +35,7 @@ private:
     int _index = 0; // 初始化为0，避免未初始化使用
     int _switch_dist = 4;       // 切换航点的距离,单位: m
     int _left_thruster_pwm = 1500, _right_thruster_pwm = 1500; // 初始化PWM值
-    const double _desired_dist = 0;
+    double _desired_speed = 0.5;
     const double desired_angle = 0;
     static const sensor_msgs::NavSatFix virtual_start_waypoint, virtual_end_waypoint;
 
@@ -43,7 +43,7 @@ private:
     
     // 添加PID控制器对象
     AnglePID angle_pid;
-    PID position_pid;
+    PID speed_pid;
 
     double get_angle(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint);
     double get_distance(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint);

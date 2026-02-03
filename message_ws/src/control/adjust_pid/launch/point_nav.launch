@@ -2,9 +2,10 @@
     <arg name="angle_kp" default="12.0" />
     <arg name="angle_ki" default="0.0" />
     <arg name="angle_kd" default="100.0" />
-    <arg name="location_kp" default="-60.0" />
-    <arg name="location_ki" default="0.0" />
-    <arg name="location_kd" default="0.0" />
+    <arg name="desired_speed" default="0.5" />
+    <arg name="speed_kp" default="0.0" />
+    <arg name="speed_ki" default="0.0" />
+    <arg name="speed_kd" default="0.0" />
     <arg name="maxIntegral" default="200.0" />
     <arg name="maxOutput" default="300.0" />
 
@@ -20,9 +21,10 @@
         <param name="angle_kp" value="$(arg angle_kp)" />
         <param name="angle_ki" value="$(arg angle_ki)" />
         <param name="angle_kd" value="$(arg angle_kd)" />
-        <param name="location_kp" value="$(arg location_kp)" />
-        <param name="location_ki" value="$(arg location_ki)" />
-        <param name="location_kd" value="$(arg location_kd)" />
+        <param name="desired_speed" value="$(arg desired_speed)" />
+        <param name="speed_kp" value="$(arg speed_kp)" />
+        <param name="speed_ki" value="$(arg speed_ki)" />
+        <param name="speed_kd" value="$(arg speed_kd)" />
         <param name="maxIntegral" value="$(arg maxIntegral)" />
         <param name="maxOutput" value="$(arg maxOutput)" />
     </node>

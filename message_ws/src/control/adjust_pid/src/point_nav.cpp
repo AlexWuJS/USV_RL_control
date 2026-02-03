@@ -37,12 +37,13 @@ void Point_Nav::get_nh_param(const ros::NodeHandle& nh){
         ROS_WARN("angle_ki not found");
     if (!nh.getParam("/point_nav/angle_kd", AnglePid.kd))
         ROS_WARN("angle_kd not found");
-    if (!nh.getParam("/point_nav/location_kp", PositionPid.kp))
-        ROS_WARN("location_kp not found");
-    if (!nh.getParam("/point_nav/location_ki", PositionPid.ki))
-        ROS_WARN("location_ki not found");
-    if (!nh.getParam("/point_nav/location_kd", PositionPid.kd))
-        ROS_WARN("location_kd not found");
+    if (!nh.getParam("/point_nav/speed_kp", PositionPid.kp))
+        ROS_WARN("speed_kp not found");
+    if (!nh.getParam("/point_nav/speed_ki", PositionPid.ki))
+        ROS_WARN("speed_ki not found");
+    if (!nh.getParam("/point_nav/speed_kd", PositionPid.kd))
+        ROS_WARN("speed_kd not found");
+    nh.param<double>("/point_nav/desired_speed", _desired_speed, 0.5);
     if (!nh.getParam("/point_nav/maxIntegral", AnglePid.maxIntegral))
         ROS_WARN("angle maxIntegral not found");
     if (!nh.getParam("/point_nav/maxOutput", AnglePid.maxOutput))
@@ -53,7 +54,7 @@ void Point_Nav::get_nh_param(const ros::NodeHandle& nh){
         ROS_WARN("position maxOutput not found");
 }
 
-void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
+void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle, double current_speed){
     if (point_list.empty()){
         stop();
         ROS_DEBUG("point_list is empty");
@@ -65,10 +66,10 @@ void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
     ROS_INFO("desired_angle: %f, now_dist: %f", desired_angle, now_dist);
 
     double angle_pid_output = angle_pid.update(desired_angle, now_angle);
-    double position_pid_output = position_pid.update(_desired_dist, now_dist);
+    double speed_pid_output = speed_pid.update(_desired_speed, current_speed);
 
-    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + position_pid_output * 0.0;
-    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + position_pid_output * 0.0;
+    _left_thruster_pwm = THRUSTER_MID_PWM - angle_pid_output * 0.5 + speed_pid_output * 0.5;
+    _right_thruster_pwm = THRUSTER_MID_PWM + angle_pid_output * 0.5 + speed_pid_output * 0.5;
 
     update_point(now_dist);
 }
@@ -186,11 +187,12 @@ void Point_Nav::setPidParams(ros::NodeHandle& nh) {
     nh.getParam("point_nav/maxIntegral", angle_pid.maxIntegral);
     nh.getParam("point_nav/maxOutput", angle_pid.maxOutput);
 
-    // 位置PID参数
-    nh.getParam("point_nav/location_kp", position_pid.kp);
-    nh.getParam("point_nav/location_ki", position_pid.ki);
-    nh.getParam("point_nav/location_kd", position_pid.kd);
-    nh.getParam("point_nav/maxIntegral", position_pid.maxIntegral);
-    nh.getParam("point_nav/maxOutput", position_pid.maxOutput);
+    // 速度PID参数
+    nh.param<double>("point_nav/desired_speed", _desired_speed, 0.5);
+    nh.getParam("point_nav/speed_kp", speed_pid.kp);
+    nh.getParam("point_nav/speed_ki", speed_pid.ki);
+    nh.getParam("point_nav/speed_kd", speed_pid.kd);
+    nh.getParam("point_nav/maxIntegral", speed_pid.maxIntegral);
+    nh.getParam("point_nav/maxOutput", speed_pid.maxOutput);
     
 }
