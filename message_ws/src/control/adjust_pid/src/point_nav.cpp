@@ -76,14 +76,22 @@ void Point_Nav::run(sensor_msgs::NavSatFix current_position, double now_angle){
 double Point_Nav::get_angle(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint){
     float now_lat_rad = current_position.latitude * M_PI / 180;
     float desired_lat_rad = waypoint.latitude * M_PI / 180;
-    float delta_lat = (waypoint.latitude - current_position.latitude) * M_PI / 180;
-    float delta_lon = (waypoint.longitude - current_position.longitude) * M_PI / 180;
+    float delta_lon_rad = (waypoint.longitude - current_position.longitude) * M_PI / 180;
 
-    float y = sin(delta_lon) * cos(desired_lat_rad);
-    float x = cos(now_lat_rad) * sin(desired_lat_rad) - sin(now_lat_rad) * cos(desired_lat_rad) * cos(delta_lon);
-    float bear = atan2(y, x);
-    bear = bear * 180 / M_PI;
-    return bear;
+    // east_component / north_component 是“从当前点指向航点”的方向在局部切平面上的东/北投影分量。
+    // 注意：这不是经纬度直接转 ENU 坐标点位，只是计算“朝向”的方向分量。
+    float east_component = sin(delta_lon_rad) * cos(desired_lat_rad); // 东向分量（East）
+    float north_component =
+        cos(now_lat_rad) * sin(desired_lat_rad) - sin(now_lat_rad) * cos(desired_lat_rad) * cos(delta_lon_rad); // 北向分量（North）
+
+    // ENU yaw（REP-103）：0° 指向正东（+X），+90° 指向正北（+Y）
+    float yaw_enu_deg = atan2(north_component, east_component) * 180 / M_PI; // 关键：atan2(N, E)
+
+    // 归一化到 (-180, 180]，避免后续角度环出现 270° 这种跳变误差
+    while (yaw_enu_deg > 180.0f) yaw_enu_deg -= 360.0f;
+    while (yaw_enu_deg <= -180.0f) yaw_enu_deg += 360.0f;
+
+    return yaw_enu_deg;
 }
 
 double Point_Nav::get_distance(sensor_msgs::NavSatFix current_position, sensor_msgs::NavSatFix waypoint){
