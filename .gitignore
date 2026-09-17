@@ -22,3 +22,6 @@ rplidar_ws/teamviewer-host_15.44.4_arm64.deb
 *.pgm
 
 !/.gitignore
+# Python 缓存
+__pycache__/
+*.pyc
