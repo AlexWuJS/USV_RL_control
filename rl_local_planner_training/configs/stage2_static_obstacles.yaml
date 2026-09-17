@@ -1,0 +1,63 @@
+# Stage 2：单/多静态障碍 + 轻度域随机化（从 stage1 best 续训）
+# 【在训练机执行】python3 train/train_sac.py --config configs/stage2_static_obstacles.yaml --init-model models/stage1_best/best_model.zip
+stage: 2
+total_timesteps: 1500000
+seed: 1
+n_envs: 8
+
+env:
+  dt: 0.1
+  max_episode_steps: 600
+  dynamics: first_order
+  difficulty: medium
+  n_obstacles: [1, 5]
+  n_moving_obstacles: 0
+  narrow_gates: 0
+  domain_randomization: true
+  dr_ranges:
+    tau_scale: [0.6, 1.4]
+    r_max_scale: [0.8, 1.2]
+    k_r_scale: [0.7, 1.3]
+  use_speed_envelope: false
+  control_delay_steps: [0, 2]
+  obs_noise_std: 0.02
+  sector_noise_std: 0.3
+  sector_dropout: 0.05
+  current_max: 0.15
+  hull_radius: 0.6
+  stuck_window_steps: 100
+  stuck_min_progress: 0.5
+  cte_abort: 8.0
+  goal_radius: 1.5
+
+dynamics_params:
+  tau_u: 0.79
+  tau_r: 0.53
+  tau_v: 0.5
+  k_r: 0.8
+  r_max: 0.6
+  v_max_phys: 2.3
+
+reward:
+  w_progress: 2.0
+  w_track: 0.10
+  w_heading: 0.05
+  w_smooth: 0.30
+  w_safe_speed: 0.5
+  a_lat_max: 0.5
+  obstacle: {far: 8.0, crawl: 3.0, critical: 1.5, gradient: 0.2, near: 0.5, hit: 2.0}
+  terminal: {goal: 20.0, collision: -50.0, stuck: -20.0, timeout: -20.0, cte_abort: -10.0}
+
+sac:
+  learning_rate: 3.0e-4
+  buffer_size: 500000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  train_freq: 1
+  gradient_steps: 1
+  ent_coef: auto
+  net_arch: [256, 256]
+  checkpoint_freq: 20000
+  eval_freq: 10000
+  n_eval_episodes: 20

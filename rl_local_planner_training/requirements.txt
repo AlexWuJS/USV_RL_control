@@ -1,0 +1,9 @@
+# 训练机依赖（Python >= 3.8，推荐 3.10；【在训练机执行】pip install -r requirements.txt）
+numpy>=1.23
+gymnasium>=0.29
+stable-baselines3>=2.1
+torch>=2.0
+pyyaml>=6.0
+tensorboard>=2.12
+matplotlib>=3.5
+pandas>=1.5
