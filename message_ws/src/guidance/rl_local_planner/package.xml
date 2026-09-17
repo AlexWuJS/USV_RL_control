@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>rl_local_planner</name>
+  <version>0.1.0</version>
+  <description>
+    SAC 强化学习局部规划器：替代/增强 huamo LOS 引导层。
+    输出 desired_speed / desired_course（rl_local_planner/NavCmd），
+    底层滑模控制器与推力分配完全复用现有系统。
+    含训练与部署共用的纯 Python 契约层 rl_common/。
+  </description>
+  <maintainer email="haique@todo.todo">haique</maintainer>
+  <license>TODO</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>message_generation</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>rospy</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
+
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tcp</exec_depend>
+  <exec_depend>python-numpy</exec_depend>
+
+  <!-- 注意：Phase 5 集成时 huamo 将依赖本包的 NavCmd.msg，
+       本包不依赖 huamo，避免实艇现有包构建配置被反向牵连 -->
+  <export>
+  </export>
+</package>

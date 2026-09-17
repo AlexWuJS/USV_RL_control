@@ -1,0 +1,45 @@
+# rl_local_planner 节点参数（节点私有命名空间）
+# 数值依据：RL_INTERFACE_DESIGN.md §5/§6/§7/§10
+
+node:
+  mode: shadow                       # shadow | active（active 需 Phase 5 huamo 集成）
+  always_compute: false              # true=非自主模式也计算（调试用）
+  model_path: ""                     # 空 = STUB（输出零动作，仅打通数据链）
+  log_dir: /home/jetson/rl_logs      # shadow 对比日志目录
+
+frames:
+  world_frame: camera_init           # FAST-LIO /Odometry 系
+  map_frame: map                     # /waypoints_path 所在系（TF map→camera_init）
+  hull_to_sensor_yaw: 0.0            # rad，传感器体轴→艇体首向标定角（Phase 5 标定，默认假设对齐）
+
+topics:
+  odom: /Odometry
+  path: /waypoints_path
+  cloud: /cloud_registered_body
+  ship_info: /ship/ship_info
+  los_cmd: /guidance/los_cmd         # huamo Phase 5 集成后才发布；shadow 对比用
+  rl_cmd: /guidance/rl_cmd
+  rl_status: /guidance/rl_status
+
+action:
+  dv_max: 0.10                       # m/s/步
+  dcourse_max: 0.05                  # rad/步
+  v_min: 0.2                         # m/s
+  v_max: 2.0                         # m/s
+
+safety:
+  slow_zone: 8.0                     # m，低于此线性降速
+  crawl_zone: 3.0                    # m，低于此降到 crawl_speed
+  critical_zone: 1.5                 # m，低于此立即停
+  crawl_speed: 0.4                   # m/s
+  course_dev_max: 1.047              # rad ≈ 60°，course_ref 相对路径切线最大偏差
+  watchdog_ms: 200                   # 策略输出超时判定
+  emergency_hold_ms: 1000            # 持续异常超过此值 → 急停（速度 0）
+
+obs:
+  la1_dist: 6.0                      # m，前视点 1（弧长）
+  la2_dist: 15.0                     # m，前视点 2（弧长）
+  n_sectors: 36
+  lidar_max_range: 20.0              # m
+  h_min: -0.3                        # m，点云高度带下限（相对传感器，Phase 7 标定）
+  h_max: 1.0                         # m，点云高度带上限

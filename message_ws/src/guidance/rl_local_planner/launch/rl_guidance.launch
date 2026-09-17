@@ -1,0 +1,15 @@
+<launch>
+  <!-- RL 闭环模式：huamo guidance_mode:=rl，RL 指令进入执行段。
+       前提（缺一不可）：
+         1. huamo_node 已完成 Phase 5 集成（guidance_mode 参数 + /guidance/rl_cmd 订阅）；
+         2. model_path 指向训练机拷来的 actor.pt；
+         3. shadow 模式对比数据已人工评审通过。
+       随时回退：重启动 a_star_demo.launch（默认 guidance_mode:=los）。 -->
+  <arg name="model_path" default=""/>
+
+  <node pkg="rl_local_planner" type="rl_local_planner_node.py" name="rl_local_planner" output="screen">
+    <rosparam file="$(find rl_local_planner)/config/rl_planner.yaml" command="load"/>
+    <param name="node/mode" value="active"/>
+    <param name="node/model_path" value="$(arg model_path)"/>
+  </node>
+</launch>
