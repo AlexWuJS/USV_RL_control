@@ -3,6 +3,7 @@
 
 node:
   mode: shadow                       # shadow | active（active 需 Phase 5 huamo 集成）
+  control_rate_hz: 10.0              # 固定步进频率（动作限幅按"每步"定义，必须与训练 dt=0.1 一致）
   always_compute: false              # true=非自主模式也计算（调试用）
   model_path: ""                     # 空 = STUB（输出零动作，仅打通数据链）
   log_dir: /home/jetson/rl_logs      # shadow 对比日志目录

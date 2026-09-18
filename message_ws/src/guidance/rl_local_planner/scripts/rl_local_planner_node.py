@@ -96,6 +96,10 @@ class RLPlannerNode:
         self.always_compute = bool(p("~node/always_compute", False))
         model_path = p("~node/model_path", "")
         log_dir = p("~node/log_dir", "/tmp/rl_logs")
+        # 固定步进频率：dv_max/dcourse_max 单位是"每步"，训练 dt=0.1s 固定，
+        # 因此实艇步率必须钳在 10Hz（/Odometry 实测 ~100Hz，不能事件直驱）
+        self._step_interval = 1.0 / float(p("~node/control_rate_hz", 10.0))
+        self._last_step_time = None
         # --- frames ---
         self.world_frame = p("~frames/world_frame", "camera_init")
         self.map_frame = p("~frames/map_frame", "map")
@@ -142,7 +146,6 @@ class RLPlannerNode:
         self.points_body = np.zeros((0, 3))
         self.is_auto = True
         self.last_raw_action = np.zeros(2)
-        self.last_step_time = time.time()
         self.abnormal_since = None
 
         # --- TF ---
@@ -272,6 +275,22 @@ class RLPlannerNode:
                 x=msg.pose.pose.position.x, y=msg.pose.pose.position.y,
                 psi=psi, u=u, v=v, r=msg.twist.twist.angular.z)
             self.have_odom = True
+        self._maybe_step()
+
+    def _maybe_step(self):
+        """固定频率步进节流：状态每条 /Odometry 都更新，但 step() 严格按
+        control_rate_hz 执行；长阻塞（>2 个周期，如推理尖峰）后重同步，
+        避免连发补偿。"""
+        now = time.time()
+        if self._last_step_time is None:
+            self._last_step_time = now
+            return
+        if now - self._last_step_time < self._step_interval:
+            return
+        if now - self._last_step_time > 2.0 * self._step_interval:
+            self._last_step_time = now
+        else:
+            self._last_step_time += self._step_interval
         self.step()
 
     # ------------------------------------------------------------------

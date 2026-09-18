@@ -134,7 +134,9 @@ rl_local_planner/
 | `active` | 同上，但 huamo `guidance_mode:=rl`，RL 指令进入执行段 |
 | `bypass` | 节点不启动或 `is_auto_control=false`：系统行为与现状完全一致 |
 
-### 4.3 节点内部流水线（10Hz，由 /Odometry 到达驱动）
+### 4.3 节点内部流水线（10Hz 固定步进）
+
+由 /Odometry 触发但节流至 0.1s 固定周期（`control_rate_hz` 参数）：/Odometry 实测 ~100Hz，动作限幅 dv_max/dcourse_max 单位是"每步"，且训练环境 dt=0.1s 固定——步率必须钳在 10Hz 才能与训练一致。长阻塞（>2 周期）后重同步，不连发补偿。
 
 ```
 ROS 数据 → ObservationBuilder(48维) → SAC Actor(TorchScript, CPU, <1ms)
