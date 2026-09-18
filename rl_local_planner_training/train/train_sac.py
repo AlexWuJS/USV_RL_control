@@ -59,6 +59,9 @@ def make_eval_cfg(cfg: dict) -> dict:
 
 def export_torchscript(model: SAC, out_path: str):
     """导出确定性 Actor（均值动作）为 TorchScript，供 NX 仅推理加载。"""
+    import shutil
+    import tempfile
+
     import torch
 
     class ActorWrapper(torch.nn.Module):
@@ -72,7 +75,11 @@ def export_torchscript(model: SAC, out_path: str):
     wrapper = ActorWrapper(model.actor).eval()
     dummy = torch.zeros(1, OBS_DIM, dtype=torch.float32)
     traced = torch.jit.trace(wrapper, dummy)
-    traced.save(out_path)
+    # Windows 下 torch.jit.save 对含中文/“..”的路径会误报父目录不存在：
+    # 先保存到 ASCII 临时路径再移动
+    tmp_path = os.path.join(tempfile.gettempdir(), os.path.basename(out_path))
+    traced.save(tmp_path)
+    shutil.move(tmp_path, os.path.abspath(out_path))
     print("导出 TorchScript Actor: %s" % out_path)
 
 
@@ -112,8 +119,11 @@ def main():
         verbose=1,
     )
     if args.init_model:
-        model = SAC.load(args.init_model, env=vec)
-        print("从 %s 续训" % args.init_model)
+        # SAC.load 默认沿用包内保存的超参（含 lr）；此处用配置文件的 lr 覆盖，
+        # 使微调可以用更小的学习率（stage1_finetune.yaml: 1e-4）
+        model = SAC.load(args.init_model, env=vec,
+                         custom_objects={"learning_rate": float(sc["learning_rate"])})
+        print("从 %s 续训 (lr=%s)" % (args.init_model, sc["learning_rate"]))
 
     callbacks = [
         EvalCallback(eval_env,

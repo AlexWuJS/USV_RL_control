@@ -25,3 +25,10 @@ rplidar_ws/teamviewer-host_15.44.4_arm64.deb
 # Python 缓存
 __pycache__/
 *.pyc
+
+# 训练大产物（不入库）
+rl_local_planner_training/models/
+rl_local_planner_training/tb/
+rl_local_planner_training/archive_rounds/
+rl_local_planner_training/viz_anim/
+rl_local_planner_training/*_install.log

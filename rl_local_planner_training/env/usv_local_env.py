@@ -65,6 +65,9 @@ class USVLocalEnv(gym.Env):
         self.rw = rw
         self.w_progress = float(rw.get("w_progress", 2.0))
         self.w_track = float(rw.get("w_track", 0.10))
+        self.w_track_quad = float(rw.get("w_track_quad", 0.0))
+        self.w_track_db = float(rw.get("w_track_deadband", 0.0))
+        self.w_track_db_min = float(rw.get("w_track_deadband_min", 0.0))
         self.w_heading = float(rw.get("w_heading", 0.05))
         self.w_smooth = float(rw.get("w_smooth", 0.30))
         self.w_safe_speed = float(rw.get("w_safe_speed", 0.5))
@@ -148,7 +151,7 @@ class USVLocalEnv(gym.Env):
         self._window_start_s = 0.0
         self._traveled = 0.0
 
-        obs, _ = self._observe()
+        obs, _, _, _, _ = self._observe()
         return obs, {"s_total": self.path_features.s_total}
 
     def step(self, action):
@@ -179,7 +182,10 @@ class USVLocalEnv(gym.Env):
         ds = feat.s_proj - self._last_s
         e_heading = angle_diff(feat.tangent_course, st.course)
         reward = self.w_progress * ds
-        reward -= self.w_track * abs(feat.cte)
+        cte_abs = abs(float(feat.cte))
+        reward -= (self.w_track * cte_abs
+                   + self.w_track_quad * feat.cte ** 2
+                   + self.w_track_db * max(0.0, cte_abs - self.w_track_db_min))
         reward -= self.w_heading * abs(float(e_heading))
         reward -= self.w_smooth * float(np.sum((act - self._prev_action) ** 2))
         reward -= self._obstacle_reward(d_min)

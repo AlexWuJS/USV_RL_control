@@ -1,0 +1,15 @@
+{
+  "episodes": 50,
+  "success_rate": 0.94,
+  "collision_rate": 0.0,
+  "min_clearance_mean": 20.0,
+  "min_clearance_min": 20.0,
+  "cte_rmse": 0.8026696592828466,
+  "heading_rmse_deg": 17.22714267911931,
+  "course_change_rms_deg": 1.2797758084087067,
+  "accel_rms": 0.18473902798064185,
+  "speed_mean": 1.8823596109246512,
+  "speed_max": 1.9999999999999993,
+  "time_mean": 48.53199999999999,
+  "path_efficiency_mean": 0.9533876628528998
+}

@@ -43,10 +43,10 @@ def test_api():
 def test_dynamics():
     dyn = make_dynamics("first_order", CFG["dynamics_params"])
     dyn.reset(0.0, 0.0, 0.0)
-    # 满速加速：u → v_max_phys=2.3，63% 上升时间 ≈ tau_u=0.79s
+    # 满速加速：v_ref=v_max_phys=2.3 → u 收敛到 2.3，63% 上升时间 ≈ tau_u=0.79s
     t63 = None
     for k in range(300):
-        dyn.step(2.0, 0.0, 0.1)
+        dyn.step(2.3, 0.0, 0.1)
         if t63 is None and dyn.state.u >= 0.63 * 2.3:
             t63 = k * 0.1
     assert dyn.state.u > 2.0, "u 未收敛到高速 (u=%.2f)" % dyn.state.u

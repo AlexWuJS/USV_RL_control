@@ -1,0 +1,486 @@
+Using cpu device
+从 models/stage1_final.zip 续训 (lr=0.0003)
+Logging to ./tb\sac_stage2_1
+E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\callbacks.py:419: UserWarning: Training and eval env are not of the same type<stable_baselines3.common.vec_env.subproc_vec_env.SubprocVecEnv object at 0x000001EC98F97F10> != <stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv object at 0x000001ECA750CE50>
+  warnings.warn("Training and eval env are not of the same type" f"{self.training_env} != {self.eval_env}")
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 552      |
+|    ep_rew_mean     | 78.4     |
+| time/              |          |
+|    episodes        | 4        |
+|    fps             | 558      |
+|    time_elapsed    | 8        |
+|    total_timesteps | 4528     |
+| train/             |          |
+|    actor_loss      | -12.5    |
+|    critic_loss     | 51.5     |
+|    ent_coef        | 0.0293   |
+|    ent_coef_loss   | 5.41     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 125541   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 577      |
+|    ep_rew_mean     | 31.7     |
+| time/              |          |
+|    episodes        | 8        |
+|    fps             | 556      |
+|    time_elapsed    | 8        |
+|    total_timesteps | 4808     |
+| train/             |          |
+|    actor_loss      | -10.3    |
+|    critic_loss     | 51.4     |
+|    ent_coef        | 0.0297   |
+|    ent_coef_loss   | 6.82     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 125576   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 561      |
+|    ep_rew_mean     | 64       |
+| time/              |          |
+|    episodes        | 12       |
+|    fps             | 554      |
+|    time_elapsed    | 16       |
+|    total_timesteps | 9072     |
+| train/             |          |
+|    actor_loss      | -10.6    |
+|    critic_loss     | 30.7     |
+|    ent_coef        | 0.0351   |
+|    ent_coef_loss   | 3.15     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 126109   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 568      |
+|    ep_rew_mean     | 70.8     |
+| time/              |          |
+|    episodes        | 16       |
+|    fps             | 554      |
+|    time_elapsed    | 17       |
+|    total_timesteps | 9616     |
+| train/             |          |
+|    actor_loss      | -10.1    |
+|    critic_loss     | 29       |
+|    ent_coef        | 0.0357   |
+|    ent_coef_loss   | 6.44     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 126177   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 70.8     |
+| time/              |          |
+|    episodes        | 20       |
+|    fps             | 558      |
+|    time_elapsed    | 24       |
+|    total_timesteps | 13824    |
+| train/             |          |
+|    actor_loss      | -7.41    |
+|    critic_loss     | 27.1     |
+|    ent_coef        | 0.0407   |
+|    ent_coef_loss   | 2.49     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 126703   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 566      |
+|    ep_rew_mean     | 74.2     |
+| time/              |          |
+|    episodes        | 24       |
+|    fps             | 558      |
+|    time_elapsed    | 25       |
+|    total_timesteps | 14352    |
+| train/             |          |
+|    actor_loss      | -2.5     |
+|    critic_loss     | 28.8     |
+|    ent_coef        | 0.0413   |
+|    ent_coef_loss   | 5.82     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 126769   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 559      |
+|    ep_rew_mean     | 70.4     |
+| time/              |          |
+|    episodes        | 28       |
+|    fps             | 560      |
+|    time_elapsed    | 32       |
+|    total_timesteps | 17944    |
+| train/             |          |
+|    actor_loss      | -2.37    |
+|    critic_loss     | 22.6     |
+|    ent_coef        | 0.0452   |
+|    ent_coef_loss   | 2.1      |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 127218   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 67.1     |
+| time/              |          |
+|    episodes        | 32       |
+|    fps             | 560      |
+|    time_elapsed    | 33       |
+|    total_timesteps | 18864    |
+| train/             |          |
+|    actor_loss      | -2.37    |
+|    critic_loss     | 20.4     |
+|    ent_coef        | 0.0463   |
+|    ent_coef_loss   | 2.33     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 127333   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 564      |
+|    ep_rew_mean     | 64       |
+| time/              |          |
+|    episodes        | 36       |
+|    fps             | 562      |
+|    time_elapsed    | 40       |
+|    total_timesteps | 22752    |
+| train/             |          |
+|    actor_loss      | -4.02    |
+|    critic_loss     | 15.3     |
+|    ent_coef        | 0.0504   |
+|    ent_coef_loss   | 1.47     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 127819   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 568      |
+|    ep_rew_mean     | 39.4     |
+| time/              |          |
+|    episodes        | 40       |
+|    fps             | 562      |
+|    time_elapsed    | 42       |
+|    total_timesteps | 23672    |
+| train/             |          |
+|    actor_loss      | -3.77    |
+|    critic_loss     | 13.5     |
+|    ent_coef        | 0.0511   |
+|    ent_coef_loss   | 1.49     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 127934   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 563      |
+|    ep_rew_mean     | 48.8     |
+| time/              |          |
+|    episodes        | 44       |
+|    fps             | 563      |
+|    time_elapsed    | 48       |
+|    total_timesteps | 27096    |
+| train/             |          |
+|    actor_loss      | -2.46    |
+|    critic_loss     | 13.7     |
+|    ent_coef        | 0.0545   |
+|    ent_coef_loss   | 0.553    |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 128362   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 563      |
+|    ep_rew_mean     | 53.2     |
+| time/              |          |
+|    episodes        | 48       |
+|    fps             | 563      |
+|    time_elapsed    | 49       |
+|    total_timesteps | 28056    |
+| train/             |          |
+|    actor_loss      | -1.71    |
+|    critic_loss     | 15.1     |
+|    ent_coef        | 0.0554   |
+|    ent_coef_loss   | 1.62     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 128482   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 564      |
+|    ep_rew_mean     | 55.5     |
+| time/              |          |
+|    episodes        | 52       |
+|    fps             | 563      |
+|    time_elapsed    | 56       |
+|    total_timesteps | 31896    |
+| train/             |          |
+|    actor_loss      | 2.8      |
+|    critic_loss     | 39.8     |
+|    ent_coef        | 0.0588   |
+|    ent_coef_loss   | 0.865    |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 128962   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 566      |
+|    ep_rew_mean     | 51       |
+| time/              |          |
+|    episodes        | 56       |
+|    fps             | 563      |
+|    time_elapsed    | 58       |
+|    total_timesteps | 32864    |
+| train/             |          |
+|    actor_loss      | 0.872    |
+|    critic_loss     | 10.6     |
+|    ent_coef        | 0.0589   |
+|    ent_coef_loss   | 0.00789  |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 129083   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 563      |
+|    ep_rew_mean     | 58.1     |
+| time/              |          |
+|    episodes        | 60       |
+|    fps             | 564      |
+|    time_elapsed    | 63       |
+|    total_timesteps | 35928    |
+| train/             |          |
+|    actor_loss      | 1.63     |
+|    critic_loss     | 11.8     |
+|    ent_coef        | 0.0613   |
+|    ent_coef_loss   | -0.362   |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 129466   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 61.6     |
+| time/              |          |
+|    episodes        | 64       |
+|    fps             | 564      |
+|    time_elapsed    | 65       |
+|    total_timesteps | 36976    |
+| train/             |          |
+|    actor_loss      | 1.51     |
+|    critic_loss     | 15.5     |
+|    ent_coef        | 0.0618   |
+|    ent_coef_loss   | 0.654    |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 129597   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 557      |
+|    ep_rew_mean     | 69       |
+| time/              |          |
+|    episodes        | 68       |
+|    fps             | 564      |
+|    time_elapsed    | 70       |
+|    total_timesteps | 40008    |
+| train/             |          |
+|    actor_loss      | 8.36     |
+|    critic_loss     | 10.4     |
+|    ent_coef        | 0.0622   |
+|    ent_coef_loss   | 1.11     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 129976   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 559      |
+|    ep_rew_mean     | 53.3     |
+| time/              |          |
+|    episodes        | 72       |
+|    fps             | 564      |
+|    time_elapsed    | 74       |
+|    total_timesteps | 41784    |
+| train/             |          |
+|    actor_loss      | 7.47     |
+|    critic_loss     | 19.7     |
+|    ent_coef        | 0.0618   |
+|    ent_coef_loss   | -0.667   |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 130198   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 58.6     |
+| time/              |          |
+|    episodes        | 76       |
+|    fps             | 564      |
+|    time_elapsed    | 79       |
+|    total_timesteps | 44664    |
+| train/             |          |
+|    actor_loss      | 5.52     |
+|    critic_loss     | 20.2     |
+|    ent_coef        | 0.0608   |
+|    ent_coef_loss   | 0.00769  |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 130558   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 52.2     |
+| time/              |          |
+|    episodes        | 80       |
+|    fps             | 564      |
+|    time_elapsed    | 82       |
+|    total_timesteps | 46592    |
+| train/             |          |
+|    actor_loss      | 8.39     |
+|    critic_loss     | 19.9     |
+|    ent_coef        | 0.061    |
+|    ent_coef_loss   | 1.03     |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 130799   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 559      |
+|    ep_rew_mean     | 54.4     |
+| time/              |          |
+|    episodes        | 84       |
+|    fps             | 564      |
+|    time_elapsed    | 87       |
+|    total_timesteps | 49296    |
+| train/             |          |
+|    actor_loss      | 7.37     |
+|    critic_loss     | 19.8     |
+|    ent_coef        | 0.0613   |
+|    ent_coef_loss   | -0.722   |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 131137   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 560      |
+|    ep_rew_mean     | 55.4     |
+| time/              |          |
+|    episodes        | 88       |
+|    fps             | 564      |
+|    time_elapsed    | 90       |
+|    total_timesteps | 51000    |
+| train/             |          |
+|    actor_loss      | 12       |
+|    critic_loss     | 18.8     |
+|    ent_coef        | 0.0609   |
+|    ent_coef_loss   | -0.0534  |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 131350   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 558      |
+|    ep_rew_mean     | 58       |
+| time/              |          |
+|    episodes        | 92       |
+|    fps             | 564      |
+|    time_elapsed    | 95       |
+|    total_timesteps | 53704    |
+| train/             |          |
+|    actor_loss      | 9.05     |
+|    critic_loss     | 19.5     |
+|    ent_coef        | 0.0593   |
+|    ent_coef_loss   | -0.414   |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 131688   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 558      |
+|    ep_rew_mean     | 58.9     |
+| time/              |          |
+|    episodes        | 96       |
+|    fps             | 564      |
+|    time_elapsed    | 98       |
+|    total_timesteps | 55328    |
+| train/             |          |
+|    actor_loss      | 12.6     |
+|    critic_loss     | 13.8     |
+|    ent_coef        | 0.058    |
+|    ent_coef_loss   | -0.74    |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 131891   |
+---------------------------------
+---------------------------------
+| rollout/           |          |
+|    ep_len_mean     | 557      |
+|    ep_rew_mean     | 58       |
+| time/              |          |
+|    episodes        | 100      |
+|    fps             | 564      |
+|    time_elapsed    | 103      |
+|    total_timesteps | 58344    |
+| train/             |          |
+|    actor_loss      | 16       |
+|    critic_loss     | 16.8     |
+|    ent_coef        | 0.057    |
+|    ent_coef_loss   | -0.49    |
+|    learning_rate   | 0.0003   |
+|    n_updates       | 132268   |
+---------------------------------
+Traceback (most recent call last):
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\train\train_sac.py", line 146, in <module>
+    main()
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\train\train_sac.py", line 138, in main
+    model.learn(total_timesteps=total, callback=callbacks,
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\sac\sac.py", line 313, in learn
+    return super().learn(
+           ^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\off_policy_algorithm.py", line 335, in learn
+    rollout = self.collect_rollouts(
+              ^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\off_policy_algorithm.py", line 565, in collect_rollouts
+    actions, buffer_actions = self._sample_action(learning_starts, action_noise, env.num_envs)
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\off_policy_algorithm.py", line 398, in _sample_action
+    unscaled_action, _ = self.predict(self._last_obs, deterministic=False)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\base_class.py", line 557, in predict
+    return self.policy.predict(observation, state, episode_start, deterministic)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\policies.py", line 368, in predict
+    actions = self._predict(obs_tensor, deterministic=deterministic)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\sac\policies.py", line 353, in _predict
+    return self.actor(observation, deterministic)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\torch\nn\modules\module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\sac\policies.py", line 170, in forward
+    return self.action_dist.actions_from_params(mean_actions, log_std, deterministic=deterministic, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\distributions.py", line 192, in actions_from_params
+    self.proba_distribution(mean_actions, log_std)
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\distributions.py", line 226, in proba_distribution
+    super().proba_distribution(mean_actions, log_std)
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\stable_baselines3\common\distributions.py", line 166, in proba_distribution
+    self.distribution = Normal(mean_actions, action_std)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\torch\distributions\normal.py", line 59, in __init__
+    super().__init__(batch_shape, validate_args=validate_args)
+  File "E:\无人艇\无人艇\小艇项目\RL部署\rl_local_planner_training\.venv\Lib\site-packages\torch\distributions\distribution.py", line 71, in __init__
+    raise ValueError(
+ValueError: Expected parameter loc (Tensor of shape (8, 2)) of distribution Normal(loc: torch.Size([8, 2]), scale: torch.Size([8, 2])) to satisfy the constraint Real(), but found invalid values:
+tensor([[nan, nan],
+        [nan, nan],
+        [nan, nan],
+        [nan, nan],
+        [nan, nan],
+        [nan, nan],
+        [nan, nan],
+        [nan, nan]])
+exit: 1

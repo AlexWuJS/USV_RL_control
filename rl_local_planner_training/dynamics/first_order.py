@@ -28,6 +28,10 @@ class FirstOrderDynamics(BaseDynamics):
         self.k_r = float(params.get("k_r", 0.8))
         self.r_max = float(params.get("r_max", 0.6))
         self.v_max_phys = float(params.get("v_max_phys", 2.3))
+        # 基准参数：域随机化每回合以此为基准重采样（不可累计相乘，否则随机游走出 0/inf）
+        self._base = dict(tau_u=self.tau_u, tau_r=self.tau_r, tau_v=self.tau_v,
+                          k_r=self.k_r, r_max=self.r_max,
+                          v_max_phys=self.v_max_phys)
         self._state = BodyState()
 
     # ------------------------------------------------------------------
@@ -60,10 +64,12 @@ class FirstOrderDynamics(BaseDynamics):
         return self._state
 
     def randomize(self, rng, dr_ranges):
+        # 每回合先恢复基准参数，再单次缩放（独立重采样，非累计）
+        for k, v in self._base.items():
+            setattr(self, k, v)
         if not dr_ranges:
             return
-        scale = dr_ranges.get("tau_scale", [1.0, 1.0])
-        f = rng.uniform(*scale)
+        f = rng.uniform(*dr_ranges.get("tau_scale", [1.0, 1.0]))
         self.tau_u *= f
         self.tau_r *= f
         self.r_max *= rng.uniform(*dr_ranges.get("r_max_scale", [1.0, 1.0]))

@@ -30,23 +30,23 @@ env:
   cte_abort: 8.0
   goal_radius: 1.5
 
-dynamics_params:
-  tau_u: 0.79
-  tau_r: 0.53
-  tau_v: 0.5
-  k_r: 0.8
-  r_max: 0.6
-  v_max_phys: 2.3
+  dynamics_params:
+    tau_u: 0.79
+    tau_r: 0.53
+    tau_v: 0.5
+    k_r: 0.8
+    r_max: 0.6
+    v_max_phys: 2.3
 
-reward:
-  w_progress: 2.0
-  w_track: 0.10
-  w_heading: 0.05
-  w_smooth: 0.30
-  w_safe_speed: 0.5
-  a_lat_max: 0.5
-  obstacle: {far: 8.0, crawl: 3.0, critical: 1.5, gradient: 0.2, near: 0.5, hit: 2.0}
-  terminal: {goal: 20.0, collision: -50.0, stuck: -20.0, timeout: -20.0, cte_abort: -10.0}
+  reward:
+    w_progress: 2.0
+    w_track: 0.10
+    w_heading: 0.05
+    w_smooth: 0.30
+    w_safe_speed: 0.5
+    a_lat_max: 0.5
+    obstacle: {far: 8.0, crawl: 3.0, critical: 1.5, gradient: 0.2, near: 0.5, hit: 2.0}
+    terminal: {goal: 20.0, collision: -50.0, stuck: -20.0, timeout: -20.0, cte_abort: -10.0}
 
 sac:
   learning_rate: 3.0e-4

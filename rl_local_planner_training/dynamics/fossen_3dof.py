@@ -41,6 +41,9 @@ class Fossen3DOF(BaseDynamics):
         self._M = np.diag([self.mass + self.m_x_dot,
                            self.mass + self.m_y_dot,
                            self.Iz + self.n_r_dot])
+        # 基准参数：域随机化每回合以此为基准重采样（不可累计相乘）
+        self._base = dict(X_u=self.X_u, X_uu=self.X_uu, N_r=self.N_r,
+                          kp_v=self.kp_v, kp_r=self.kp_r)
 
     # ------------------------------------------------------------------
     def reset(self, x, y, psi, u=0.0, v=0.0, r=0.0):
@@ -84,6 +87,9 @@ class Fossen3DOF(BaseDynamics):
         return self._state
 
     def randomize(self, rng, dr_ranges):
+        # 每回合先恢复基准参数，再单次缩放（独立重采样，非累计）
+        for k, v in self._base.items():
+            setattr(self, k, v)
         if not dr_ranges:
             return
         f = rng.uniform(*dr_ranges.get("tau_scale", [1.0, 1.0]))
