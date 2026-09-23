@@ -3,6 +3,7 @@
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
+#include <std_msgs/String.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <vector>
@@ -16,27 +17,40 @@ AStarPlanner::AStarPlanner() : tf_listener_(tf_buffer_) {
     map_sub_ = nh_.subscribe("/prior_map", 1, &AStarPlanner::mapCallback, this);
     start_sub_ = nh_.subscribe("/initialpose", 1, &AStarPlanner::startCallback, this);  // 添加起点订阅
     goal_sub_ = nh_.subscribe("/move_base_simple/goal", 1, &AStarPlanner::goalCallback, this);
-    
-    // 发布路径和膨胀地图
+    goal_seq_sub_ = nh_.subscribe("/goal_sequence", 1, &AStarPlanner::goalSequenceCallback, this);
+
+    // 发布路径、膨胀地图和规划状态
     path_pub_ = nh_.advertise<nav_msgs::Path>("/waypoints_path", 1);
     inflated_map_pub_ = nh_.advertise<nav_msgs::OccupancyGrid>("/inflated_map", 1);
-    
+    status_pub_ = nh_.advertise<std_msgs::String>("/planner_status", 1, true);  // latched，方便后启动的订阅者拿到结果
+
     // 加载参数
     nh_.param("heuristic_weight", heuristic_weight_, 1.0);
     nh_.param("diagonal_movement", diagonal_movement_, true);
     nh_.param("max_iterations", max_iterations_, 100000);
     nh_.param("map_resolution", map_resolution_, 0.5);
     nh_.param("inflation_radius", inflation_radius_, 0.5);  // 膨胀半径，单位：米
-    
+
+    // 多目标串规划参数（launch 里 param 写在 <node> 内，走私有命名空间）
+    ros::NodeHandle pnh("~");
+    pnh.param<std::string>("on_goal_invalid", on_goal_invalid_, "abort");
+    pnh.param<double>("min_seg_len", min_seg_len_, 1.0);
+    pnh.param<bool>("fill_orientation", fill_orientation_, false);
+    pnh.param<std::string>("robot_frame", robot_frame_, "camera_init");
+
     // 初始化起点标志
     start_received_ = false;
-    
+
     ROS_INFO("A* Planner initialized with parameters:");
     ROS_INFO("  - Heuristic weight: %.2f", heuristic_weight_);
     ROS_INFO("  - Diagonal movement: %s", diagonal_movement_ ? "enabled" : "disabled");
     ROS_INFO("  - Max iterations: %d", max_iterations_);
     ROS_INFO("  - Map resolution: %.3f", map_resolution_);
-    ROS_INFO("  - Inflation radius: %.3f", inflation_radius_);
+    ROS_INFO("  - Inflation radius: %.3f meters", inflation_radius_);
+    ROS_INFO("  - On goal invalid: %s", on_goal_invalid_.c_str());
+    ROS_INFO("  - Min segment length: %.2f m", min_seg_len_);
+    ROS_INFO("  - Fill orientation: %s", fill_orientation_ ? "true" : "false");
+    ROS_INFO("  - Robot frame: %s", robot_frame_.c_str());
 }
 
 void AStarPlanner::startCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
@@ -106,58 +120,159 @@ void AStarPlanner::goalCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
         ROS_WARN("No map received yet");
         return;
     }
-    
+
     if (!start_received_) {
         ROS_WARN("No start position received yet. Please set start position in RViz");
         return;
     }
-    
+
     // 使用已保存的起点
-    geometry_msgs::PoseStamped start_pose;
-    start_pose.header = current_map_.header;
-    start_pose.pose = start_pose_;
-    
+    geometry_msgs::Pose seg_start = start_pose_;
+
     ROS_INFO("Start position (world coordinates):");
-    ROS_INFO("  - x: %.2f", start_pose.pose.position.x);
-    ROS_INFO("  - y: %.2f", start_pose.pose.position.y);
-    
-    // 将起点和终点转换为栅格坐标，考虑分辨率缩放
-    double resolution_scale = map_resolution_ / current_map_.info.resolution;
-    int start_x = (start_pose.pose.position.x - current_map_.info.origin.position.x) / map_resolution_;
-    int start_y = (start_pose.pose.position.y - current_map_.info.origin.position.y) / map_resolution_;
-    int goal_x = (msg->pose.position.x - current_map_.info.origin.position.x) / map_resolution_;
-    int goal_y = (msg->pose.position.y - current_map_.info.origin.position.y) / map_resolution_;
-    
+    ROS_INFO("  - x: %.2f", seg_start.position.x);
+    ROS_INFO("  - y: %.2f", seg_start.position.y);
+
     ROS_INFO("Goal position (world coordinates):");
     ROS_INFO("  - x: %.2f", msg->pose.position.x);
     ROS_INFO("  - y: %.2f", msg->pose.position.y);
-    
+
+    std::vector<Node*> path;
+    if (!planSegment(seg_start, msg->pose, path)) {
+        publishStatus("ERROR: single goal unreachable");
+    } else {
+        ROS_INFO("Path found with %lu points", path.size());
+        publishStatus("OK: single goal, " + std::to_string(path.size()) + " poses");
+    }
+
+    // 发布路径
+    publishPath(path);
+
+    // 清理内存
+    freePath(path);
+}
+
+void AStarPlanner::goalSequenceCallback(const nav_msgs::Path::ConstPtr& msg) {
+    if (!map_received_) {
+        ROS_WARN("[goal_sequence] No map received yet");
+        publishStatus("ERROR: no map");
+        return;
+    }
+    if (msg->poses.empty()) {
+        ROS_WARN("[goal_sequence] Empty goal sequence");
+        return;
+    }
+
+    // 相邻航点去重：间距小于 min_seg_len_ 的合并
+    std::vector<geometry_msgs::Pose> goals;
+    for (const auto& ps : msg->poses) {
+        if (!goals.empty()) {
+            double dx = ps.pose.position.x - goals.back().position.x;
+            double dy = ps.pose.position.y - goals.back().position.y;
+            if (std::sqrt(dx * dx + dy * dy) < min_seg_len_) {
+                ROS_INFO("[goal_sequence] Skip waypoint too close to previous: (%.2f, %.2f)",
+                         ps.pose.position.x, ps.pose.position.y);
+                continue;
+            }
+        }
+        goals.push_back(ps.pose);
+    }
+    if (goals.empty()) {
+        ROS_WARN("[goal_sequence] All waypoints merged, nothing to plan");
+        publishStatus("ERROR: all waypoints merged");
+        return;
+    }
+
+    // 第 1 段起点：优先 TF 取艇当前位姿，其次退回 /initialpose
+    geometry_msgs::Pose seg_start;
+    if (getBoatPoseInMap(seg_start)) {
+        ROS_INFO("[goal_sequence] Segment 1 starts from boat TF pose");
+    } else if (start_received_) {
+        seg_start = start_pose_;
+        ROS_INFO("[goal_sequence] Boat TF unavailable, start from /initialpose");
+    } else {
+        ROS_WARN("[goal_sequence] No boat TF and no /initialpose start received");
+        publishStatus("ERROR: no start available");
+        return;
+    }
+
+    // 逐段规划并拼接：第 i 段起点 = 上一段终点，保证整条路径连续
+    std::vector<Node*> mission;
+    for (size_t i = 0; i < goals.size(); ++i) {
+        ROS_INFO("[goal_sequence] Planning segment %lu/%lu -> (%.2f, %.2f)",
+                 i + 1, goals.size(), goals[i].position.x, goals[i].position.y);
+        std::vector<Node*> seg;
+        if (!planSegment(seg_start, goals[i], seg)) {
+            freePath(seg);
+            if (on_goal_invalid_ == "skip") {
+                // 跳过该航点，下一段仍从上一个成功航点出发
+                ROS_WARN("[goal_sequence] Waypoint %lu unreachable, skipped", i + 1);
+                continue;
+            }
+            freePath(mission);
+            publishStatus("ERROR: waypoint " + std::to_string(i + 1) + " unreachable (abort)");
+            return;
+        }
+        if (!mission.empty() && !seg.empty() &&
+            mission.back()->x == seg.front()->x && mission.back()->y == seg.front()->y) {
+            delete seg.front();  // 相邻段连接点去重
+            seg.erase(seg.begin());
+        }
+        mission.insert(mission.end(), seg.begin(), seg.end());
+        seg_start = goals[i];
+    }
+
+    if (mission.empty()) {
+        publishStatus("ERROR: all waypoints unreachable");
+        return;
+    }
+
+    ROS_INFO("[goal_sequence] Mission planned: %lu goals, %lu poses",
+             goals.size(), mission.size());
+    publishStatus("OK: " + std::to_string(goals.size()) + " goals, " +
+                  std::to_string(mission.size()) + " poses");
+    publishPath(mission);
+    freePath(mission);
+}
+
+bool AStarPlanner::getBoatPoseInMap(geometry_msgs::Pose& out) {
+    try {
+        geometry_msgs::TransformStamped tf_map_robot =
+            tf_buffer_.lookupTransform("map", robot_frame_, ros::Time(0), ros::Duration(0.2));
+        out.position.x = tf_map_robot.transform.translation.x;
+        out.position.y = tf_map_robot.transform.translation.y;
+        out.position.z = 0.0;
+        out.orientation = tf_map_robot.transform.rotation;
+        return true;
+    } catch (tf2::TransformException& ex) {
+        ROS_WARN_THROTTLE(1.0, "TF map -> %s unavailable: %s", robot_frame_.c_str(), ex.what());
+        return false;
+    }
+}
+
+bool AStarPlanner::planSegment(const geometry_msgs::Pose& start, const geometry_msgs::Pose& goal,
+                               std::vector<Node*>& seg_out) {
+    // 世界坐标 -> 栅格坐标（沿用既有约定：内部栅格按 map_resolution_ 划分）
+    int start_x = (start.position.x - current_map_.info.origin.position.x) / map_resolution_;
+    int start_y = (start.position.y - current_map_.info.origin.position.y) / map_resolution_;
+    int goal_x = (goal.position.x - current_map_.info.origin.position.x) / map_resolution_;
+    int goal_y = (goal.position.y - current_map_.info.origin.position.y) / map_resolution_;
+
     ROS_INFO("Grid coordinates (using resolution %.3f):", map_resolution_);
     ROS_INFO("  - Start: (%d, %d)", start_x, start_y);
     ROS_INFO("  - Goal: (%d, %d)", goal_x, goal_y);
-    
-    // 检查起点和终点是否在地图范围内
+
     if (!isValid(start_x, start_y) || !isValid(goal_x, goal_y)) {
         ROS_WARN("Start or goal point is out of map bounds or in obstacle");
-        return;
+        return false;
     }
-    
-    // 执行A星搜索
-    std::vector<Node*> path = findPath(start_x, start_y, goal_x, goal_y);
-    
-    if (!path.empty()) {
-        ROS_INFO("Path found with %lu points", path.size());
-    } else {
-        ROS_WARN("No path found");
+
+    seg_out = findPath(start_x, start_y, goal_x, goal_y);
+    if (seg_out.empty()) {
+        ROS_WARN("No path found for segment");
+        return false;
     }
-    
-    // 发布路径
-    publishPath(path);
-    
-    // 清理内存
-    for (Node* node : path) {
-        delete node;
-    }
+    return true;
 }
 
 bool AStarPlanner::isValid(int x, int y) {
@@ -296,24 +411,57 @@ std::vector<AStarPlanner::Node*> AStarPlanner::reconstructPath(Node* goal_node) 
 
 void AStarPlanner::publishPath(const std::vector<Node*>& path) {
     if (path.empty()) return;
-    
+
     // 清除之前的路径
     current_path_.poses.clear();
-    
+
     current_path_.header = current_map_.header;
     current_path_.header.stamp = ros::Time::now();
     current_path_.header.frame_id = "map";
-    
-    for (const Node* node : path) {
+
+    double last_yaw = 0.0;
+    for (size_t i = 0; i < path.size(); ++i) {
         geometry_msgs::PoseStamped pose;
         pose.header = current_path_.header;
-        pose.pose.position.x = node->x * map_resolution_ + current_map_.info.origin.position.x;
-        pose.pose.position.y = node->y * map_resolution_ + current_map_.info.origin.position.y;
-        pose.pose.orientation.w = 1.0;
+        pose.pose.position.x = path[i]->x * map_resolution_ + current_map_.info.origin.position.x;
+        pose.pose.position.y = path[i]->y * map_resolution_ + current_map_.info.origin.position.y;
+
+        if (fill_orientation_) {
+            // 朝向 = 指向下一个路径点的方向（末点沿用前一点方向）
+            // 注意：填 orientation 会激活 huamo 的 is_turn 转弯分支，默认关闭
+            double yaw = last_yaw;
+            if (i + 1 < path.size()) {
+                double dx = (path[i + 1]->x - path[i]->x) * map_resolution_;
+                double dy = (path[i + 1]->y - path[i]->y) * map_resolution_;
+                if (std::sqrt(dx * dx + dy * dy) > 1e-6) {
+                    yaw = std::atan2(dy, dx);
+                }
+            }
+            pose.pose.orientation.z = std::sin(yaw / 2.0);
+            pose.pose.orientation.w = std::cos(yaw / 2.0);
+            last_yaw = yaw;
+        } else {
+            pose.pose.orientation.w = 1.0;
+        }
+
         current_path_.poses.push_back(pose);
     }
-    
+
     path_pub_.publish(current_path_);
+}
+
+void AStarPlanner::publishStatus(const std::string& status) {
+    std_msgs::String msg;
+    msg.data = status;
+    status_pub_.publish(msg);
+    ROS_INFO("[planner_status] %s", status.c_str());
+}
+
+void AStarPlanner::freePath(std::vector<Node*>& path) {
+    for (Node* node : path) {
+        delete node;
+    }
+    path.clear();
 }
 
 int main(int argc, char** argv) {

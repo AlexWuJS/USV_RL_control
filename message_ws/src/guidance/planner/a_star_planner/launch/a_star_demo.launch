@@ -6,36 +6,60 @@
   <arg name="inflation_radius" default="0.5" />
   <arg name="map_frame" default="map" />
   <arg name="robot_frame" default="camera_init" />
-  
+
+  <!-- 是否启动独立的 map_server -->
+  <!-- 与 bringup.launch (use_lidar:=true) 一起使用时设为 false，因为 FAST-LIO 已提供 /prior_map -->
+  <arg name="use_map_server" default="false" />
+  <!-- 是否启动路径跟踪控制器（滑模控制） -->
+  <arg name="use_controller" default="true" />
+  <!-- 期望巡航速度上限 m/s（首次水试建议降速，如 0.8） -->
+  <arg name="speed_max" default="2.0" />
+
   <!-- 添加必要的TF静态变换 -->
-  <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom" 
+  <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom"
         args="0 0 0 0 0 0 map odom" />
-  <node pkg="tf2_ros" type="static_transform_publisher" name="odom_to_base_link" 
+  <node pkg="tf2_ros" type="static_transform_publisher" name="odom_to_base_link"
         args="0 0 0 0 0 0 odom base_link" /> -->
-  
-  <!-- 启动地图服务器 -->
-  <!-- <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" respawn="true">
-    <param name="frame_id" value="$(arg map_frame)" />
-    <remap from="map" to="prior_map" />
-  </node> -->
-  
+
+  <!-- 启动地图服务器（仅在独立模式下，不与 bringup 共用时启用） -->
+  <group if="$(arg use_map_server)">
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" respawn="true">
+      <param name="frame_id" value="$(arg map_frame)" />
+      <remap from="map" to="prior_map" />
+    </node>
+  </group>
+
   <!-- 启动A星规划器节点 -->
   <node pkg="a_star_planner" type="a_star_planner_node" name="a_star_planner" output="screen" respawn="true">
     <param name="map_frame" value="$(arg map_frame)" />
     <param name="robot_frame" value="$(arg robot_frame)" />
     <param name="map_resolution" value="$(arg map_resolution)" />
     <param name="inflation_radius" value="$(arg inflation_radius)" />
-    
+
     <!-- A星算法参数 -->
     <param name="heuristic_weight" value="1.0" />
     <param name="diagonal_movement" value="true" />
     <param name="max_iterations" value="100000" />
+
+    <!-- 多目标串规划参数：/goal_sequence 收目标序列，逐段规划拼接后发 /waypoints_path -->
+    <param name="on_goal_invalid" value="abort" />   <!-- abort=整条任务中止 | skip=跳过该航点 -->
+    <param name="min_seg_len" value="1.0" />         <!-- 相邻航点最小间距(m)，过近去重 -->
+    <param name="fill_orientation" value="false" />  <!-- 填切向朝向会激活 huamo 转弯分支，默认关 -->
   </node>
-  
+
+  <!-- 启动路径跟踪控制器（滑模控制） -->
+  <!-- huamo_node 订阅 /Odometry 和 /waypoints_path，发布 /auto_thruster_pwm -->
+  <group if="$(arg use_controller)">
+    <node pkg="huamo" type="huamo_node" name="huamo" output="screen">
+      <remap from="my_path" to="/waypoints_path" />
+      <param name="speed_max" value="$(arg speed_max)" />
+    </node>
+  </group>
+
   <!-- 启动RViz -->
   <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d $(find a_star_planner)/rviz/a_star.rviz" /> -->
-  
+
   <!-- 设置日志级别 -->
-  <env name="ROSCONSOLE_CONFIG_FILE" 
+  <env name="ROSCONSOLE_CONFIG_FILE"
        value="$(find a_star_planner)/config/custom_rosconsole.conf"/>
 </launch> 

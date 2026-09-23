@@ -1,0 +1,45 @@
+<launch>
+  <!-- 陆地仿真演示：静态地图 + A* 多目标规划 + 虚拟艇 + huamo LOS 可视化。
+       不启动任何硬件节点（无 usart / thruster_manager），PWM 不会到达真桨。
+       用法:
+         roslaunch a_star_planner a_star_demo_sim.launch
+         # 发多目标（坐标从 RViz Publish Point 读取）:
+         rosrun a_star_planner verify_goal_sequence.py X1 Y1 X2 Y2 [X3 Y3 ...]
+       虚拟艇自动从路径起点以 boat_speed 匀速重放，RViz 可见:
+         /prior_map 静态地图 /waypoints_path 多段规划路径
+         /motion_path 虚拟艇轨迹 /LOS_path LOS前视点 /Odometry 虚拟艇位姿 -->
+  <arg name="map_file" default="$(find a_star_planner)/maps/scans2.yaml"/>
+  <arg name="boat_speed" default="0.5"/>
+  <arg name="speed_max" default="2.0"/>
+  <arg name="rviz" default="true"/>
+
+  <!-- 静态地图 -->
+  <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" respawn="true">
+    <remap from="map" to="prior_map"/>
+  </node>
+
+  <!-- map -> camera_init 单位变换：把 A* 的 map 系路径与虚拟艇的 camera_init 系对齐 -->
+  <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_camera_init"
+        args="0 0 0 0 0 0 map camera_init"/>
+
+  <!-- A* 多目标串规划 -->
+  <node pkg="a_star_planner" type="a_star_planner_node" name="a_star_planner" output="screen">
+    <param name="on_goal_invalid" value="abort"/>
+    <param name="min_seg_len" value="1.0"/>
+    <param name="fill_orientation" value="false"/>
+  </node>
+
+  <!-- 虚拟艇：沿 /waypoints_path 匀速重放，发布 /Odometry + TF -->
+  <node pkg="a_star_planner" type="fake_odom_follower.py" name="fake_odom_follower" output="screen">
+    <param name="speed" value="$(arg boat_speed)"/>
+  </node>
+
+  <!-- huamo LOS 跟踪：真实控制逻辑计算（仅可视化，硬件未接） -->
+  <node pkg="huamo" type="huamo_node" name="huamo" output="screen">
+    <remap from="my_path" to="/waypoints_path"/>
+    <param name="speed_max" value="$(arg speed_max)"/>
+  </node>
+
+  <node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz"
+        args="-d $(find a_star_planner)/rviz/a_star_sim.rviz"/>
+</launch>

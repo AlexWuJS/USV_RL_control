@@ -1,3 +1,12 @@
 <launch>
-    <node pkg="publish_waypoints" type="publish_ground_waypoints_node" name="publish_ground_waypoints" output="screen"/>
+    <!-- waypoint_mode: direct_path = P 帧航点直发 /waypoints_path（稀疏，配 control_manage LOS 链）
+                      via_astar    = P 帧航点发 /goal_sequence，A* 串规划后发 /waypoints_path（配 huamo LOS 链）
+         goal_frame: 经纬度转换目标坐标系，须与 TF 中 utm 的父系一致 -->
+    <arg name="waypoint_mode" default="direct_path" />
+    <arg name="goal_frame" default="odom_local" />
+
+    <node pkg="publish_waypoints" type="publish_ground_waypoints_node" name="publish_ground_waypoints" output="screen">
+        <param name="waypoint_mode" value="$(arg waypoint_mode)" />
+        <param name="goal_frame" value="$(arg goal_frame)" />
+    </node>
 </launch>

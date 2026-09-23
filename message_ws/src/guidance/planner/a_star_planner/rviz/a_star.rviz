@@ -42,7 +42,7 @@ Visualization Manager:
       Draw Behind: false
       Enabled: true
       Name: Map
-      Topic: /map
+      Topic: /prior_map
       Unreliable: false
       Use Timestamp: false
       Value: true
@@ -67,7 +67,7 @@ Visualization Manager:
       Radius: 0.029999999329447746
       Shaft Diameter: 0.10000000149011612
       Shaft Length: 0.10000000149011612
-      Topic: /a_star_path
+      Topic: /waypoints_path
       Unreliable: false
       Value: true
     - Alpha: 0.699999988079071
@@ -79,6 +79,13 @@ Visualization Manager:
       Topic: /inflated_map
       Unreliable: false
       Use Timestamp: false
+      Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /waypoint_markers
+      Name: WaypointMarkers
+      Namespaces: {}
+      Queue Size: 100
       Value: true
   Enabled: true
   Global Options:

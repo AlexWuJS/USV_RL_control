@@ -17,9 +17,13 @@
 ros::Subscriber goal_sub;
 nav_msgs::Path waypoints_msg;
 geometry_msgs::PoseStamped goal, goal_oen;
-ros::Publisher waypoints_pub, point_marker_pub;
+ros::Publisher waypoints_pub, point_marker_pub, goal_seq_pub;
 visualization_msgs::Marker marker;
 std::string utm_zone;
+// waypoint_mode: direct_path = 维持现状，P 帧航点直发 /waypoints_path（稀疏）
+//                via_astar    = P 帧航点转 map 系后发 /goal_sequence，由 A* 串规划
+std::string waypoint_mode;
+std::string goal_frame;
 
 geometry_msgs::PoseStamped latLongtoUTM(double lati_input, double longi_input)
 {
@@ -39,7 +43,7 @@ geometry_msgs::PoseStamped latLongtoUTM(double lati_input, double longi_input)
     return UTM_point_output;
 }
 
-geometry_msgs::PoseStamped UTMtoMapPoint(geometry_msgs::PoseStamped& UTM_input)
+geometry_msgs::PoseStamped UTMtoMapPoint(geometry_msgs::PoseStamped& UTM_input, const std::string& target_frame)
 {
     geometry_msgs::PoseStamped map_point_output;
     bool notDone = true;
@@ -54,8 +58,8 @@ geometry_msgs::PoseStamped UTMtoMapPoint(geometry_msgs::PoseStamped& UTM_input)
         {
             UTM_input.header.stamp = ros::Time::now();
             // listener.waitForTransform("odom_local", "utm", time_now, ros::Duration(3.0));
-            geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform("odom_local", "utm", time_now, ros::Duration(3.0));
-            
+            geometry_msgs::TransformStamped transformStamped = tfBuffer.lookupTransform(target_frame, "utm", time_now, ros::Duration(3.0));
+
             // listener.transformPoint("odom_local", UTM_input, map_point_output);
             tf2::doTransform(UTM_input, map_point_output, transformStamped);
             notDone = false;
@@ -111,7 +115,7 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
         {
             if (i % 2 == 0)
                 point.longitude = std::stof(sub_strings[i]);       // 经度
-            
+
             if (i % 2 == 1)
             {
                 point.latitude = std::stof(sub_strings[i]);                     // 纬度
@@ -119,26 +123,45 @@ void Tcp_SubMessage_CallBack(const tcp::message_s::ConstPtr& msg)
             }
         }
 
+        waypoints.header.frame_id = goal_frame;
+        waypoints.header.stamp = ros::Time::now();
         for (auto& point : points){
             geometry_msgs::PoseStamped utm_point = latLongtoUTM(point.latitude,point.longitude);
-            geometry_msgs::PoseStamped map_point = UTMtoMapPoint(utm_point);
+            geometry_msgs::PoseStamped map_point = UTMtoMapPoint(utm_point, goal_frame);
             waypoints.poses.push_back(map_point);
             geometry_msgs::Point vis_point = visualizePoint(map_point);
             marker.points.push_back(vis_point);
         }
-        waypoints_pub.publish(waypoints);
+
+        if (waypoint_mode == "via_astar")
+        {
+            // 多目标走 A* 串规划：目标点序列发 /goal_sequence，规划结果由 a_star 发 /waypoints_path
+            ROS_INFO("[pub_ground_waypoints] via_astar: %lu goals -> /goal_sequence", waypoints.poses.size());
+            goal_seq_pub.publish(waypoints);
+        }
+        else
+        {
+            waypoints_pub.publish(waypoints);
+        }
         point_marker_pub.publish(marker);
     }
 }
 
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
     ros::init(argc, argv, "pub_ground_waypoints");
     ros::NodeHandle nh;
+    ros::NodeHandle pnh("~");
+
+    pnh.param<std::string>("waypoint_mode", waypoint_mode, "direct_path");
+    pnh.param<std::string>("goal_frame", goal_frame, "odom_local");
+    ROS_INFO("[pub_ground_waypoints] waypoint_mode: %s, goal_frame: %s",
+             waypoint_mode.c_str(), goal_frame.c_str());
 
     ros::Subscriber tcp_message_sub = nh.subscribe<tcp::message_s>("/tcp/data", 10, Tcp_SubMessage_CallBack);
     waypoints_pub = nh.advertise<nav_msgs::Path>("/waypoints_path", 10);
+    goal_seq_pub = nh.advertise<nav_msgs::Path>("/goal_sequence", 1);
     point_marker_pub = nh.advertise<visualization_msgs::Marker>("/point", 10);
 
     ros::spin();
