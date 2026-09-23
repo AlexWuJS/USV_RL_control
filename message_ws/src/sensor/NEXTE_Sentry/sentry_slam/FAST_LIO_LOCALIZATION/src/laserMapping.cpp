@@ -38,6 +38,7 @@
 #include <thread>
 #include <fstream>
 #include <csignal>
+#include <ctime>
 #include <unistd.h>
 #include <Python.h>
 #include <so3_math.h>
@@ -1064,7 +1065,10 @@ int main(int argc, char **argv)
     /* 2. PCD保存会极大影响实时性能 **/
     if (pcl_wait_save->size() > 0 && pcd_save_en)  // 如果待保存点云大小大于0且启用PCD保存
     {
-        string file_name = string("scans.pcd");
+        char pcd_time_buf[32];
+        std::time_t pcd_now = std::time(nullptr);
+        std::strftime(pcd_time_buf, sizeof(pcd_time_buf), "%Y%m%d_%H%M", std::localtime(&pcd_now));
+        string file_name = string("scans_") + pcd_time_buf + string(".pcd");
         string all_points_dir(string(string(ROOT_DIR) + "PCD/") + file_name);
         pcl::PCDWriter pcd_writer;
         cout << "current scan saved to /PCD/" << file_name << endl;

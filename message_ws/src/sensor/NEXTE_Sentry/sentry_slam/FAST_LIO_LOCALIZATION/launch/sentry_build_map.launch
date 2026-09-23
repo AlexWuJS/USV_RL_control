@@ -4,6 +4,7 @@
     <arg name="rviz" default="true" />              <!-- 是否启动RVIZ可视化 -->
     <arg name="bag_mode" default="false"/>          <!-- BAG模式开关：true=回放bag, false=实时雷达 -->
     <arg name="enable_localization" default="true"/> <!-- 定位模式开关：true=边建图边定位(有历史地图), false=纯建图模式(第一次建图) -->
+	<arg name="save_pcd" default="false"/>
     
     <!-- 根据bag_mode自动设置use_sim_time -->
     <param name="/use_sim_time" value="$(arg bag_mode)"/>
@@ -14,6 +15,7 @@
 	<!-- ============================= 建图配置 ============================= -->
 	<!-- fast_lio -->
 	<rosparam command="load" file="$(find fast_lio_localization)/config/mid360.yaml" /> <!-- 加载配置文件 -->
+	<param name="pcd_save/pcd_save_en" value="$(arg save_pcd)" />
 	<param name="feature_extract_enable" type="bool" value="0"/> <!-- 特征提取开关 -->
 	<param name="point_filter_num" type="int" value="3"/> <!-- 点云滤波参数 -->
 	<param name="max_iteration" type="int" value="3" /> <!-- 最大迭代次数 -->
@@ -26,7 +28,7 @@
 	<param name="voxel_size" value="0.1" /> <!-- 设置体素大小 -->
 	<param name="enable_height_filter" value="true" /> <!-- 是否启用高度过滤 -->
 	<param name="enable_map_loader_downsample" value="true" /> <!-- 是否启用地图加载器的下采样 -->
-	<param name="enable_localization_downsample" value="false" /> <!-- 是否启用重定位ICP的下采样 -->
+	<param name="enable_localization_downsample" value="true" /> <!-- 是否启用重定位ICP的下采样 -->
 	<node pkg="fast_lio_localization" type="fastlio_mapping" name="laserMapping" output="screen" />  <!-- 激光雷达映射节点 -->
 
 

@@ -22,6 +22,7 @@ initialized = False      # 初始化状态标志
 T_map_to_odom = np.eye(4)  # 地图到里程计的变换矩阵
 cur_odom = None         # 当前里程计数据
 cur_scan = None         # 当前激光扫描数据
+first_localization = True  # 首次定位标志，用于快速收敛
 
 # 添加发布者
 pub_relocalization_success = None  # 重定位成功发布者
@@ -131,7 +132,7 @@ def crop_global_map_in_FOV(global_map, pose_estimation, cur_odom):
 
 
 def global_localization(pose_estimation):
-    global global_map, cur_scan, cur_odom, T_map_to_odom
+    global global_map, cur_scan, cur_odom, T_map_to_odom, first_localization
     # 用icp配准
     # print(global_map, cur_scan, T_map_to_odom)
     rospy.loginfo('Global localization by scan-to-map matching......')
@@ -160,7 +161,13 @@ def global_localization(pose_estimation):
         # 使用指数移动平均（EMA）平滑变换矩阵
         new_T_map_to_odom = transformation
         
-        if T_map_to_odom is not None:
+        # 首次定位时，直接使用新结果，快速收敛（避免缓慢平滑浪费时间）
+        if first_localization:
+            T_map_to_odom = new_T_map_to_odom
+            first_localization = False
+            rospy.loginfo("First localization, using new transformation directly for fast convergence")
+        else:
+            # 后续定位：进行平滑处理，避免抖动
             # 计算位置差异
             pos_diff = np.linalg.norm(new_T_map_to_odom[:3, 3] - T_map_to_odom[:3, 3])
             
@@ -195,10 +202,6 @@ def global_localization(pose_estimation):
             smooth_quat = tf.transformations.quaternion_slerp(old_quat, new_quat, alpha)
             smooth_rot = tf.transformations.quaternion_matrix(smooth_quat)
             T_map_to_odom[:3, :3] = smooth_rot[:3, :3]
-        else:
-            # 第一次定位，直接使用新结果
-            T_map_to_odom = new_T_map_to_odom
-            rospy.loginfo("First localization, using new transformation directly")
 
         # 发布map_to_odom
         map_to_odom = Odometry()
