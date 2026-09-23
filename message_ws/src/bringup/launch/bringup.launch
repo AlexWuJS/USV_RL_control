@@ -4,7 +4,7 @@
     <arg name="use_imu"         default="false"/>
     <arg name="use_wit_imu"     default="true"/>
     <arg name="use_rtk"         default="true"/>
-    <arg name="use_lidar"       default="false"/>
+    <arg name="use_lidar"       default="true"/>
     <arg name="audio_volume"    default="40"/>
 
     <!-- 启动机器人 -->
@@ -12,6 +12,7 @@
     <node pkg="tcp" type="tcp_node" name="tcp" output="screen"/>
     <node pkg="tcp" type="sys_status_node" name="sys_status" output="screen" >
             <param name="audio_volume" value="$(arg audio_volume)"/>
+            <param name="default_auto_control" value="true"/>
     </node>
     <node pkg="thruster_manager" type="thruster_manager_node" name="thruster_manager" output="screen"/>
 

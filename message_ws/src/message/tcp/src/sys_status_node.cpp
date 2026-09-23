@@ -187,6 +187,16 @@ int main(int argc, char* argv[])
     int audio_volume = -1;
     private_nh.param("audio_volume", audio_volume, -1);
     LOG_INFO_CONSOLE("audio_volume:{}", audio_volume);
+    // 获取默认自动控制模式参数（用于无地面站测试）
+    bool default_auto_control = false;
+    private_nh.param("default_auto_control", default_auto_control, false);
+    if (default_auto_control) {
+        FormatConversionClass& FormatConversion_Tcp = FormatConversionClass::get_singleton();
+        FormatConversion_Tcp.is_auto_control = true;
+        ship_information.is_auto_control = true;
+        LOG_INFO_CONSOLE("default_auto_control: true (bypassing ground station)");
+    }
+
     AudioManager audio_mgr(nh, audio_volume);
     NetworkMonitor net_monitor(audio_mgr);
 
