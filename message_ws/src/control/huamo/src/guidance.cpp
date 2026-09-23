@@ -1,5 +1,8 @@
 #include "huamo/guidance.h"
 
+#include <algorithm>
+#include <ros/ros.h>
+
 float delta_min = 6;
 float delta_max = 12;
 float turn_delta = 10;
@@ -49,7 +52,10 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
     // std::cout <<"最近点y:" << pose_closest.pose.position.y << std::endl;
 
     //删除路径上路径点之前的元素
+    //erase 会使 closest_it 失效；删除后最近点就是新数组的第 0 个元素，
+    //后续一律用下标访问并按剩余点数钳制，避免越界读产生野前视点
     path.poses.erase(path.poses.begin(), closest_it);
+    const int remain = static_cast<int>(path.poses.size());
     // std::cout << "path pose size:" << path.poses.size() << std::endl;
     
     //变视距
@@ -67,10 +73,11 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
     static int turn_time = 0;
     if(delta <= path.poses.size())
     {
-        for(int i = 0; i < delta_max-1; i ++)
+        int scan_end = std::min((int)delta_max - 1, remain - 1);
+        for(int i = 0; i < scan_end; i ++)
         {
-            double this_yaw = tf2::getYaw((*(std::next(closest_it,i))).pose.orientation);
-            double next_yaw = tf2::getYaw((*(std::next(closest_it,i+1))).pose.orientation);
+            double this_yaw = tf2::getYaw(path.poses[i].pose.orientation);
+            double next_yaw = tf2::getYaw(path.poses[i + 1].pose.orientation);
     
             if(std::abs(this_yaw - next_yaw) > M_PI/22)
             {
@@ -88,7 +95,7 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
         // los_y = los_pose.pose.position.y;
 
         //修补
-        geometry_msgs::PoseStamped temp_pose = *std::next(closest_it,(int)delta);
+        geometry_msgs::PoseStamped temp_pose = path.poses[std::min((int)delta, remain - 1)];
         float los_gamma_p = tf2::getYaw(temp_pose.pose.orientation);
         float delta_x = 1 * cos(los_gamma_p);
         float delta_y = 1 * sin(los_gamma_p);
@@ -98,14 +105,11 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
     }
     else
     {
-        geometry_msgs::PoseStamped closest_nest = *std::next(closest_it);
-        // std::cout << "closest:" << pose_closest.pose.position.x << "\t" << pose_closest.pose.position.y<< std::endl;
-        // std::cout << "closest_next:" << closest_nest.pose.position.x << "\t" << closest_nest.pose.position.y  << std::endl;
-        //根据切线延长线前进前视距的距离，计算los点
-        float delta_x = delta * cos(gamma_p);
-        float delta_y = delta * sin(gamma_p);
-        los_x = pose_closest.pose.position.x + delta_x;        
-        los_y = pose_closest.pose.position.y + delta_y;
+        //剩余点数少于前视距离：LOS 钉在路径终点。
+        //路径点无 orientation（切向恒为 0=正东），按切向延长会算出远离路径的野点
+        geometry_msgs::PoseStamped end_pose = path.poses.back();
+        los_x = end_pose.pose.position.x;
+        los_y = end_pose.pose.position.y;
     }
 
     //转弯停留时长

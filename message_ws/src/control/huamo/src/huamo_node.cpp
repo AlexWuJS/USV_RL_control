@@ -67,20 +67,24 @@ void odomCallback(const nav_msgs::Odometry &msg)
 
     // std::cout << "u" << vel_b(0) << std::endl;
 
-    motion_path.header.frame_id = "camera_init";
-    motion_path.header.stamp = ros::Time::now();
-    geometry_msgs::PoseStamped pose_msg;
-    pose_msg.header.stamp = msg.header.stamp;
-    pose_msg.header.frame_id = "camera_init";
-    pose_msg.pose.position.x = msg.pose.pose.position.x; 
-    pose_msg.pose.position.y = msg.pose.pose.position.y; 
-    pose_msg.pose.position.z = 0;
-    pose_msg.pose.orientation.x = msg.pose.pose.orientation.x; 
-    pose_msg.pose.orientation.y = msg.pose.pose.orientation.y; 
-    pose_msg.pose.orientation.z = msg.pose.pose.orientation.z; 
-    pose_msg.pose.orientation.w = msg.pose.pose.orientation.w; 
-    motion_path.poses.push_back(pose_msg);
-    motion_path_pub.publish(motion_path);
+    // 只在任务执行期间累积行驶轨迹：任务结束/取消后不再增长，
+    // 否则空转时里程计会不断往同一位置堆点，消息无限膨胀
+    if (has_path_) {
+        motion_path.header.frame_id = "camera_init";
+        motion_path.header.stamp = ros::Time::now();
+        geometry_msgs::PoseStamped pose_msg;
+        pose_msg.header.stamp = msg.header.stamp;
+        pose_msg.header.frame_id = "camera_init";
+        pose_msg.pose.position.x = msg.pose.pose.position.x; 
+        pose_msg.pose.position.y = msg.pose.pose.position.y; 
+        pose_msg.pose.position.z = 0;
+        pose_msg.pose.orientation.x = msg.pose.pose.orientation.x; 
+        pose_msg.pose.orientation.y = msg.pose.pose.orientation.y; 
+        pose_msg.pose.orientation.z = msg.pose.pose.orientation.z; 
+        pose_msg.pose.orientation.w = msg.pose.pose.orientation.w; 
+        motion_path.poses.push_back(pose_msg);
+        motion_path_pub.publish(motion_path);
+    }
 
     has_odom_ = true;
 
@@ -88,6 +92,26 @@ void odomCallback(const nav_msgs::Odometry &msg)
 
 void pathCallback(const nav_msgs::Path &path)
 {
+    // 空路径 = 取消任务：清空路径与轨迹，并显式输出中位 PWM 让艇停下。
+    // （thruster_manager 会保持最后收到的 PWM，所以取消时必须显式发停车指令）
+    if (path.poses.empty()) {
+        path_.poses.clear();
+        motion_path.poses.clear();
+        LOS_path.poses.clear();
+        has_path_ = false;
+        thruster_manager::Thruster stop_msg;
+        stop_msg.left_thruster_pwm = 1500;
+        stop_msg.right_thruster_pwm = 1500;
+        stop_msg.left_sideThruster_pwm = 1500;
+        stop_msg.right_sideThruster_pwm = 1500;
+        controller_pub.publish(stop_msg);
+        // 把清空后的空轨迹发布出去，否则 RViz 仍显示最后收到的旧轨迹
+        motion_path_pub.publish(motion_path);
+        LOS_path_pub.publish(LOS_path);
+        ROS_INFO("huamo: 收到空路径 -> 取消任务、停车、清空轨迹");
+        return;
+    }
+
     if (!tf_buffer_ptr) {
         ROS_WARN_THROTTLE(1.0, "TF buffer not ready, skip path update");
         return;
@@ -118,6 +142,11 @@ void pathCallback(const nav_msgs::Path &path)
     path_.header.frame_id = target_frame;
     path_.header.stamp = path.header.stamp;
 
+    // 新任务到达：清空上一轮的行驶轨迹与前视线轨迹。
+    // 否则 /motion_path、/LOS_path 会跨任务无限累积，RViz 里旧轨迹永远留着
+    motion_path.poses.clear();
+    LOS_path.poses.clear();
+
     has_path_ = !path_.poses.empty();
 }
 
@@ -145,6 +174,15 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
             if(has_odom_)
             {
                 getDesiredSpeedHeading(desired_speed_,desired_heading_,current_state_,path_,ye_,LOS_);
+
+                // stop 分支会置 has_path_=false 且不更新 LOS_（局部变量本轮保持零初始化），
+                // 此时不得再发布 LOS 与推力，否则会推出 (0,0) 野点
+                if (!has_path_)
+                {
+                    has_odom_ = false;
+                    return;
+                }
+
                 LOS_path.header.frame_id = "camera_init";
                 LOS_path.header.stamp = ros::Time::now();
                 geometry_msgs::PoseStamped pose_msg;
@@ -190,6 +228,11 @@ int main(int argc, char* argv[])
     // ros::Rate r(10);
 
     ros::NodeHandle nh;
+
+    // 引导律参数：launch 里用 <param name="speed_max" .../> 覆盖（默认 2.0 保持原行为）
+    ros::NodeHandle pnh("~");
+    pnh.param<float>("speed_max", speed_max, 2.0f);
+    ROS_INFO("huamo_node: speed_max = %.2f m/s", speed_max);
 
     tf_buffer_ptr = std::make_unique<tf2_ros::Buffer>();
     tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr);
