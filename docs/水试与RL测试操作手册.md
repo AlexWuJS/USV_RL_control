@@ -196,6 +196,48 @@ ps -eo pid,lstart,cmd | grep "[w]aypoint_collector"
 
 ---
 
+### 2.7 bag 回放（复盘）
+
+**必须用 `--clock` 配合 `use_sim_time`** —— bag 是几天前录的、TF 用旧时间戳，不做时钟对齐 RViz 会一直报 "no transform"。
+
+```bash
+source ~/haique/little-boat-motion-control/message_ws/devel/setup.bash
+
+# ① 时钟（use_sim_time 必须在启动下面各节点之前设置）
+roscore
+rosparam set /use_sim_time true
+
+# ② 先验地图（对比层：看点云是否与地图重合）
+rosrun map_server map_server \
+  ~/haique/little-boat-motion-control/message_ws/src/sensor/NEXTE_Sentry/sentry_slam/FAST_LIO_LOCALIZATION/PCD/scans.yaml \
+  /map:=/prior_map
+
+# ③ 轨迹重建（bag 里没录 /motion_path，从 /Odometry 生成 /replay_track）
+python3 ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_planner/scripts/replay_track_builder.py
+
+# ④ RViz（回放专用配置：先验地图 + 点云 + 轨迹 + LOS）
+rosrun rviz rviz -d $(rospack find a_star_planner)/rviz/bag_replay.rviz
+
+# ⑤ 播放
+rosbag play --clock ~/bags/xxx.bag            # 从头播
+rosbag play --clock -s 100 ~/bags/xxx.bag     # 从第 100 秒（跳过静止段）
+rosbag play --clock --loop ~/bags/xxx.bag     # 循环
+rosbag play --clock -r 2 ~/bags/xxx.bag       # 2 倍速（播放终端里按空格暂停/继续）
+```
+
+**看什么**：
+
+| 显示 | 用途 |
+|------|------|
+| 黄色点云 `/cloud_registered_body` vs 灰色 `/prior_map` | **岸线是否重合** → 验证地图同源与当时的重定位质量 |
+| 橙色 `/replay_track` | 艇实际轨迹（由 `/Odometry` 重建） |
+| 青色 `/LOS_path` | 当时 huamo 的瞄准点；与橙线的偏离即跟线品质 |
+| 红箭头 `/Odometry` | 艇位姿，沿轨迹移动 |
+
+> 注意：早期几次录制漏了 `/waypoints_path`，所以回放里**没有绿色规划路径**（后续录制已补上）。
+
+---
+
 ## 3. RL 测试
 
 **现状**：模型已在艇上（`models/actor.pt`、`models/stage2_best_actor.pt`），契约测试 8/8 通过；**Phase 5（huamo 订阅 rl_cmd）未实现 → RL 只能 shadow，不能控艇**。
