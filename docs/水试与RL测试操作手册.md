@@ -209,9 +209,31 @@ ls -lt /home/jetson/rl_logs | head
 ```bash
 # 终端1：艇按 LOS 正常跑
 roslaunch a_star_planner a_star_demo.launch speed_max:=0.8
-# 终端2：shadow 并行观测记录
-roslaunch rl_local_planner rl_shadow.launch model_path:=.../stage2_best_actor.pt
-# 录制用 §2.0 的精简列表（已含 /guidance/rl_cmd、/guidance/rl_status）
+
+# 终端2：shadow 并行观测记录（加载真实模型，替换 STUB）
+roslaunch rl_local_planner rl_shadow.launch \
+  model_path:=/home/jetson/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/models/stage2_best_actor.pt
+
+# 终端3：录制 RL 数据包（含点云 —— 训练机侧离线重建观测必需）
+rosbag record --lz4 --split --size=2048 -O ~/bags/rlshadow_$(date +%m%d_%H%M) \
+  /Odometry /waypoints_path /cloud_registered_body /tf /tf_static \
+  /ship/ship_info /auto_thruster_pwm /LOS_path \
+  /guidance/rl_cmd /guidance/rl_status
+```
+
+**RL 数据包话题说明**（与 §2.0 的水试包差异在点云和 rl_*）：
+
+| 话题 | 用途 |
+|------|------|
+| `/Odometry` `/waypoints_path` `/tf` `/tf_static` | 重建观测（艇位姿、路径特征、map→camera_init） |
+| `/cloud_registered_body` | 重建 36 扇区障碍观测 —— **仅 RL 采数需要录**，也是包体积的大头（≈1 MB/s，10 分钟约 0.6 GB，lz4 压缩后更小） |
+| `/guidance/rl_cmd` `/guidance/rl_status` | RL 影子输出与推理时延，用于与 LOS 对比、检查 NaN/超时 |
+| `/auto_thruster_pwm` `/LOS_path` `/ship/ship_info` | 对照量：LOS 实际下发、前视点、模式状态 |
+
+**shadow 节点自己的 CSV 日志**（T3 评估的主要数据，比 bag 更重要）：
+
+```bash
+ls -lt /home/jetson/rl_logs | head          # 每次 shadow 运行一个 CSV
 ```
 
 采集要求：多圈、覆盖直线/转弯/不同航速，每圈记录航线+速度+结果。
