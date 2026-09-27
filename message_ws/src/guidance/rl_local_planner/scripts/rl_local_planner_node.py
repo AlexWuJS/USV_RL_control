@@ -147,6 +147,12 @@ class RLPlannerNode:
         self.is_auto = True
         self.last_raw_action = np.zeros(2)
         self.abnormal_since = None
+        # 速度/转率由位姿差分估计（FAST-LIO 的 /Odometry twist 恒为 0，不能直接用）
+        self._prev_odom = None          # (stamp, x, y, yaw)
+        self._vx = 0.0                  # 平滑后的世界系速度分量
+        self._vy = 0.0
+        self._r = 0.0                   # 平滑后的偏航角速度
+        self._vel_tau = 0.15            # 一阶低通时间常数(s)：抑制 100Hz 差分噪声，延迟仍在训练域随机化(0~2步)以内
 
         # --- TF ---
         self.tf_buffer = tf2_ros.Buffer()
@@ -259,21 +265,34 @@ class RLPlannerNode:
         rospy.loginfo("收到新路径: %d 点, 弧长 %.1f m", len(pts), self.path_features.s_total)
 
     def odom_cb(self, msg):
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
         yaw = wrap_scalar_to_pi(np.arctan2(
             2.0 * (msg.pose.pose.orientation.w * msg.pose.pose.orientation.z +
                    msg.pose.pose.orientation.x * msg.pose.pose.orientation.y),
             1.0 - 2.0 * (msg.pose.pose.orientation.y ** 2 +
                          msg.pose.pose.orientation.z ** 2)))
+
+        # --- 速度 / 转率：由位姿差分估计 ---
+        # FAST-LIO 的 /Odometry 只填 pose，twist 恒为 0（2026-09-27 bag 实测 23046 条全零），
+        # 直接取 twist 会让 u/v/r 永久为 0（策略以为艇静止）。
+        stamp = msg.header.stamp
+        prev = self._prev_odom
+        if prev is not None:
+            dt = (stamp - prev[0]).to_sec()
+            if 1e-3 < dt < 0.5:                       # 丢包/时间跳变时跳过本次估计
+                a = min(1.0, dt / self._vel_tau)      # 一阶低通，抑制 100Hz 差分噪声
+                self._vx += a * ((x - prev[1]) / dt - self._vx)
+                self._vy += a * ((y - prev[2]) / dt - self._vy)
+                self._r += a * (wrap_scalar_to_pi(yaw - prev[3]) / dt - self._r)
+        self._prev_odom = (stamp, x, y, yaw)
+
         psi = wrap_scalar_to_pi(yaw + self.hull_to_sensor_yaw)
-        vx = msg.twist.twist.linear.x
-        vy = msg.twist.twist.linear.y
         c, s = np.cos(psi), np.sin(psi)
-        u = c * vx + s * vy          # 世界速度 → 体轴投影（huamo 同款公式）
-        v = -s * vx + c * vy
+        u = c * self._vx + s * self._vy               # 世界速度 → 体轴投影
+        v = -s * self._vx + c * self._vy
         with self.lock:
-            self.state = BodyState(
-                x=msg.pose.pose.position.x, y=msg.pose.pose.position.y,
-                psi=psi, u=u, v=v, r=msg.twist.twist.angular.z)
+            self.state = BodyState(x=x, y=y, psi=psi, u=u, v=v, r=self._r)
             self.have_odom = True
         self._maybe_step()
 

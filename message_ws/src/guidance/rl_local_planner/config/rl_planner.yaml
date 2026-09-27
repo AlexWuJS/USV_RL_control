@@ -11,7 +11,11 @@ node:
 frames:
   world_frame: camera_init           # FAST-LIO /Odometry 系
   map_frame: map                     # /waypoints_path 所在系（TF map→camera_init）
-  hull_to_sensor_yaw: 0.0            # rad，传感器体轴→艇体首向标定角（Phase 5 标定，默认假设对齐）
+  hull_to_sensor_yaw: -1.5971        # rad，传感器体轴→艇体首向标定角
+                                     # 实测标定 2026-09-27 水试 bag：46 个直线航行样本
+                                     # 的「航迹向 − odom_yaw」中位数 = -91.5°（范围 -98.9°~-86.0°）
+                                     # 即 艇首向 = odom_yaw - 91.5°；此角同时影响
+                                     # e_heading、体轴前瞻点 与 36 扇区点云朝向
 
 topics:
   odom: /Odometry
