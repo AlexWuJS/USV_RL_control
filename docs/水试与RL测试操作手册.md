@@ -83,6 +83,21 @@ rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
   /fix /ship/ship_info /tf /guidance/rl_cmd /guidance/rl_status
 ```
 
+**只开一个录制进程**。若同一次还要采 RL shadow 数据，**在同一个命令里追加两个话题**即可（不要另开第二个 `rosbag record`，两个包会重复录相同话题、磁盘翻倍）：
+
+```bash
+# 水试 + RL 采数二合一（追加 /cloud_registered_body /tf_static）
+rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
+  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /planner_status \
+  /fix /ship/ship_info /tf /tf_static /cloud_registered_body \
+  /guidance/rl_cmd /guidance/rl_status
+```
+
+| 场景 | 话题增删 | 10 分钟体积 |
+|------|----------|-------------|
+| 常规水试验证（只看跟踪/规划） | 用基础列表（不含点云） | 约 30~60 MB |
+| 水试 + RL shadow 采数 | 追加 `/cloud_registered_body`、`/tf_static` | 约 0.6~1 GB（点云是大头） |
+
 **为什么不录 `/motion_path`**：它每条消息携带"本轮任务开始至今的全部轨迹"（10 分钟任务单条约 1MB，10Hz 发布），上次把磁盘写爆就是它——2.2GB 的包里 99% 是同一份轨迹重复写了 376 遍。轨迹可由 `/Odometry` 离线重建。
 
 ### 2.1 水上静态（桨不会动）
@@ -214,14 +229,11 @@ roslaunch a_star_planner a_star_demo.launch speed_max:=0.8
 roslaunch rl_local_planner rl_shadow.launch \
   model_path:=/home/jetson/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/models/stage2_best_actor.pt
 
-# 终端3：录制 RL 数据包（含点云 —— 训练机侧离线重建观测必需）
-rosbag record --lz4 --split --size=2048 -O ~/bags/rlshadow_$(date +%m%d_%H%M) \
-  /Odometry /waypoints_path /cloud_registered_body /tf /tf_static \
-  /ship/ship_info /auto_thruster_pwm /LOS_path \
-  /guidance/rl_cmd /guidance/rl_status
+# 终端3：录制 —— 不要另开录制进程，直接在 §2.0 的命令里追加 /cloud_registered_body /tf_static
+#        （同一次运行只需一个 bag，两个列表的大部分话题是重叠的）
 ```
 
-**RL 数据包话题说明**（与 §2.0 的水试包差异在点云和 rl_*）：
+**录制话题说明**（与常规水试包的差异只有点云和 rl_*）：
 
 | 话题 | 用途 |
 |------|------|
