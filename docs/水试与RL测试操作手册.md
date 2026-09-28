@@ -75,20 +75,40 @@ rostopic pub -r 10 /auto_thruster_pwm thruster_manager/Thruster \
 
 ## 2. 水试
 
-### 2.0 录制（开测前先起）
+### 2.0 录制（标准操作：一段一录一验证）
+
+**推荐：直接用防呆脚本**（自动查残留进程、查磁盘、停止后自动验证每段）：
+
+```bash
+bash ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_planner/scripts/record_water.sh        # 基础列表
+bash ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_planner/scripts/record_water.sh cloud  # RL采数/扇区（含点云）
+```
+
+停止方法：按**一次** Ctrl+C，等它自动打印 `[OK]/[坏]` 验证结果。
+**同一分钟内绝不重复运行**（文件名精确到分钟，1 分钟内重跑 = 同一个文件被写两遍，这正是 0928 三个包全坏的根因）。
+
+手工方式（等价流程，适合临时凑合）：
+
+**① 开录前**——确认没有残留录制进程、磁盘够：
+
+```bash
+ps -ef | grep [r]osbag     # 必须为空！有残留先 kill 掉再往下
+df -h / | tail -1          # 剩余 ≥20 G
+```
+
+**② 启动**（只此一个进程；基础列表已含 `/controller`，键盘操作段必须）：
 
 ```bash
 rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
-  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /planner_status \
+  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /controller /planner_status \
   /fix /ship/ship_info /tf /guidance/rl_cmd /guidance/rl_status
 ```
 
-**只开一个录制进程**。若同一次还要采 RL shadow 数据，**在同一个命令里追加两个话题**即可（不要另开第二个 `rosbag record`，两个包会重复录相同话题、磁盘翻倍）：
+若同一场还要采 RL shadow / 扇区数据（要点云），用二合一列表，**不要另开第二个录制进程**：
 
 ```bash
-# 水试 + RL 采数二合一（追加 /cloud_registered_body /tf_static）
 rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
-  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /planner_status \
+  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /controller /planner_status \
   /fix /ship/ship_info /tf /tf_static /cloud_registered_body \
   /guidance/rl_cmd /guidance/rl_status
 ```
@@ -96,7 +116,20 @@ rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
 | 场景 | 话题增删 | 10 分钟体积 |
 |------|----------|-------------|
 | 常规水试验证（只看跟踪/规划） | 用基础列表（不含点云） | 约 30~60 MB |
-| 水试 + RL shadow 采数 | 追加 `/cloud_registered_body`、`/tf_static` | 约 0.6~1 GB（点云是大头） |
+| 水试 + RL shadow 采数 | 用二合一列表（含 `/cloud_registered_body`、`/tf_static`） | 约 0.6~1 GB（点云是大头） |
+
+**③ 录制期间**：终端别关、别再按 Ctrl+C、别起第二个录制；换测试项目不必停录（记下每项开始时刻即可）。**关键采数项（多档直航、回转辨识）建议每项单独一段**：做完一项就停录→验证→再起一段，坏一段只损失一段。
+
+**④ 停止**：按**一次** Ctrl+C，等 shell 提示符自己回来（几秒钟，它在写索引）才算停完。期间不断电、不关终端、不 kill。
+
+**⑤ 立刻验证**（一秒钟，艇还在水上就能重录）：
+
+```bash
+rosbag info ~/bags/water_XXXX_0.bag
+```
+
+能列出话题和条数 = 好；报错 / duration=0 / 关键话题 0 条 = 坏了，当场重录。
+文件还挂着 `.active` 后缀或 info 报错 → 用 §6.3 的打捞器。
 
 **为什么不录 `/motion_path`**：它每条消息携带"本轮任务开始至今的全部轨迹"（10 分钟任务单条约 1MB，10Hz 发布），上次把磁盘写爆就是它——2.2GB 的包里 99% 是同一份轨迹重复写了 376 遍。轨迹可由 `/Odometry` 离线重建。
 
@@ -121,7 +154,9 @@ roslaunch a_star_planner a_star_demo.launch speed_max:=0.8    # 首航降速
 ```
 
 RViz：**2D Pose Estimate**（起点）→ **2D Nav Goal**（终点）。
-判据：走线/过弯正常、**终点前约 5m 停船**、实际速度 ≤0.8 m/s。
+判据：走线/过弯正常、**终点前约 5m 减速、停船后 PWM 回 1500 不转圈**、实际速度 ≤0.8 m/s。
+（2026-09-28 修复：终点/异常停车现在会显式发停车 PWM；剩余 15m 起线性减速；
+感知位置追不上路径持续 15s 自动停车——防定位漂移导致的绕圈不停。）
 
 ### 2.3 多点规划完整步骤
 
@@ -297,12 +332,13 @@ ls -lt /home/jetson/rl_logs | head          # 每次 shadow 运行一个 CSV
 
 | 门槛 | 现状 |
 |------|------|
-| Stage 2 成功率 ≥90% | 现在 74%（碰撞率 0%） |
+| Stage 2 成功率 ≥90% | **已达成**：94%（s2_2m5 延长训练 2.5M 步，50 回合、碰撞 0%，`archive_rounds/README.txt` + `eval_stage2_ext.json`）|
 | `k_r`/`r_max` 用实船数据修正 | 待 T2 数据 |
 | Phase 5：huamo 接 rl_cmd + ActionProcessor 硬限幅 + SafetySupervisor 兜底 | **未实现** |
 
 三者齐了才谈闭环（静水单目标低速 → 静态浮标 → 多目标，每级与 LOS 同航线对比）。
 模型选择：纯航线跟踪用 stage1 系；带浮标避障用 stage2。
+**艇上现有两个模型均出自 s2_2m5（94%）轮**：`actor.pt`=该轮 final 导出、`stage2_best_actor.pt`=该轮 best checkpoint 导出（md5 已与训练仓库逐一核对）。
 
 ---
 
@@ -354,3 +390,85 @@ rostopic pub -1 /tcp/raw_data std_msgs/String "{data: 'S,0,3,c,@,0,'}"   # 手�
 roslaunch a_star_planner a_star_demo_sim.launch boat_speed:=2.0   # 虚拟艇 + RViz 多点演示
 bash ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_planner/scripts/test_goal_sequence_offline.sh
 ```
+
+---
+
+## 6. 阶段0/1：扇区核对 + 基线采数指令清单
+
+两个离线分析脚本（都在 `rl_local_planner/scripts/`，**不需要 roscore**，bag 拷到哪都能跑；
+下述用直接路径，免于 catkin 重编译。`rosrun rl_local_planner <脚本名>` 亦可）：
+
+| 脚本 | 用途 | 输入 |
+|------|------|------|
+| `verify_lidar_sectors.py` | 36 扇区观测离线核对（hull_to_sensor_yaw 标定、测距、高度带） | 岸上静态录的短 bag |
+| `analyze_thrust_baseline.py` | 多档直航/满油门/回转 → PWM-速度表、v_max_phys、k_r/tau_r/r_max、相对规划线 CTE 偏置 | 阶段1水试 bag |
+
+### 6.1 岸上扇区核对（下水前，30 分钟）
+
+1. 艇静止（岸上/码头），`roslaunch bringup bringup.launch` 让定位链路出点云；
+2. 放一块挡板/纸箱：距离 3~8 m，高度在传感器原点上下 [-0.3,+1.0] m 内（别贴地别举太高），
+   记下艇体坐标方位角（0=艇首，+90=左舷，-90=右舷）；
+3. 录 20~30 s：`rosbag record --lz4 -O ~/bags/sector_check /cloud_registered_body /Odometry /tf`
+4. 离线核对（每个方位重复 2~3 次，重点测 0° 和 90°）：
+
+```bash
+RLS=~/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/scripts
+python3 $RLS/verify_lidar_sectors.py ~/bags/sector_check_0.bag --expect-bearing 90 --expect-dist 5
+# 不放目标跑一次 = 空场景对照（应全扇区满量程、无残影）
+```
+
+**判据**：退出码 0（PASS）= argmin 扇区与期望方位一致（±1 扇区）且距离 ±1.5 m；
+若 0° 与 90° 结果互换 → hull_to_sensor_yaw 差 90°；全程"艇首摆动"警告 >5° 说明录包时艇在动，重录。
+
+### 6.2 阶段1 水试逐项指令（一次出海按顺序做完）
+
+**准备**：`df -h / | tail -1` 确认剩余 ≥20 G；录制用 §2.0 二合一列表 **再加 `/controller`**（键盘回转段要用）：
+
+```bash
+rosbag record --lz4 --split --size=2048 -O ~/bags/water_$(date +%m%d_%H%M) \
+  /Odometry /waypoints_path /LOS_path /auto_thruster_pwm /controller /planner_status \
+  /fix /ship/ship_info /tf /tf_static /cloud_registered_body \
+  /guidance/rl_cmd /guidance/rl_status
+```
+
+**① 定位门禁**（§1.1 四判据过一遍）→ **② 单目标回归**（§2.2 原样，`speed_max:=0.8`）。
+
+**③ 多档直航 ×4**（每档一条直线目标，30~40 m，方向尽量互不相同；到达停船后换下一档）：
+
+```bash
+# 每档重启一次（speed_max 是 launch 参数）：
+roslaunch a_star_planner a_star_demo.launch speed_max:=0.2   # RViz 2D Nav Goal 点直线远端
+roslaunch a_star_planner a_star_demo.launch speed_max:=0.5
+roslaunch a_star_planner a_star_demo.launch speed_max:=1.0
+roslaunch a_star_planner a_star_demo.launch speed_max:=2.0   # 满档：滑模输出饱和到 100 → Δpwm 250
+```
+
+**④ 键盘稳态回转 ×3**（切手动 `S,0,3,c,@,0,`；前进油门固定，转向摇杆分小/中/大 3 档，
+每档稳住 20~30 s；再单独做 2 段"差速阶跃"：回中 5 s → 猛打转向 10 s）。
+
+**⑤ 多目标 + abort**（§2.3 完整步骤：2 点 → 4~5 点 → 混一个岸上点看 abort）。
+**⑥（可选）RL shadow**：§3.2 三个终端照做（`rl_shadow.launch model_path:=...stage2_best_actor.pt`）。
+
+**收工离线出表**（bag 拷到哪都行）：
+
+```bash
+RLS=~/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/scripts
+python3 $RLS/analyze_thrust_baseline.py ~/bags/water_XXXX_0.bag --csv-prefix /tmp/base
+python3 $RLS/verify_lidar_sectors.py    ~/bags/water_XXXX_0.bag   # 水上静态段的扇区留档
+```
+
+**本次要拿到的数**：PWM→速度曲线（含满档实测）→ 定 `v_max_phys`；差速→转率 + t63 → 定 `k_r/tau_r/r_max`；
+多航向 CTE 偏置矢量 → 判定是否存在世界系固定偏置（LOS 东偏）；shadow CSV → 送训练机回归观测分布。
+
+### 6.3 bag 损坏自救（录制收尾异常时）
+
+三个 0928 包全部因"录制收尾没正常关闭"损坏（索引区被覆盖 / 进程被杀）——`rosbag reindex` 只会恢复出 0 条。
+仓库里留了打捞器，不依赖索引直接扫 chunk 重建干净 bag：
+
+```bash
+python3 ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_planner/scripts/bag_scavenger.py \
+    <坏bag> <输出bag> [--map "0=/Odometry,6=/controller"]   # 连接表丢了时用 --map 手工指定
+```
+
+**预防才是正解**：停录制只按一次 `Ctrl+C` 等它自己退出（写索引需要几秒），绝不 `kill -9` / 直接断电；
+一个录制进程跑全程，别对同一个 `-O` 名字重复启动。
