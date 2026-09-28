@@ -9,6 +9,9 @@ source=SUPERVISOR_OVERRIDE，并置 supervisor_active 供诊断。
     P2 绝对钳位（ActionProcessor 已做；本层再兜底一次）
     P3 参考界：course_ref 偏离路径切线超过 course_dev_max → 截断
     P4 间隙-速度包络：d_min 越小速度上限越低，critical_zone 内直接停
+    P4b 终点-速度包络：s_remaining 越小速度上限越低（RL/LOS 双模式统一生效）；
+        到点停车与任务结束由任务簿记层负责（s_remaining ≤ goal_stop_dist 维持
+        goal_speed 爬行，本层不判停）
     P5 外部急停：is_auto_control=false → thruster_manager 现有逻辑（不在本层）
 
 注意：P4 允许输出 0.0（停船），低于 ActionProcessor 的 v_min —— 这是刻意的：
@@ -28,6 +31,9 @@ class SafetyConfig:
     crawl_zone: float = 3.0        # m，低于此降到 crawl_speed
     critical_zone: float = 1.5     # m，低于此立即停
     crawl_speed: float = 0.4       # m/s
+    goal_slow_dist: float = 15.0   # m，剩余里程低于此开始线性压速（终点限速上限）
+    goal_speed: float = 0.4        # m/s，终点爬行速度上限（到点停车由任务簿记层负责）
+    goal_stop_dist: float = 5.0    # m，剩余里程低于此=到达（簿记层停车），限速维持 goal_speed
     course_dev_max: float = 1.047  # rad ≈ 60°，course_ref 相对路径切线最大偏差
     v_min: float = V_REF_MIN
     v_max: float = V_REF_MAX
@@ -52,13 +58,35 @@ class SafetySupervisor:
         return 0.0
 
     # ------------------------------------------------------------------
-    def apply(self, cmd: NavCommand, d_min: float, tangent_course: float) -> NavCommand:
-        """对 RL 指令施加 P2+P3+P4，返回（可能被覆盖的）新指令。"""
+    def goal_envelope(self, s_remaining: float) -> float:
+        """剩余里程 → 允许的最大速度。线性：goal_slow_dist 处 v_max，
+        goal_stop_dist 处压到 goal_speed，再近维持 goal_speed —— 真正的
+        到点停车与任务结束由任务簿记层负责（LOS=剩余点数≤阈值，
+        RL=huamo 簿记），本层只封顶不判停。s_remaining=None 时返回 v_max。"""
+        c = self.cfg
+        if s_remaining is None or s_remaining >= c.goal_slow_dist:
+            return c.v_max
+        if s_remaining > c.goal_stop_dist:
+            f = (c.goal_slow_dist - s_remaining) / (c.goal_slow_dist - c.goal_stop_dist)
+            return c.v_max + f * (c.goal_speed - c.v_max)
+        return c.goal_speed
+
+    # ------------------------------------------------------------------
+    def apply(self, cmd: NavCommand, d_min: float, tangent_course: float,
+              s_remaining: float = None) -> NavCommand:
+        """对 RL 指令施加 P2+P3+P4+P4b，返回（可能被覆盖的）新指令。
+
+        s_remaining=None 表示终点规则不激活（旧调用方/测试兼容）。
+        """
         c = self.cfg
         overridden = False
 
         # P4 间隙-速度包络
         v_allow = self.speed_envelope(d_min)
+        # P4b 终点-速度包络（两条包络取更严者）
+        v_goal = self.goal_envelope(s_remaining)
+        if v_goal < v_allow:
+            v_allow = v_goal
         speed = float(cmd.desired_speed)
         if speed > v_allow:
             speed = v_allow

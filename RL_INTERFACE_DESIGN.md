@@ -201,9 +201,10 @@ course_ref(t+1) = wrap(course_ref(t) + Δcourse_ref)
 | 2 | 绝对钳位 | `v_ref ∈ [v_min, v_max]`，`|Δv_ref| ≤ dv_max`，`|Δcourse_ref| ≤ dcourse_max` |
 | 3 | 参考界 | `|wrap(course_ref − path_tangent)| ≤ course_dev_max`（60°），超出截断 |
 | 4 | 间隙-速度包络 | `d_min` = 36 扇区最小值：`>8m` 不限制；`8→3m` 线性压到 0.4 m/s；`3→1.5m` 压到 0；`<1.5m` 立即 desired_speed=0 |
+| 4b | 终点-速度包络 | `s_remaining`（剩余里程）：`>15m` 不限制；`15→5m` 线性压到 0.4 m/s；`≤5m` 维持 0.4 爬行——到点停车与任务结束由任务簿记层负责（LOS=剩余点数≤阈值，RL=s_remaining 簿记），本层只封顶不判停；与规则 4 取更严者；`s_remaining=None` 不激活（旧调用兼容） |
 | 5 | 外部急停 | `is_auto_control=false`（thruster_manager 现有逻辑，不属本节点，列出仅为完整性） |
 
-设计意图：P4 保证"即使 RL 完全失灵，靠近障碍物也会被压到停"，这是 shadow → 实艇的底线；RL 学到的是"提前减速绕行"，supervisor 只兜底不主导。
+设计意图：P4 保证"即使 RL 完全失灵，靠近障碍物也会被压到停"，这是 shadow → 实艇的底线；RL 学到的是"提前减速绕行"，supervisor 只兜底不主导。P4b 同理：RL 全权负责减速风格，安全层只封顶；到点停车归簿记层（huamo 停车 PWM / RL 模式 s_remaining 判定）。
 
 ---
 

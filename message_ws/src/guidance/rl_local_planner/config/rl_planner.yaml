@@ -37,6 +37,9 @@ safety:
   crawl_zone: 3.0                    # m，低于此降到 crawl_speed
   critical_zone: 1.5                 # m，低于此立即停
   crawl_speed: 0.4                   # m/s
+  goal_slow_dist: 15.0               # m，剩余里程低于此开始线性压速（终点限速上限）
+  goal_speed: 0.4                    # m/s，终点爬行速度上限（到点停车由任务簿记层负责）
+  goal_stop_dist: 5.0                # m，剩余里程低于此=到达（簿记层停车），限速维持 goal_speed
   course_dev_max: 1.047              # rad ≈ 60°，course_ref 相对路径切线最大偏差
   watchdog_ms: 200                   # 策略输出超时判定
   emergency_hold_ms: 1000            # 持续异常超过此值 → 急停（速度 0）

@@ -118,6 +118,9 @@ class RLPlannerNode:
             crawl_zone=float(p("~safety/crawl_zone", 3.0)),
             critical_zone=float(p("~safety/critical_zone", 1.5)),
             crawl_speed=float(p("~safety/crawl_speed", 0.4)),
+            goal_slow_dist=float(p("~safety/goal_slow_dist", 15.0)),
+            goal_speed=float(p("~safety/goal_speed", 0.4)),
+            goal_stop_dist=float(p("~safety/goal_stop_dist", 5.0)),
             course_dev_max=float(p("~safety/course_dev_max", 1.047)),
             v_min=float(p("~action/v_min", 0.2)),
             v_max=float(p("~action/v_max", 2.0)),
@@ -353,7 +356,8 @@ class RLPlannerNode:
         out = self.action_processor.process(self.last_raw_action)
         cmd = NavCommand(desired_speed=out.v_ref, desired_course=out.course_ref,
                          source=SRC_RL)
-        cmd = self.supervisor.apply(cmd, d_min, feat.tangent_course)
+        cmd = self.supervisor.apply(cmd, d_min, feat.tangent_course,
+                                    s_remaining=feat.s_remaining)
 
         # 发布 + 记录
         self._publish_cmd(cmd)

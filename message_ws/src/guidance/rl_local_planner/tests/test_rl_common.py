@@ -153,6 +153,27 @@ def test_safety_supervisor():
     print("[ok] safety_supervisor (包络 / 覆盖 / 透传 / 急停)")
 
 
+def test_safety_goal_envelope():
+    sv = SafetySupervisor(SafetyConfig())
+    cmd = NavCommand(desired_speed=2.0, desired_course=0.0, source=SRC_RL)
+    # 未传 s_remaining：终点规则不激活（旧调用方兼容）
+    out = sv.apply(cmd, d_min=20.0, tangent_course=0.0)
+    assert abs(out.desired_speed - 2.0) < 1e-9 and not out.supervisor_active
+    # 终点窗口外：不压
+    out = sv.apply(cmd, d_min=20.0, tangent_course=0.0, s_remaining=20.0)
+    assert abs(out.desired_speed - 2.0) < 1e-9
+    # 窗口内线性压速：remain=10（slow=15, stop=5 的中点）→ (2.0+0.4)/2=1.2
+    out = sv.apply(cmd, d_min=20.0, tangent_course=0.0, s_remaining=10.0)
+    assert abs(out.desired_speed - 1.2) < 1e-9 and out.supervisor_active
+    # 到达窗口内：压到 goal_speed 爬行（到点停车归任务簿记层）
+    out = sv.apply(cmd, d_min=20.0, tangent_course=0.0, s_remaining=3.0)
+    assert abs(out.desired_speed - sv.cfg.goal_speed) < 1e-9 and out.supervisor_active
+    # 与障碍包络取更严者：d_min=4 → 障碍包络 0.72 < 终点包络
+    out = sv.apply(cmd, d_min=4.0, tangent_course=0.0, s_remaining=20.0)
+    assert abs(out.desired_speed - 0.72) < 1e-9 and out.supervisor_active
+    print("[ok] safety goal_envelope (透传 / 线性压速 / 爬行 / 双包络取严)")
+
+
 def test_observation_builder():
     b = ObservationBuilder(ObsConfig())
     pts = np.column_stack([np.arange(0, 50.01, 0.5), np.zeros(101)])
@@ -181,5 +202,6 @@ if __name__ == "__main__":
     test_lidar_sectorizer()
     test_action_processor()
     test_safety_supervisor()
+    test_safety_goal_envelope()
     test_observation_builder()
     print("\n全部通过 ✓  (rl_common 契约层)")
