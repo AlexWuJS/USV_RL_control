@@ -176,9 +176,19 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                 getDesiredSpeedHeading(desired_speed_,desired_heading_,current_state_,path_,ye_,LOS_);
 
                 // stop 分支会置 has_path_=false 且不更新 LOS_（局部变量本轮保持零初始化），
-                // 此时不得再发布 LOS 与推力，否则会推出 (0,0) 野点
+                // 此时不得再发布 LOS，否则会推出 (0,0) 野点；
+                // 但必须显式发一拍中位 PWM 再静默 —— thruster_manager 会保持最后收到的
+                // PWM，直接 return 会让艇带着最后一拍（巡航油门/转弯差速）冲过终点
+                // 不停、甚至原地转圈（2026-09-28 水试复现）。
                 if (!has_path_)
                 {
+                    thruster_manager::Thruster stop_msg;
+                    stop_msg.left_thruster_pwm = 1500;
+                    stop_msg.right_thruster_pwm = 1500;
+                    stop_msg.left_sideThruster_pwm = 1500;
+                    stop_msg.right_sideThruster_pwm = 1500;
+                    controller_pub.publish(stop_msg);
+                    ROS_INFO("huamo: 任务结束(到终点/追路停滞)，停车");
                     has_odom_ = false;
                     return;
                 }

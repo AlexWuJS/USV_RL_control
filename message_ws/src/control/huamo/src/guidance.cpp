@@ -7,6 +7,8 @@ float delta_min = 6;
 float delta_max = 12;
 float turn_delta = 10;
 float speed_max = 2;
+float endgame_poses = 30;             // 终点减速段起点：剩余点数（A* 约0.5m/点 → 15m）
+const int CHASE_STALL_CYCLES = 1500;  // 追路停滞判定：约100Hz × 15s
 
 void calculat_expect_yaw(double &desired_heading,const Eigen::VectorXd current_state,Eigen::VectorXd &LOS)
 {
@@ -56,6 +58,36 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
     //后续一律用下标访问并按剩余点数钳制，避免越界读产生野前视点
     path.poses.erase(path.poses.begin(), closest_it);
     const int remain = static_cast<int>(path.poses.size());
+
+    // 追路停滞保护：艇在动（位置步进 >0.001m/拍 ≈ 0.1m/s）但路径连续多拍擦不动
+    // —— 感知位置远离剩余路径（典型：定位漂移），继续追只会绕圈。
+    // 累计超过 CHASE_STALL_CYCLES 视为任务异常：停车、结束任务。
+    // 新路径到达时 size 跳变会自动清零计数。
+    static int stall_cnt = 0;
+    static int last_size = -1;
+    static double stall_last_x = 0.0, stall_last_y = 0.0;
+    static bool stall_pos_init = false;
+    const int cur_size = static_cast<int>(path.poses.size());
+    double stall_step = 0.0;
+    if (stall_pos_init)
+        stall_step = std::hypot(x - stall_last_x, y - stall_last_y);
+    stall_last_x = x;
+    stall_last_y = y;
+    stall_pos_init = true;
+    if (cur_size == last_size && stall_step > 0.001)
+        ++stall_cnt;
+    else
+        stall_cnt = 0;
+    last_size = cur_size;
+    if (stall_cnt > CHASE_STALL_CYCLES)
+    {
+        desired_speed = 0.0;
+        desired_heading = psi;
+        has_path_ = false;
+        std::cout << "stop: chase stall " << CHASE_STALL_CYCLES
+                  << " cycles (localization drift?) -> stop" << std::endl;
+        return;
+    }
     // std::cout << "path pose size:" << path.poses.size() << std::endl;
     
     //变视距
@@ -134,9 +166,21 @@ void getDesiredSpeedHeading(double &desired_speed, double &desired_heading, cons
         desired_speed = 0.8;
     else
         desired_speed = speed_max * (1- std::abs(ye)/10 - std::abs(d_yaw)/M_PI_2);
-    
+
     if(is_turn)
         desired_speed = 2.0;
+
+    // 终点减速段（剩余 ≤ endgame_poses 点）：速度随剩余距离线性压低，同时压制
+    // 上面的原地转弯(0.8)与 is_turn 提速(2.0) —— 保证临近终点时最后一拍不会是
+    // “高速+大差速”，否则停止后 thruster_manager 保持该拍 PWM，艇会带差速转圈。
+    if (remain <= (int)endgame_poses)
+    {
+        float v_ramp = speed_max * (float)(remain - 10) / (float)(endgame_poses - 10);
+        if (v_ramp < 0.2f)
+            v_ramp = 0.2f;
+        if (desired_speed > v_ramp)
+            desired_speed = v_ramp;
+    }
 
     desired_speed = desired_speed > speed_max? speed_max : (desired_speed < 0.2? 0.2 : desired_speed);
 }
