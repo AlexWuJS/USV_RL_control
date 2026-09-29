@@ -443,8 +443,10 @@ roslaunch a_star_planner a_star_demo.launch speed_max:=1.0
 roslaunch a_star_planner a_star_demo.launch speed_max:=2.0   # 满档：滑模输出饱和到 100 → Δpwm 250
 ```
 
-**④ 键盘稳态回转 ×3**（切手动 `S,0,3,c,@,0,`；前进油门固定，转向摇杆分小/中/大 3 档，
-每档稳住 20~30 s；再单独做 2 段"差速阶跃"：回中 5 s → 猛打转向 10 s）。
+**④ 地面站键盘稳态回转 ×3**（切键盘模式 `S,0,3,c,@,0,` 后，**在地面站界面推摇杆——
+不要用实体遥控器**：遥控器走 RF 直连电机、指令不经 ROS，bag 里录不到，0929 已实锤；
+前进油门固定，转向摇杆分小/中/大 3 档，每档稳住 20~30 s；
+再单独做 2 段"差速阶跃"：回中 5 s → 一步打满转向 10~15 s → 回中 5 s；左右方向各做一组）。
 
 **⑤ 多目标 + abort**（§2.3 完整步骤：2 点 → 4~5 点 → 混一个岸上点看 abort）。
 **⑥（可选）RL shadow**：§3.2 三个终端照做（`rl_shadow.launch model_path:=...stage2_best_actor.pt`）。
