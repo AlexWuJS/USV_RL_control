@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_ros
 
   thruster_manager
+  rl_local_planner
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,7 +111,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
  LIBRARIES huamo
- CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2 tf2_ros thruster_manager
+ CATKIN_DEPENDS roscpp rospy std_msgs message_runtime tf2 tf2_ros thruster_manager rl_local_planner
 #  DEPENDS system_lib
 )
 

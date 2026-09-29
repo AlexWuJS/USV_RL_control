@@ -20,6 +20,7 @@
 #include "huamo/huamo.h"
 #include "huamo/pwm_data.h"
 #include <thruster_manager/Thruster.h>
+#include <rl_local_planner/NavCmd.h>
 
 bool data_flag = false;
 bool has_odom_ = false;
@@ -27,6 +28,12 @@ bool has_imu_ = false;
 bool has_path_ = false;
 bool remember = false;
 bool use_pose_speed_diff = false;   // 速度闭环开关：true=用位姿差分估计实际航速（launch 参数）
+int  guidance_mode = 0;             // 0=LOS（现状） 1=RL（执行 /guidance/rl_cmd）
+bool has_rl_cmd = false;
+ros::Time rl_last_stamp;            // 最近一条 rl_cmd 接收时刻（看门狗用）
+double rl_speed = 0.0;              // m/s
+double rl_course = 0.0;             // rad，camera_init 系 ENU 航迹向
+bool  rl_emergency = false;         // supervisor_active 且速度 0 → 急停
 
 static std::ofstream file;
 
@@ -198,6 +205,16 @@ void imuCallback(const sensor_msgs::Imu::ConstPtr& imu_data)
     has_imu_ = true;
 }
 
+void rlCmdCallback(const rl_local_planner::NavCmd::ConstPtr& msg)
+{
+    rl_speed = msg->desired_speed;
+    rl_course = msg->desired_course;
+    // supervisor 置位且速度归零 = SafetySupervisor 急停，直接兑现
+    rl_emergency = (msg->supervisor_active != 0 && msg->desired_speed <= 1e-6);
+    rl_last_stamp = ros::Time::now();
+    has_rl_cmd = true;
+}
+
 void huamo_run(const float now_v, const float now_yaw, const float now_w)
 {
     if(has_path_)
@@ -232,16 +249,45 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                     return;
                 }
 
-                LOS_path.header.frame_id = "camera_init";
-                LOS_path.header.stamp = ros::Time::now();
-                geometry_msgs::PoseStamped pose_msg;
-                pose_msg.header.stamp = ros::Time::now();
-                pose_msg.header.frame_id = "camera_init";
-                pose_msg.pose.position.x = LOS_[0]; 
-                pose_msg.pose.position.y = LOS_[1]; 
-                pose_msg.pose.position.z = 0;
-                LOS_path.poses.push_back(pose_msg);
-                LOS_path_pub.publish(LOS_path);
+                // ---- RL 模式：覆盖期望速度/航向（簿记已由上面的调用完成）----
+                // 换算公式已用 0929 bag 2 万 LOS 样本验证：huamo 内部航向 = course + pi
+                bool use_rl = false;
+                if (guidance_mode == 1)
+                {
+                    double rl_age = (ros::Time::now() - rl_last_stamp).toSec();
+                    if (has_rl_cmd && rl_age < 0.5)
+                    {
+                        use_rl = true;
+                        double spd = rl_speed;
+                        if (rl_emergency) spd = 0.0;
+                        if (spd < 0.0)        spd = 0.0;
+                        if (spd > speed_max)  spd = speed_max;   // huamo 侧硬限幅
+                        desired_speed_ = spd;
+                        desired_heading_ = rl_course + M_PI;
+                        if (desired_heading_ >  M_PI) desired_heading_ -= 2.0 * M_PI;
+                        if (desired_heading_ < -M_PI) desired_heading_ += 2.0 * M_PI;
+                    }
+                    else
+                    {
+                        // 看门狗：断流本拍回退 LOS，持续断流保持 LOS 直到消息恢复
+                        ROS_WARN_THROTTLE(5.0, "guidance_mode=rl: rl_cmd 断流 %.1fs，回退 LOS",
+                                          rl_age);
+                    }
+                }
+
+                if (!use_rl)
+                {
+                    LOS_path.header.frame_id = "camera_init";
+                    LOS_path.header.stamp = ros::Time::now();
+                    geometry_msgs::PoseStamped pose_msg;
+                    pose_msg.header.stamp = ros::Time::now();
+                    pose_msg.header.frame_id = "camera_init";
+                    pose_msg.pose.position.x = LOS_[0];
+                    pose_msg.pose.position.y = LOS_[1];
+                    pose_msg.pose.position.z = 0;
+                    LOS_path.poses.push_back(pose_msg);
+                    LOS_path_pub.publish(LOS_path);
+                }
 
                 forward = speed_huamo(now_v,desired_speed_);
                 
@@ -250,6 +296,10 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                 thruster_msg.left_thruster_pwm = control_[0];
                 thruster_msg.right_thruster_pwm = control_[1];
                 controller_pub.publish(thruster_msg);
+                ROS_INFO_THROTTLE(1.0,
+                    "[huamo_exec] mode=%s rl_sp=%.2f des_sp=%.2f fwd=%.1f turn=%.1f pwm=(%.0f,%.0f)",
+                    guidance_mode == 1 ? "rl" : "los", rl_speed, desired_speed_, forward, turn,
+                    thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
                 
                 has_odom_ = false;
             }
@@ -282,8 +332,14 @@ int main(int argc, char* argv[])
     ros::NodeHandle pnh("~");
     pnh.param<float>("speed_max", speed_max, 2.0f);
     pnh.param<bool>("use_pose_speed_diff", use_pose_speed_diff, false);
+    std::string mode_str;
+    pnh.param<std::string>("guidance_mode", mode_str, "los");
+    guidance_mode = (mode_str == "rl") ? 1 : 0;
+    rl_last_stamp = ros::Time::now();
     ROS_INFO("huamo_node: speed_max = %.2f m/s, use_pose_speed_diff = %s",
              speed_max, use_pose_speed_diff ? "true(位姿差分闭环)" : "false(开环, 现状)");
+    if (guidance_mode == 1)
+        ROS_INFO("huamo_node: guidance_mode = rl（执行 /guidance/rl_cmd，断流 >0.5s 自动回退 LOS）");
 
     tf_buffer_ptr = std::make_unique<tf2_ros::Buffer>();
     tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr);
@@ -292,6 +348,7 @@ int main(int argc, char* argv[])
     // ros::Subscriber imu_sub = nh.subscribe("/imu/data",10,imuCallback);
     ros::Subscriber odom_sub = nh.subscribe("/Odometry",10,odomCallback);
     ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
+    ros::Subscriber rl_cmd_sub = nh.subscribe("/guidance/rl_cmd", 1, rlCmdCallback);
     // ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
 
     controller_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 1000);

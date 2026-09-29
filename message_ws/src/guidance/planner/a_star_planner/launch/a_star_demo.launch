@@ -17,6 +17,8 @@
   <!-- 速度闭环开关：true=用 /Odometry 位姿差分估计实际航速（FAST-LIO twist 恒零）；
        false=沿用现状（开环映射）。A/B 对比时只切此参数重启 -->
   <arg name="use_pose_speed_diff" default="false" />
+  <!-- 引导模式：los=滑模 LOS（现状）| rl=执行 /guidance/rl_cmd（Phase 5，断流自动回退 LOS） -->
+  <arg name="guidance_mode" default="los" />
 
   <!-- 添加必要的TF静态变换 -->
   <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom"
@@ -57,6 +59,7 @@
       <remap from="my_path" to="/waypoints_path" />
       <param name="speed_max" value="$(arg speed_max)" />
       <param name="use_pose_speed_diff" value="$(arg use_pose_speed_diff)" />
+      <param name="guidance_mode" value="$(arg guidance_mode)" />
     </node>
   </group>
 

@@ -27,5 +27,7 @@ catkin_install_python(PROGRAMS
   scripts/rl_local_planner_node.py
   scripts/verify_lidar_sectors.py
   scripts/analyze_thrust_baseline.py
+  scripts/inject_rl_cmd.py
+  scripts/bench_phase5.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

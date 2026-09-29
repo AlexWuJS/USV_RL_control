@@ -40,7 +40,11 @@ float speed_huamo(const float now_v,const float expect_v)
     float x1 = now_v;
 
     float s = 10*(now_v - x1_expect);
-    double reaching_law = k1*pow(std::abs(s),a1)*tanh(b1*s) + k2*pow(std::abs(s),a2)*asinh(b2*pow(s,a3));
+    // 趋近律在 |s|→0 时极限为 0，但 pow(0, 负幂) = inf、inf*tanh(0) = NaN
+    // （now_v 与期望速度恰好相等时触发，PWM 变 NaN）—— 小于阈值直接取 0
+    double reaching_law = 0.0;
+    if (std::abs(s) > 1e-6)
+        reaching_law = k1*pow(std::abs(s),a1)*tanh(b1*s) + k2*pow(std::abs(s),a2)*asinh(b2*pow(s,a3));
     u = 1/B*x1 + A/B*x1_d_expect - A/B * (reaching_law);    
 
     u = u > 100? 100 : (u < 0? 0 : u);
@@ -144,13 +148,17 @@ float yaw_huamo(const float forward,const float now_yaw,const float expect_yaw,c
 
     //第一个控制器
     float s1 = yc[i] * e*1.5 +(x2 - x1_d_expect);
-    double reaching_law1 = yk1[i]*pow(std::abs(s1),ya1[i])*tanh(yb1[i]*s1) + yk2[i]*pow(std::abs(s1),ya2[i])*asinh(yb2[i]*pow(s1,ya3[i]));
+    double reaching_law1 = 0.0;
+    if (std::abs(s1) > 1e-6)   // 同 speed_huamo：防 |s1|=0 时 pow(0,负幂)→NaN
+        reaching_law1 = yk1[i]*pow(std::abs(s1),ya1[i])*tanh(yb1[i]*s1) + yk2[i]*pow(std::abs(s1),ya2[i])*asinh(yb2[i]*pow(s1,ya3[i]));
     float u1 = yn3[i]/yK[i]*pow(x2,3) + (1/yK[i]-yc[i]*yT[i]/yK[i])*x2 + yc[i]*yT[i]/yK[i]*x1_d_expect+yT[i]/yK[i]*x1_dd_expect - yT[i]/yK[i]*(reaching_law1);
     u1 = u1 > 100? 100 : (u1 < -100? -100 : u1);
 
     //第二个控制器
     float s2 = yc[i+1]*e + (x2 - x1_d_expect);
-    double reaching_law2 = yk1[i+1]*pow(std::abs(s2),ya1[i+1])*tanh(yb1[i+1]*s2) + yk2[i+1]*pow(std::abs(s2),ya2[i+1])*asinh(yb2[i+1]*pow(s2,ya3[i+1]));
+    double reaching_law2 = 0.0;
+    if (std::abs(s2) > 1e-6)
+        reaching_law2 = yk1[i+1]*pow(std::abs(s2),ya1[i+1])*tanh(yb1[i+1]*s2) + yk2[i+1]*pow(std::abs(s2),ya2[i+1])*asinh(yb2[i+1]*pow(s2,ya3[i+1]));
     float u2 = yn3[i+1]/yK[i+1]*pow(x2,3) + (1/yK[i+1]-yc[i+1]*yT[i+1]/yK[i+1])*x2 + yc[i+1]*yT[i+1]/yK[i+1]*x1_d_expect+yT[i+1]/yK[i+1]*x1_dd_expect - yT[i+1]/yK[i+1]*(reaching_law2);
     u2 = u2 > 100 ? 100 : (u2 < -100? -100 : u2);
 
