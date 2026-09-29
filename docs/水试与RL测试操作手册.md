@@ -393,6 +393,9 @@ bash ~/haique/little-boat-motion-control/message_ws/src/guidance/planner/a_star_
 
 ---
 
+> **本次下水（闭环第一级）的逐步操作单见《[下水测试操作单_闭环第一级.md](下水测试操作单_闭环第一级.md)》——
+> 含速度闭环 A/B、RL 首航、shadow 复测、湖心专段的完整指令与判据。
+
 ## 6. 阶段0/1：扇区核对 + 基线采数指令清单
 
 两个离线分析脚本（都在 `rl_local_planner/scripts/`，**不需要 roscore**，bag 拷到哪都能跑；
