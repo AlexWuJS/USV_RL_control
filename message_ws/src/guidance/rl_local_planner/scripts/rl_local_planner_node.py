@@ -104,6 +104,10 @@ class RLPlannerNode:
         self.world_frame = p("~frames/world_frame", "camera_init")
         self.map_frame = p("~frames/map_frame", "map")
         self.hull_to_sensor_yaw = float(p("~frames/hull_to_sensor_yaw", 0.0))
+        # 自回波过滤：艇体结构（桅杆支杆等）在 1.0~1.4 m 处的固定回波会污染
+        # d_min 观测与障碍包络（0929 实测：传感器系 -160°/1.40 m 恒定回波）。
+        # 训练端 raycast 无自身体，过滤后实艇观测才贴近训练分布。
+        self.cloud_min_range = float(p("~frames/cloud_min_range", 1.0))
         # --- topics ---
         t = p("~topics", {})
         # --- action / safety / obs ---
@@ -207,7 +211,7 @@ class RLPlannerNode:
             self.csv_writer.writerow(
                 ["t", "u", "v", "r", "cte", "e_heading", "d_min",
                  "v_ref", "course_ref", "cmd_speed", "cmd_course",
-                 "supervisor", "infer_ms", "actor"])
+                 "supervisor", "infer_ms", "actor", "s_remaining", "tangent_course"])
             rospy.loginfo("运行日志(%s): %s", self.mode, path)
         except OSError as e:
             rospy.logwarn("shadow 日志打开失败: %s", e)
@@ -225,6 +229,12 @@ class RLPlannerNode:
                                                 skip_nans=True)), dtype=np.float64)
         except Exception:  # noqa: BLE001
             return
+        if pts.size == 0:
+            self.points_body = np.zeros((0, 3))
+            return
+        # 自回波过滤：丢掉传感器原点 min_range 内的点（艇体结构固定回波）
+        rng = np.hypot(pts[:, 0], pts[:, 1])
+        pts = pts[rng >= self.cloud_min_range]
         if pts.size == 0:
             self.points_body = np.zeros((0, 3))
             return
@@ -407,7 +417,8 @@ class RLPlannerNode:
             "%.4f" % feat.cte, "%.4f" % e_head, "%.4f" % d_min,
             "%.4f" % out.v_ref, "%.4f" % out.course_ref,
             "%.4f" % cmd.desired_speed, "%.4f" % cmd.desired_course,
-            int(cmd.supervisor_active), "%.2f" % infer_ms, self.actor_kind])
+            int(cmd.supervisor_active), "%.2f" % infer_ms, self.actor_kind,
+            "%.4f" % feat.s_remaining, "%.4f" % feat.tangent_course])
         self.csv_file.flush()
 
     # ------------------------------------------------------------------
