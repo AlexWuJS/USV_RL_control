@@ -26,6 +26,7 @@ bool has_odom_ = false;
 bool has_imu_ = false;
 bool has_path_ = false;
 bool remember = false;
+bool use_pose_speed_diff = false;   // 速度闭环开关：true=用位姿差分估计实际航速（launch 参数）
 
 static std::ofstream file;
 
@@ -52,8 +53,46 @@ void odomCallback(const nav_msgs::Odometry &msg)
     current_state_(2) = current_state_(2) > M_PI ? (current_state_(2) - 2*M_PI) : (current_state_(2) < -M_PI ? (current_state_(2) + 2 * M_PI) : current_state_(2));
     // std::cout << "yaw:" << current_state_(2)*180/M_PI << std::endl;
     // if (current_state(2) < 0) current_state(2) += 2 * M_PI;
+    // --- 速度闭环反馈（use_pose_speed_diff=true 时启用）---
+    // FAST-LIO 的 /Odometry twist 恒为 0，speed_huamo 的反馈项失效退化为开环映射。
+    // 这里用相邻两帧位姿差分求世界系速度，0.15s 一阶低通去噪
+    // （与 rl_local_planner_node 同一套算法/参数，保证两端"速度"定义一致）。
+    static ros::Time spd_last_stamp;
+    static double spd_last_x = 0.0, spd_last_y = 0.0;
+    static bool spd_has_prev = false;
+    static double spd_vx_w = 0.0, spd_vy_w = 0.0;   // 低通后的世界系速度
     double vx = msg.twist.twist.linear.x;
     double vy = msg.twist.twist.linear.y;
+    if (use_pose_speed_diff)
+    {
+        ros::Time stamp = msg.header.stamp;
+        double px = msg.pose.pose.position.x;
+        double py = msg.pose.pose.position.y;
+        if (spd_has_prev)
+        {
+            double dt = (stamp - spd_last_stamp).toSec();
+            if (dt > 1e-3 && dt < 0.5)
+            {
+                double step = std::hypot(px - spd_last_x, py - spd_last_y);
+                if (step < 0.5)   // 跳变保护：重定位/漂移修正的假速度尖峰直接丢弃
+                {
+                    double a = std::min(1.0, dt / 0.15);
+                    spd_vx_w += a * ((px - spd_last_x) / dt - spd_vx_w);
+                    spd_vy_w += a * ((py - spd_last_y) / dt - spd_vy_w);
+                }
+            }
+            vx = spd_vx_w;   // dt 异常/跳变帧：沿用上次滤波值
+            vy = spd_vy_w;
+        }
+        else
+        {
+            vx = 0.0; vy = 0.0;
+        }
+        spd_last_stamp = stamp;
+        spd_last_x = px;
+        spd_last_y = py;
+        spd_has_prev = true;
+    }
     Eigen::Matrix2d R_b_n;
     Eigen::Vector2d vel_n;
     Eigen::Vector2d vel_b;
@@ -242,7 +281,9 @@ int main(int argc, char* argv[])
     // 引导律参数：launch 里用 <param name="speed_max" .../> 覆盖（默认 2.0 保持原行为）
     ros::NodeHandle pnh("~");
     pnh.param<float>("speed_max", speed_max, 2.0f);
-    ROS_INFO("huamo_node: speed_max = %.2f m/s", speed_max);
+    pnh.param<bool>("use_pose_speed_diff", use_pose_speed_diff, false);
+    ROS_INFO("huamo_node: speed_max = %.2f m/s, use_pose_speed_diff = %s",
+             speed_max, use_pose_speed_diff ? "true(位姿差分闭环)" : "false(开环, 现状)");
 
     tf_buffer_ptr = std::make_unique<tf2_ros::Buffer>();
     tf_listener_ptr = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_ptr);

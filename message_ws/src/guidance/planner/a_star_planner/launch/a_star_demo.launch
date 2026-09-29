@@ -14,6 +14,9 @@
   <arg name="use_controller" default="true" />
   <!-- 期望巡航速度上限 m/s（首次水试建议降速，如 0.8） -->
   <arg name="speed_max" default="2.0" />
+  <!-- 速度闭环开关：true=用 /Odometry 位姿差分估计实际航速（FAST-LIO twist 恒零）；
+       false=沿用现状（开环映射）。A/B 对比时只切此参数重启 -->
+  <arg name="use_pose_speed_diff" default="false" />
 
   <!-- 添加必要的TF静态变换 -->
   <!-- <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_odom"
@@ -53,6 +56,7 @@
     <node pkg="huamo" type="huamo_node" name="huamo" output="screen">
       <remap from="my_path" to="/waypoints_path" />
       <param name="speed_max" value="$(arg speed_max)" />
+      <param name="use_pose_speed_diff" value="$(arg use_pose_speed_diff)" />
     </node>
   </group>
 
