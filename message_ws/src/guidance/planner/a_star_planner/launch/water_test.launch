@@ -44,10 +44,10 @@
   <node pkg="a_star_planner" type="waypoint_collector.py" name="waypoint_collector" output="screen"/>
 
   <!-- ===== ④ RL 节点（shadow=陪跑 / active=执令）===== -->
-  <group if="!(arg rl_mode == 'none')">
-    <include file="$(find rl_local_planner)/launch/rl_shadow.launch">
-      <arg name="mode" value="$(arg rl_mode)"/>
-      <arg name="model_path" value="$(arg rl_model)"/>
-    </include>
-  </group>
+<group if="$(eval arg('rl_mode') != 'none')">
+  <include file="$(find rl_local_planner)/launch/rl_shadow.launch">
+    <arg name="mode" value="$(arg rl_mode)"/>
+    <arg name="model_path" value="$(arg rl_model)"/>
+  </include>
+</group>
 </launch>
