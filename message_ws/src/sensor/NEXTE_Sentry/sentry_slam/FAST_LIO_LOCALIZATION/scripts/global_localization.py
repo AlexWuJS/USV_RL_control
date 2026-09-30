@@ -402,27 +402,14 @@ if __name__ == '__main__':
 
     rospy.Subscriber('/cloud_registered', PointCloud2, cb_save_cur_scan, queue_size=1) # 订阅注册后的点云数据
     rospy.Subscriber('/Odometry', Odometry, cb_save_cur_odom, queue_size=1) # 订阅里程计数据
+    # 常驻订阅初始位姿:启动时的首次定位和运行中的每次点击重定位都经过这里
+    rospy.Subscriber('/initialpose', PoseWithCovarianceStamped, cb_initial_pose, queue_size=1)
 
     # 初始化全局地图
     rospy.logwarn('Waiting for global map......')
     initialize_global_map(rospy.wait_for_message('/map', PointCloud2)) # 等待全局地图消息
 
-    # 初始化
-    while not initialized:
-        rospy.logwarn('Waiting for initial pose....')
-
-        # 等待初始位姿
-        pose_msg = rospy.wait_for_message('/initialpose', PoseWithCovarianceStamped)
-        initial_pose = pose_to_mat(pose_msg)
-        if cur_scan:
-            initialized = global_localization(initial_pose)
-        else:
-            rospy.logwarn('First scan not received!!!!!')
-
-    rospy.loginfo('')
-    rospy.loginfo('Initialize successfully!!!!!!')
-    rospy.loginfo('')
-    # 开始定期全局定位
-    _thread.start_new_thread(thread_localization, ())
+    # 启动手动重定位请求处理线程(内部完成首次定位,并负责启动周期定位线程)
+    _thread.start_new_thread(thread_reloc_request, ())
 
     rospy.spin()
