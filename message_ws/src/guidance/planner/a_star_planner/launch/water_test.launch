@@ -1,0 +1,47 @@
+<launch>
+  <!-- ============================================================
+       water_test.launch —— 水试一条命令启动（交互 v2）
+       包含: bringup(传感器+定位+RViz) + a_star_demo(规划/控制)
+             + waypoint_collector(v2 交互) + RL 节点(shadow/active)
+       录制请单独运行: record_water.sh cloud（交互式停录+自动验证）
+       ============================================================ -->
+
+  <!-- ===== 阶段参数（一条命令切换测试阶段）===== -->
+  <!-- 巡航速度上限 m/s（首航建议 0.8）-->
+  <arg name="speed_max" default="0.8"/>
+  <!-- 引导模式: los=滑模 LOS（现状）| rl=执行 /guidance/rl_cmd（断流自动回退 LOS）-->
+  <arg name="guidance_mode" default="los"/>
+  <!-- 速度闭环开关: true=位姿差分求航速（A/B 的 B 趟）-->
+  <arg name="use_pose_speed_diff" default="false"/>
+  <!-- false=纯规划测试（不启动 huamo，桨绝对不会转）-->
+  <arg name="use_controller" default="true"/>
+  <!-- RL 节点模式: shadow=陪跑采数（默认）| active=执令（闭环！）| none=不启动 -->
+  <arg name="rl_mode" default="shadow"/>
+  <!-- RL 模型 -->
+  <arg name="rl_model" default="$(find rl_local_planner)/models/stage2_best_actor.pt"/>
+  <!-- 仿真地图（无雷达练习用）——真艇保持 false，FAST-LIO 自带 /prior_map -->
+  <arg name="use_map_server" default="false"/>
+
+  <!-- ===== ① 传感器+定位+RViz（bringup）===== -->
+  <include file="$(find bringup)/launch/bringup.launch"/>
+
+  <!-- ===== ② 规划+控制（a_star_demo，参数透传）===== -->
+  <include file="$(find a_star_planner)/launch/a_star_demo.launch">
+    <arg name="speed_max" value="$(arg speed_max)"/>
+    <arg name="guidance_mode" value="$(arg guidance_mode)"/>
+    <arg name="use_pose_speed_diff" value="$(arg use_pose_speed_diff)"/>
+    <arg name="use_controller" value="$(arg use_controller)"/>
+    <arg name="use_map_server" value="$(arg use_map_server)"/>
+  </include>
+
+  <!-- ===== ③ 多点导航交互（v2: Publish Point=途经点/图外=清除；2D Nav Goal=终点即规划）===== -->
+  <node pkg="a_star_planner" type="waypoint_collector.py" name="waypoint_collector" output="screen"/>
+
+  <!-- ===== ④ RL 节点（shadow=陪跑 / active=执令）===== -->
+  <group if="!(arg rl_mode == 'none')">
+    <include file="$(find rl_local_planner)/launch/rl_shadow.launch">
+      <arg name="mode" value="$(arg rl_mode)"/>
+      <arg name="model_path" value="$(arg rl_model)"/>
+    </include>
+  </group>
+</launch>

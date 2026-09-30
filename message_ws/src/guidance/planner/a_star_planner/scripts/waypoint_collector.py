@@ -62,7 +62,7 @@ class WaypointCollector(object):
             rospy.Timer(rospy.Duration(1.0), self.tick_auto_commit)
 
         rospy.loginfo('waypoint_collector v2 就绪')
-        rospy.loginfo('  途经点 : RViz "Publish Point" 点图内（图外点击=清除整条轨迹）')
+        rospy.loginfo('  途经点 : RViz "Publish Point" 点水域=设途经点（点岸上/障碍/图外=清除整条轨迹）')
         rospy.loginfo('  终点   : RViz "2D Nav Goal" 点一下 → 立即从艇当前位置规划')
         rospy.loginfo('  再点一次 2D Nav Goal = 替换终点并重新规划')
         rospy.loginfo('  兼容   : commit=仅提交途经点 / clear=全部清空')
@@ -71,25 +71,35 @@ class WaypointCollector(object):
     def on_map(self, msg):
         self.map_grid = msg
 
-    def _in_map(self, x, y):
-        """是否在先验地图栅格范围内。无地图时视为在图内（交由规划器判别）。"""
+    def _is_click_clear(self, x, y):
+        """清除判别：点击位置在图外，或落在岸上/障碍/未知栅格（非自由水域）→ 清除。
+        RViz 的 Publish Point 只对渲染几何生效，"图外空白处"点不到，
+        而"点岸上=清除"一定点得到。无地图时放行（交由规划器判别）。"""
         g = self.map_grid
         if g is None:
             if not self.map_warned:
-                rospy.logwarn('尚未收到 /prior_map，无法判别图内/图外'
-                              '（图外点击=清除的功能暂不生效）')
+                rospy.logwarn('尚未收到 /prior_map，无法判别水域/陆地'
+                              '（点非水域=清除的功能暂不生效）')
                 self.map_warned = True
-            return True
+            return False
         ox, oy = g.info.origin.position.x, g.info.origin.position.y
         w = g.info.width * g.info.resolution
         h = g.info.height * g.info.resolution
-        return ox <= x <= ox + w and oy <= y <= oy + h
+        if not (ox <= x <= ox + w and oy <= y <= oy + h):
+            return True                                   # 图外
+        col = int((x - ox) / g.info.resolution)
+        row = int((y - oy) / g.info.resolution)
+        try:
+            return g.data[row * g.info.width + col] != 0  # 非自由栅格（岸/障碍/未知）
+        except IndexError:
+            return True
 
     # ---------- 交互 ----------
     def on_click(self, msg):
         p = msg.point
-        if self.auto_clear_out_of_map and not self._in_map(p.x, p.y):
-            rospy.loginfo('点击位置 (%.2f, %.2f) 在地图边界外 → 清除整条轨迹', p.x, p.y)
+        if self.auto_clear_out_of_map and self._is_click_clear(p.x, p.y):
+            rospy.loginfo('点击位置 (%.2f, %.2f) 为陆地/障碍/图外 → 清除整条轨迹'
+                          '（点水域=设途经点，点非水域=清除）', p.x, p.y)
             self.on_clear(None)
             return
         self.points.append((p.x, p.y))
@@ -100,8 +110,9 @@ class WaypointCollector(object):
 
     def on_nav_goal(self, msg):
         """2D Nav Goal：设/替换终点并立即规划。"""
-        if not self._in_map(msg.pose.position.x, msg.pose.position.y):
-            rospy.loginfo('终点位置 (%.2f, %.2f) 在地图边界外 → 清除整条轨迹',
+        if self.auto_clear_out_of_map and self._is_click_clear(msg.pose.position.x,
+                                                              msg.pose.position.y):
+            rospy.loginfo('终点位置 (%.2f, %.2f) 为陆地/障碍/图外 → 清除整条轨迹',
                           msg.pose.position.x, msg.pose.position.y)
             self.on_clear(None)
             return
