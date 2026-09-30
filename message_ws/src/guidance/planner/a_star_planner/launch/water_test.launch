@@ -22,8 +22,9 @@
   <!-- 仿真地图（无雷达练习用）——真艇保持 false，FAST-LIO 自带 /prior_map -->
   <arg name="use_map_server" default="false"/>
 
-  <!-- 阶段切换重启时置 false：只重启控制/RL 部分，定位（bringup）保持不断 -->
-  <arg name="include_bringup" default="true"/>
+  <!-- bringup（传感器+定位+RViz）请单独启动并常驻（见操作单）；
+       本 launch 只负责 控制+采集+RL，各阶段切换直接重启本文件即可 -->
+  <arg name="include_bringup" default="false"/>
 
   <!-- ===== ① 传感器+定位+RViz（bringup）===== -->
   <group if="$(arg include_bringup)">
