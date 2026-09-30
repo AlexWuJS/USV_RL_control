@@ -22,8 +22,13 @@
   <!-- 仿真地图（无雷达练习用）——真艇保持 false，FAST-LIO 自带 /prior_map -->
   <arg name="use_map_server" default="false"/>
 
+  <!-- 阶段切换重启时置 false：只重启控制/RL 部分，定位（bringup）保持不断 -->
+  <arg name="include_bringup" default="true"/>
+
   <!-- ===== ① 传感器+定位+RViz（bringup）===== -->
-  <include file="$(find bringup)/launch/bringup.launch"/>
+  <group if="$(arg include_bringup)">
+    <include file="$(find bringup)/launch/bringup.launch"/>
+  </group>
 
   <!-- ===== ② 规划+控制（a_star_demo，参数透传）===== -->
   <include file="$(find a_star_planner)/launch/a_star_demo.launch">

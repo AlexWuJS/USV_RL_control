@@ -4,6 +4,7 @@ from __future__ import print_function, division, absolute_import # 导入future�
 
 import copy # 导入copy模块
 import _thread # 导入_thread模块
+import threading # 导入threading模块,用手动重定位的互斥锁
 import time # 导入time模块
 
 import open3d as o3d # 导入open3d模块
@@ -23,6 +24,10 @@ T_map_to_odom = np.eye(4)  # 地图到里程计的变换矩阵
 cur_odom = None         # 当前里程计数据
 cur_scan = None         # 当前激光扫描数据
 first_localization = True  # 首次定位标志，用于快速收敛
+
+# 手动重定位(RViz 2D Pose Estimate 点击)相关
+reloc_request = None  # 最新一次点击的位姿(4x4矩阵),None表示无待处理请求,连续点击时旧请求被覆盖
+reloc_lock = threading.Lock()  # 串行化所有ICP调用,防止周期定位线程与手动重定位线程并发修改T_map_to_odom
 
 # 添加发布者
 pub_relocalization_success = None  # 重定位成功发布者
@@ -281,14 +286,76 @@ def cb_save_cur_scan(pc_msg):
     cur_scan.points = o3d.utility.Vector3dVector(pc_filtered[:, :3])
 
 # 线程局部化
-# 每隔一段时间进行全局定位  
+# 每隔一段时间进行全局定位
 def thread_localization():
     global T_map_to_odom
     while True:
         # 每隔一段时间进行全局定位
         rospy.sleep(1 / FREQ_LOCALIZATION)
         # TODO 由于这里Fast lio发布的scan是已经转换到odom系下了 所以每次全局定位的初始解就是上一次的map2odom 不需要再拿odom了
-        global_localization(T_map_to_odom)
+        with reloc_lock:  # 与手动重定位互斥,避免并发修改T_map_to_odom
+            global_localization(T_map_to_odom)
+
+
+# 点击RViz 2D Pose Estimate(或运行publish_initial_pose.py)时的回调
+# 只缓存最新请求,由thread_reloc_request线程取出执行
+def cb_initial_pose(pose_msg):
+    global reloc_request
+    pose_mat = pose_to_mat(pose_msg)  # 先算好矩阵再持锁,缩短锁占用时间
+    with reloc_lock:
+        reloc_request = pose_mat
+    rospy.loginfo('Received relocalization request from /initialpose')
+
+
+# 把点击的map系位姿换算成ICP初值T_map_to_odom
+# 参与配准的点云已经在odom(camera_init)系下,ICP解的是map→odom变换;
+# 点击给出的是map→body位姿,要扣除当前里程计odom→body才是T_map_to_odom。
+# 启动时里程计≈单位阵,结果退化为直接用点击位姿,与原有行为一致;
+# 运行中点击则消除"开艇以来累计里程"带来的初值偏差,保证ICP能配准上
+def clicked_pose_to_guess(clicked_map_to_body):
+    if cur_odom is None:
+        return clicked_map_to_body
+    T_odom_to_body = pose_to_mat(cur_odom)
+    return np.matmul(clicked_map_to_body, inverse_se3(T_odom_to_body))
+
+
+# 手动重定位请求处理线程
+# 初始化成功前负责首次定位(点击一次定位一次,失败可反复点击);
+# 成功后线程常驻,定位漂移时随时点击即可重新找回位置,无需重启launch
+def thread_reloc_request():
+    global initialized, first_localization, reloc_request
+    while True:
+        rospy.sleep(0.1)
+        with reloc_lock:
+            request = reloc_request
+            reloc_request = None
+        if request is None:
+            if not initialized:
+                rospy.logwarn_throttle(5, 'Waiting for initial pose....')
+            continue
+        if not cur_scan:
+            rospy.logwarn('First scan not received!!!!!')
+            continue
+
+        initial_guess = clicked_pose_to_guess(request)
+        if initialized:
+            rospy.loginfo('Manual relocalization by /initialpose......')
+        with reloc_lock:
+            first_localization = True  # 点击结果直接生效,跳过EMA平滑,立即吸附到新位姿
+            success = global_localization(initial_guess)
+            if not success:
+                first_localization = False  # 配准失败则恢复周期定位的EMA平滑跟踪
+
+        if success:
+            if not initialized:
+                initialized = True
+                rospy.loginfo('')
+                rospy.loginfo('Initialize successfully!!!!!!')
+                rospy.loginfo('')
+                # 首次定位成功后,启动周期全局定位线程
+                _thread.start_new_thread(thread_localization, ())
+        else:
+            rospy.logwarn('Relocalization failed, click 2D Pose Estimate again....')
 
 
 if __name__ == '__main__':
