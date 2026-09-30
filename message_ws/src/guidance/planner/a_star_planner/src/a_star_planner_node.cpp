@@ -121,13 +121,18 @@ void AStarPlanner::goalCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
         return;
     }
 
-    if (!start_received_) {
-        ROS_WARN("No start position received yet. Please set start position in RViz");
+    // 起点：优先艇当前位置（TF map→robot_frame），/initialpose（重定位点）仅兜底
+    geometry_msgs::Pose seg_start;
+    if (getBoatPoseInMap(seg_start)) {
+        ROS_INFO("Start position: boat TF pose");
+    } else if (start_received_) {
+        seg_start = start_pose_;
+        ROS_WARN("Boat TF unavailable, start from /initialpose"
+                 "（重定位点——可能不是艇当前位置）");
+    } else {
+        ROS_WARN("No boat TF and no /initialpose start received");
         return;
     }
-
-    // 使用已保存的起点
-    geometry_msgs::Pose seg_start = start_pose_;
 
     ROS_INFO("Start position (world coordinates):");
     ROS_INFO("  - x: %.2f", seg_start.position.x);

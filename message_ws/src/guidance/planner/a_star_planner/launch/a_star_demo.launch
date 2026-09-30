@@ -5,7 +5,7 @@
   <arg name="map_resolution" default="0.5" />
   <arg name="inflation_radius" default="0.5" />
   <arg name="map_frame" default="map" />
-  <arg name="robot_frame" default="camera_init" />
+  <arg name="robot_frame" default="body" /><!-- body=FAST-LIO 艇体帧：TF 起点=艇真实位置（camera_init 是里程计原点，会话内固定，不是艇位） -->
 
   <!-- 是否启动独立的 map_server -->
   <!-- 与 bringup.launch (use_lidar:=true) 一起使用时设为 false，因为 FAST-LIO 已提供 /prior_map -->
