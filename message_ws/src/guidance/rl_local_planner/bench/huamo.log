@@ -1,0 +1,37 @@
+[33m[WARN] [1790854157.538661004]: guidance_mode=rl: rl_cmd 断流 3.7s，回退 LOS[0m
+[33m[WARN] [1790854182.591681336]: guidance_mode=rl: rl_cmd 断流 7.6s，回退 LOS[0m
+[33m[WARN] [1790854187.607724305]: guidance_mode=rl: rl_cmd 断流 1.5s，回退 LOS[0m
+[0m[INFO] [1790854153.801772782]: huamo_node: PWM平滑 turn_rate=50/s deadzone=3.0 rl_lpf_tau=0.50s | 悬停 kp=0.30 vmax=0.60 stop=0.30m[0m
+[0m[INFO] [1790854153.802648262]: huamo_node: speed_max = 1.00 m/s, use_pose_speed_diff = false(开环, 现状)[0m
+[0m[INFO] [1790854153.802663942]: huamo_node: guidance_mode = rl（执行 /guidance/rl_cmd，断流 >0.5s 自动回退 LOS）[0m
+[0m[INFO] [1790854157.539157992]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.20 fwd=27.5 turn=0.0 pwm=(1790854158,0)[0m
+[0m[INFO] [1790854158.543734593]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.20 fwd=27.5 turn=-100.0 pwm=(1790854159,0)[0m
+[0m[INFO] [1790854159.559678295]: [huamo_exec] mode=rl rl_sp=0.20 des_sp=0.20 fwd=27.5 turn=0.0 pwm=(1790854160,0)[0m
+[0m[INFO] [1790854160.567686130]: [huamo_exec] mode=rl rl_sp=0.20 des_sp=0.20 fwd=27.5 turn=0.0 pwm=(1790854161,0)[0m
+[0m[INFO] [1790854161.603715736]: [huamo_exec] mode=rl rl_sp=0.20 des_sp=0.20 fwd=27.5 turn=0.0 pwm=(1790854162,0)[0m
+[0m[INFO] [1790854162.651699446]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=0.0 pwm=(1790854163,0)[0m
+[0m[INFO] [1790854163.658636347]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=0.0 pwm=(1790854164,0)[0m
+[0m[INFO] [1790854164.683670369]: [huamo_exec] mode=rl rl_sp=0.90 des_sp=0.90 fwd=63.5 turn=0.0 pwm=(1790854165,0)[0m
+[0m[INFO] [1790854165.683683042]: [huamo_exec] mode=rl rl_sp=0.90 des_sp=0.90 fwd=63.5 turn=0.0 pwm=(1790854166,0)[0m
+[0m[INFO] [1790854166.719751880]: [huamo_exec] mode=rl rl_sp=0.90 des_sp=0.90 fwd=63.5 turn=0.0 pwm=(1790854167,0)[0m
+[0m[INFO] [1790854167.727649540]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=0.0 pwm=(1790854168,0)[0m
+[0m[INFO] [1790854168.771643013]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=0.0 pwm=(1790854169,0)[0m
+[0m[INFO] [1790854169.783643453]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=-100.0 pwm=(1790854170,0)[0m
+[0m[INFO] [1790854170.787692635]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=-100.0 pwm=(1790854171,0)[0m
+[0m[INFO] [1790854171.791664921]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=100.0 pwm=(1790854172,0)[0m
+[0m[INFO] [1790854172.823654499]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=100.0 pwm=(1790854173,0)[0m
+[0m[INFO] [1790854173.863697286]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.00 fwd=0.0 turn=0.0 pwm=(1790854174,0)[0m
+[0m[INFO] [1790854174.863696551]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.00 fwd=0.0 turn=0.0 pwm=(1790854175,0)[0m
+[0m[INFO] [1790854175.338587059]: huamo: 进入定点悬停，锚点(camera_init) = (0.00, 0.00)（退出：点新航线 / clear / 遥控器切手动）[0m
+[0m[INFO] [1790854175.358414598]: huamo: hover_set 重复触发，已在悬停中（锚点保持不变）[0m
+[0m[INFO] [1790854175.538765054]: [hover] 锚点=(0.00, 0.00) 艇=(0.00, 0.00) dist=0.00 v=0.00 turn=0 pwm=(1790854176, 0)[0m
+[0m[INFO] [1790854177.538974207]: [hover] 锚点=(0.00, 0.00) 艇=(0.00, 0.00) dist=0.00 v=0.00 turn=0 pwm=(1790854178, 0)[0m
+[0m[INFO] [1790854179.579724925]: [hover] 锚点=(0.00, 0.00) 艇=(3.00, 2.00) dist=3.61 v=0.60 turn=100 pwm=(1790854180, 0)[0m
+[0m[INFO] [1790854180.358962118]: huamo: hover_set 重复触发，已在悬停中（锚点保持不变）[0m
+[0m[INFO] [1790854181.619715458]: [hover] 锚点=(0.00, 0.00) 艇=(3.00, 2.00) dist=3.61 v=0.60 turn=100 pwm=(1790854182, 0)[0m
+[0m[INFO] [1790854182.591805015]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.20 fwd=27.5 turn=97.6 pwm=(1790854183,0)[0m
+[0m[INFO] [1790854183.598777467]: [huamo_exec] mode=rl rl_sp=0.00 des_sp=0.20 fwd=27.5 turn=-100.0 pwm=(1790854184,0)[0m
+[0m[INFO] [1790854184.623756802]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=-96.8 pwm=(1790854185,0)[0m
+[0m[INFO] [1790854185.627686944]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.50 fwd=43.2 turn=100.0 pwm=(1790854186,0)[0m
+[0m[INFO] [1790854186.659688490]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.20 fwd=27.5 turn=-100.0 pwm=(1790854187,0)[0m
+[0m[INFO] [1790854187.703707786]: [huamo_exec] mode=rl rl_sp=0.50 des_sp=0.20 fwd=27.5 turn=-100.0 pwm=(1790854188,0)[0m

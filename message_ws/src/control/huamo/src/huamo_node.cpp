@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include <std_msgs/Float32.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Empty.h>
 #include <fstream>
 #include <chrono>
 #include <ctime>
@@ -34,6 +35,16 @@ ros::Time rl_last_stamp;            // 最近一条 rl_cmd 接收时刻（看门
 double rl_speed = 0.0;              // m/s
 double rl_course = 0.0;             // rad，camera_init 系 ENU 航迹向
 bool  rl_emergency = false;         // supervisor_active 且速度 0 → 急停
+// ---- PWM 平滑参数（RL 期望航向逐拍摆动 → 转向满舵乒乓，0930 首航实测）----
+double turn_rate_limit = 50.0;      // PWM/s，转向输出摆率限幅
+double turn_deadzone   = 3.0;       // PWM，转向死区（±此值内不动作）
+double rl_lpf_tau      = 0.5;       // s，RL 航向参考低通时间常数（0=关闭）
+// ---- 定点悬停 ----
+bool   hovering_      = false;      // 悬停子模式（覆盖 los/rl，新任务/clear 退出）
+geometry_msgs::Point hover_anchor_cam;   // 悬停锚点（camera_init 系）
+double hover_kp        = 0.30;      // 1/s，悬停位置环增益
+double hover_vmax      = 0.60;      // m/s，悬停回归速度上限
+double hover_stop_dist = 0.30;      // m，到位阈值（速度归零，保持）
 
 static std::ofstream file;
 
@@ -49,6 +60,35 @@ ros::Publisher motion_path_pub, global_path_pub,LOS_path_pub;
 
 std::unique_ptr<tf2_ros::Buffer> tf_buffer_ptr;
 std::unique_ptr<tf2_ros::TransformListener> tf_listener_ptr;
+
+static double normAng(double a)
+{
+    while (a >  M_PI) a -= 2.0 * M_PI;
+    while (a < -M_PI) a += 2.0 * M_PI;
+    return a;
+}
+
+// 转向输出平滑：摆率限幅 + 死区（LOS/RL/悬停共用的执行层出口）
+static double turn_prev_val = 0.0;
+static ros::Time turn_prev_t;
+static bool turn_prev_init = false;
+static float smooth_turn(float turn)
+{
+    ros::Time now_t = ros::Time::now();
+    double dt = turn_prev_init ? (now_t - turn_prev_t).toSec() : 0.02;
+    turn_prev_t = now_t;
+    turn_prev_init = true;
+    if (dt < 1e-3 || dt > 1.0) {          // 断流后首拍：不限制，直接采用
+        turn_prev_val = turn;
+        return turn;
+    }
+    double lim = turn_rate_limit * dt;    // 摆率限幅（PWM/s × dt）
+    if (turn > turn_prev_val + lim)       turn = turn_prev_val + lim;
+    else if (turn < turn_prev_val - lim)  turn = turn_prev_val - lim;
+    if (std::abs(turn) < turn_deadzone)   turn = 0.0;
+    turn_prev_val = turn;
+    return turn;
+}
 
 void odomCallback(const nav_msgs::Odometry &msg)
 {
@@ -145,6 +185,7 @@ void pathCallback(const nav_msgs::Path &path)
         motion_path.poses.clear();
         LOS_path.poses.clear();
         has_path_ = false;
+        hovering_ = false;   // 取消任务 = 退出悬停
         thruster_manager::Thruster stop_msg;
         stop_msg.left_thruster_pwm = 1500;
         stop_msg.right_thruster_pwm = 1500;
@@ -188,6 +229,7 @@ void pathCallback(const nav_msgs::Path &path)
     path_.header.frame_id = target_frame;
     path_.header.stamp = path.header.stamp;
 
+    hovering_ = false;   // 新任务到达 = 退出悬停（新任务优先于悬停）
     // 新任务到达：清空上一轮的行驶轨迹与前视线轨迹。
     // 否则 /motion_path、/LOS_path 会跨任务无限累积，RViz 里旧轨迹永远留着
     motion_path.poses.clear();
@@ -215,8 +257,65 @@ void rlCmdCallback(const rl_local_planner::NavCmd::ConstPtr& msg)
     has_rl_cmd = true;
 }
 
+void hoverSetCallback(const std_msgs::Empty::ConstPtr& msg)
+{
+    if (hovering_) {
+        ROS_INFO_THROTTLE(5.0, "huamo: hover_set 重复触发，已在悬停中（锚点保持不变）");
+        return;   // 重复触发不重锚——锚点只在进入悬停时设定一次
+    }
+    try {
+        geometry_msgs::TransformStamped tf_cb =
+            tf_buffer_ptr->lookupTransform("camera_init", "body",
+                                           ros::Time(0), ros::Duration(0.2));
+        hover_anchor_cam.x = tf_cb.transform.translation.x;
+        hover_anchor_cam.y = tf_cb.transform.translation.y;
+        hover_anchor_cam.z = tf_cb.transform.translation.z;
+        hovering_ = true;
+        ROS_INFO("huamo: 进入定点悬停，锚点(camera_init) = (%.2f, %.2f)"
+                 "（退出：点新航线 / clear / 遥控器切手动）",
+                 hover_anchor_cam.x, hover_anchor_cam.y);
+    } catch (tf2::TransformException& ex) {
+        ROS_WARN("huamo: hover_set 被拒绝——定位 TF 不可用 (%s)", ex.what());
+    }
+}
+
 void huamo_run(const float now_v, const float now_yaw, const float now_w)
 {
+    // ---- 定点悬停（最高优先级，无需路径；退出：新任务/clear/定位TF丢失）----
+    if (hovering_)
+    {
+        if (has_odom_)
+        {
+            static double h_hdg = current_state_(2);
+            double ex = hover_anchor_cam.x - current_state_(0);
+            double ey = hover_anchor_cam.y - current_state_(1);
+            double dist = std::hypot(ex, ey);
+            double v = hover_kp * dist;
+            if (v > hover_vmax)       v = hover_vmax;
+            if (dist < hover_stop_dist) v = 0.0;   // 到位：速度归零，保持
+            double des_hdg;
+            if (v > 1e-3)
+                des_hdg = normAng(std::atan2(ey, ex) + M_PI);  // 指向锚点（huamo 航向约定，同 RL 换算）
+            else
+                des_hdg = current_state_(2);                    // 到位：保持当前航向
+            h_hdg = normAng(h_hdg + 0.2 * normAng(des_hdg - h_hdg));  // 航向亦低通，避免到位瞬间甩头
+            float forward = speed_huamo(now_v, (float)v);
+            float turn = smooth_turn(yaw_huamo(forward, now_yaw,
+                                               (float)h_hdg, now_w, 0.0f));
+            std::vector<float> control_ = remote_data_deal(forward, turn);
+            thruster_msg.left_thruster_pwm = control_[0];
+            thruster_msg.right_thruster_pwm = control_[1];
+            controller_pub.publish(thruster_msg);
+            ROS_INFO_THROTTLE(2.0,
+                "[hover] 锚点=(%.2f, %.2f) 艇=(%.2f, %.2f) dist=%.2f v=%.2f turn=%.0f pwm=(%.0f, %.0f)",
+                hover_anchor_cam.x, hover_anchor_cam.y,
+                current_state_(0), current_state_(1), dist, v, turn,
+                thruster_msg.left_thruster_pwm, thruster_msg.right_thruster_pwm);
+            has_odom_ = false;
+        }
+        return;
+    }
+
     if(has_path_)
     {
         static double desired_speed_ = 0, desired_heading_ = 0;
@@ -263,9 +362,21 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
                         if (spd < 0.0)        spd = 0.0;
                         if (spd > speed_max)  spd = speed_max;   // huamo 侧硬限幅
                         desired_speed_ = spd;
-                        desired_heading_ = rl_course + M_PI;
-                        if (desired_heading_ >  M_PI) desired_heading_ -= 2.0 * M_PI;
-                        if (desired_heading_ < -M_PI) desired_heading_ += 2.0 * M_PI;
+                        desired_heading_ = normAng(rl_course + M_PI);
+                        // 航向参考低通：策略 course_ref 逐拍摆动（首航实测中位偏差 23°~82°）
+                        // 会 1:1 传导为转向满舵乒乓——每个新 rl_cmd 只向目标靠近一步（tau 秒）
+                        static ros::Time lp_stamp;
+                        static double lp_hdg = 0.0;
+                        static bool lp_init = false;
+                        if (!lp_init || rl_last_stamp != lp_stamp)
+                        {
+                            double a = (rl_lpf_tau <= 0.0) ? 1.0
+                                : std::min(1.0, 0.1 / rl_lpf_tau);   // rl_cmd 周期 0.1s
+                            lp_hdg = normAng(lp_hdg + a * normAng(desired_heading_ - lp_hdg));
+                            lp_stamp = rl_last_stamp;
+                            lp_init = true;
+                            desired_heading_ = lp_hdg;
+                        }
                     }
                     else
                     {
@@ -291,7 +402,7 @@ void huamo_run(const float now_v, const float now_yaw, const float now_w)
 
                 forward = speed_huamo(now_v,desired_speed_);
                 
-                turn = yaw_huamo(forward, now_yaw, desired_heading_, now_w,ye_);
+                turn = smooth_turn(yaw_huamo(forward, now_yaw, desired_heading_, now_w,ye_));
                 std::vector<float> control_ = remote_data_deal(forward,turn);
                 thruster_msg.left_thruster_pwm = control_[0];
                 thruster_msg.right_thruster_pwm = control_[1];
@@ -336,6 +447,16 @@ int main(int argc, char* argv[])
     pnh.param<std::string>("guidance_mode", mode_str, "los");
     guidance_mode = (mode_str == "rl") ? 1 : 0;
     rl_last_stamp = ros::Time::now();
+    pnh.param<double>("turn_rate_limit", turn_rate_limit, 50.0);
+    pnh.param<double>("turn_deadzone",   turn_deadzone, 3.0);
+    pnh.param<double>("rl_lpf_tau",      rl_lpf_tau, 0.5);
+    pnh.param<double>("hover_kp",        hover_kp, 0.30);
+    pnh.param<double>("hover_vmax",      hover_vmax, 0.60);
+    pnh.param<double>("hover_stop_dist", hover_stop_dist, 0.30);
+    ROS_INFO("huamo_node: PWM平滑 turn_rate=%.0f/s deadzone=%.1f rl_lpf_tau=%.2fs | "
+             "悬停 kp=%.2f vmax=%.2f stop=%.2fm",
+             turn_rate_limit, turn_deadzone, rl_lpf_tau,
+             hover_kp, hover_vmax, hover_stop_dist);
     ROS_INFO("huamo_node: speed_max = %.2f m/s, use_pose_speed_diff = %s",
              speed_max, use_pose_speed_diff ? "true(位姿差分闭环)" : "false(开环, 现状)");
     if (guidance_mode == 1)
@@ -349,6 +470,7 @@ int main(int argc, char* argv[])
     ros::Subscriber odom_sub = nh.subscribe("/Odometry",10,odomCallback);
     ros::Subscriber path_sub = nh.subscribe("/my_path",10, pathCallback);
     ros::Subscriber rl_cmd_sub = nh.subscribe("/guidance/rl_cmd", 1, rlCmdCallback);
+    ros::Subscriber hover_sub = nh.subscribe("/guidance/hover_set", 1, hoverSetCallback);
     // ros::Subscriber data_flag_sub = nh.subscribe("data_flag",10,data_flag_callback);
 
     controller_pub = nh.advertise<thruster_manager::Thruster>("/auto_thruster_pwm", 1000);

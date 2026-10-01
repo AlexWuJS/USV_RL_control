@@ -19,6 +19,17 @@ def expect_fwd_pwm(sp):
     return 1500.0 + (50.0 + 2.5*u if u > 1 else 0.0)
 
 rospy.init_node("bench_phase5", anonymous=True)
+import tf2_ros
+from geometry_msgs.msg import TransformStamped
+tf_br = tf2_ros.TransformBroadcaster()
+boat_pos = [0.0, 0.0]
+def publish_tf(x, y):
+    t = TransformStamped()
+    t.header.stamp = rospy.Time.now()
+    t.header.frame_id = "camera_init"; t.child_frame_id = "body"
+    t.transform.translation.x = x; t.transform.translation.y = y
+    t.transform.rotation.w = 1.0
+    tf_br.sendTransform(t)
 od = rospy.Publisher("/Odometry", Odometry, queue_size=1)
 pp = rospy.Publisher("/my_path", Path, queue_size=1)
 rc = rospy.Publisher("/guidance/rl_cmd", NavCmd, queue_size=1)
@@ -38,6 +49,9 @@ r = rospy.Rate(50)
 t0 = time.time()
 def publish_odom():
     odom.header.stamp = rospy.Time.now()
+    odom.pose.pose.position.x = boat_pos[0]
+    odom.pose.pose.position.y = boat_pos[1]
+    publish_tf(boat_pos[0], boat_pos[1])
     od.publish(odom)
 def rl(sp, course):
     m = NavCmd(); m.header.stamp = rospy.Time.now()
@@ -94,6 +108,18 @@ ok2 = (d1 is not None and d2 is not None and
 res_ok &= ok2
 print("  e=0: diff=%s | +30°: %s | -30°: %s  %s"
       % (d0, d1, d2, "PASS" if ok2 else "FAIL"))
+# 转向摆率限幅验证（turn 限幅 50/s → diff 限幅 125/s）
+seg2 = [p for p in pwms if p[0] >= time.time()-6.0]
+slew = []
+for i in range(1, len(seg2)):
+    dt = seg2[i][0] - seg2[i-1][0]
+    if dt > 1e-3:
+        slew.append(abs(((seg2[i][2]-seg2[i][1]) - (seg2[i-1][2]-seg2[i-1][1]))/2.0)/dt)
+if slew:
+    smax = max(slew)
+    ok_slew = smax < 200
+    res_ok &= ok_slew
+    print("  转向摆率: max %.0f PWM/s (限幅125)  %s" % (smax, "PASS" if ok_slew else "FAIL"))
 
 print("== 3 急停（speed=0）==")
 stage(2.0, sp=0.0, course=COURSE0)
@@ -101,6 +127,43 @@ Lm, Rm, fwd0, df0 = stats(2.0)
 ok3 = fwd0 is not None and abs(fwd0) < 8 and abs(df0) < 15
 res_ok &= ok3
 print("  L=%4.0f R=%4.0f  fwd=%.1f diff=%+.1f  %s" % (Lm, Rm, fwd0, df0, "PASS" if ok3 else "FAIL"))
+
+from std_msgs.msg import Empty as EmptyMsg
+hov = rospy.Publisher("/guidance/hover_set", EmptyMsg, queue_size=1)
+
+print("== 3b 悬停进入（艇在锚点）→ 应保持 1500 ==")
+# 连续发布 0.5s 建立连接（Publisher 刚创建时首条消息可能丢失）
+t_c = time.time()
+while time.time() < t_c + 0.5:
+    hov.publish(EmptyMsg()); r.sleep()
+t_h = time.time()
+while time.time() < t_h + 3.0:
+    publish_odom(); hov.publish(EmptyMsg()); r.sleep()   # 悬停期间不发路径（会取消悬停）
+Lm, Rm, fwd_h, df_h = stats(2.0)
+ok_h0 = fwd_h is not None and abs(fwd_h) < 8 and abs(df_h) < 15
+res_ok &= ok_h0
+print("  进入悬停(在锚点): L=%4.0f R=%4.0f  %s" % (Lm, Rm, "PASS" if ok_h0 else "FAIL"))
+
+print("== 3c 悬停：艇被吹走 3m → 应驱动返回 ==")
+boat_pos[0], boat_pos[1] = 3.0, 2.0
+t_d = time.time()
+while time.time() < t_d + 4.0:
+    publish_odom(); hov.publish(EmptyMsg()); r.sleep()
+Lm, Rm, fwd_d, df_d = stats(2.5)
+resp = fwd_d is not None and (abs(df_d) > 30 or abs(fwd_d) > 15)
+res_ok &= resp
+print("  被吹走后: L=%4.0f R=%4.0f (fwd=%s diff=%s) → %s"
+      % (Lm, Rm, fwd_d, df_d, "PASS(有回驱响应)" if resp else "FAIL"))
+
+print("== 3d 悬停退出：新任务到达 ==")
+pp.publish(path)
+t_e = time.time()
+while time.time() < t_e + 2.0:
+    publish_odom(); r.sleep()
+seg3 = [p for p in pwms if p[0] >= time.time()-1.5]
+exit_ok = len(seg3) > 0
+res_ok &= exit_ok
+print("  新任务后 PWM 恢复发布: %s" % ("PASS" if exit_ok else "FAIL"))
 
 print("== 4 看门狗（rl 取反符号差速 → 断流应翻转）==")
 stage(1.5, sp=0.5, course=COURSE0 - math.radians(60))
