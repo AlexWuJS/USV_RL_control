@@ -66,13 +66,12 @@ rl_planner.yaml（RL节点，water_test.launch）
 # 阶段0 纯规划练习（桨不动）：
 roslaunch a_star_planner water_test.launch use_controller:=false
 
-# 阶段1 基线（LOS + shadow + 开环）：
+# 阶段1 基线（LOS + 速度闭环；RL 不启动）：
 roslaunch a_star_planner water_test.launch
 
-# 阶段2 速度闭环 B 趟：
-roslaunch a_star_planner water_test.launch use_pose_speed_diff:=true
+# 阶段2 开环对照（同航线 A/B 的 A 趟）：
+roslaunch a_star_planner water_test.launch use_pose_speed_diff:=false
 
-# 阶段3 RL 闭环第一级（终端2）：
-roslaunch a_star_planner water_test.launch guidance_mode:=rl rl_mode:=none use_pose_speed_diff:=true
-# 终端3（RL 执令）：
-roslaunch rl_local_planner rl_guidance.launch model_path:=/home/jetson/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/models/stage2_best_actor.pt
+# 阶段3 RL 闭环第一级（一条命令：RL 节点并入本 launch 并执令）：
+roslaunch a_star_planner water_test.launch guidance_mode:=rl rl_mode:=active
+# 急退：rosnode kill /rl_local_planner（huamo 0.5 s 自动回 LOS）
