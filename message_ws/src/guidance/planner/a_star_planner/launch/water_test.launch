@@ -12,11 +12,11 @@
   <!-- 引导模式: los=滑模 LOS（现状）| rl=执行 /guidance/rl_cmd（断流自动回退 LOS）-->
   <arg name="guidance_mode" default="los"/>
   <!-- 速度闭环开关: true=位姿差分求航速（A/B 的 B 趟）-->
-  <arg name="use_pose_speed_diff" default="false"/>
+  <arg name="use_pose_speed_diff" default="true"/>
   <!-- false=纯规划测试（不启动 huamo，桨绝对不会转）-->
   <arg name="use_controller" default="true"/>
-  <!-- RL 节点模式: shadow=陪跑采数（默认）| active=执令（闭环！）| none=不启动 -->
-  <arg name="rl_mode" default="shadow"/>
+  <!-- RL 节点: none=不启动（默认，最省资源）| shadow=陪跑采数 | active=执令（闭环，需配 guidance_mode:=rl）-->
+  <arg name="rl_mode" default="none"/>
   <!-- RL 模型 -->
   <arg name="rl_model" default="$(find rl_local_planner)/models/stage2_best_actor.pt"/>
   <!-- 仿真地图（无雷达练习用）——真艇保持 false，FAST-LIO 自带 /prior_map -->

@@ -1,0 +1,78 @@
+# 终端启动指令
+| 终端 | 命令 | 职责 | 生命周期 |
+| --- | --- | --- | --- |
+| 终端 1 | roslaunch bringup bringup.launch | 传感器+RTK+FAST-LIO 定位/建图+先验图+RViz | 常驻不重启（重启=定位丢失） |
+| 终端 2 | roslaunch a_star_planner water_test.launch <阶段参数> | 规划+控制+采集器+RL 节点 | 各阶段切换重启它 |
+| 终端 3（测试时） | bash .../a_star_planner/scripts/record_water.sh cloud | 录制（停录自动 [OK]/[坏]） | 每测试项目一段 |
+
+RL 节点已并入 water_test.launch（rl_mode 开关，默认 none 不启动）：
+- 陪跑采数：rl_mode:=shadow
+- RL 执令（闭环）：rl_mode:=active 且 guidance_mode:=rl
+- 急退：rosnode kill /rl_local_planner（huamo 0.5 s 自动回 LOS）
+
+# water_test.launch 阶段参数
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| speed_max | 0.8 | 巡航速度上限 m/s |
+| guidance_mode | los | los=滑模 LOS / rl=执行 RL 指令（断流 0.5 s 自动回退） |
+| use_pose_speed_diff | **true** | 速度闭环（位姿差分求航速）——默认开启，A/B 对照用 false 跑开环基线 |
+| use_controller | true | false=纯规划测试（不启动 huamo，桨不动） |
+| rl_mode | **none** | none=不启动 / shadow=陪跑采数 / active=RL 执令（配 guidance_mode:=rl） |
+| rl_model | stage2_best_actor.pt | 策略文件 |
+| use_map_server | false | 无雷达练习时用静态地图 |
+| include_bringup | false | true=连 bringup 一起起（仅冷启动第一条可用） |
+
+# 运行时可触发的话题
+| 话题/操作 | 效果 |
+| --- | --- |
+| RViz Publish Point 点水域 | 添加途经点 |
+| RViz Publish Point 点岸上/障碍/图外 | 清除整条轨迹（艇停，全重来） |
+| RViz 2D Nav Goal | 设定/替换终点 → 立即从艇当前位置规划（艇是否动由遥控器自动模式决定） |
+| rostopic pub -1 /guidance/hover_set std_msgs/Empty | 定点悬停（锚定当前位置，漂走自动顶回；重复触发不重锚） |
+| rostopic pub -1 /waypoint_collector/commit std_msgs/Empty | （兼容）仅提交已点途经点 |
+| rostopic pub -1 /waypoint_collector/clear std_msgs/Empty | 清任务+停车 |
+| rostopic pub -1 /waypoints_path nav_msgs/Path "{}" | 同上（不经采集器） |
+| rosnode kill /rl_local_planner | RL 急退 → huamo 0.5 s 自动回 LOS |
+
+# 参数化配置文件
+
+rl_planner.yaml（RL节点，water_test.launch）
+
+| 参数 | 当前值 | 作用 |
+| --- | --- | --- |
+| frames/hull_to_sensor_yaw | −1.5971 | 艇体↔雷达安装角（实测标定） |
+| frames/cloud_min_range | 1.0 m | 自回波过滤（点岸上/结构回波不进观测） |
+| action/dv_max · dcourse_max | 0.10 / 0.05 | RL 每步动作限幅（速度/航向） |
+| action/v_min · v_max | 0.2 / 2.0 | RL 速度参考域 |
+| safety/slow·crawl·critical_zone | 8 / 3 / 1.5 m | 障碍距离-速度包络（P4） |
+| safety/goal_slow_dist · goal_stop_dist · goal_speed | 15 / 5 m · 0.4 | 终点限速包络（P4b） |
+| safety/course_dev_max | 60° | 航向参考相对路径切线的截断界（P3） |
+| node/mode | shadow | shadow / active |
+| node/model_path | （launch 传入） | 策略文件 |
+
+# huamo节点参数（launch 私参，rosrun/roslaunch 传）
+| 参数 | 默认 | 作用 |
+| --- | --- | --- |
+| speed_max | 2.0 | 巡航速度上限 |
+| use_pose_speed_diff | false | 速度闭环（位姿差分求航速） |
+| guidance_mode | los | los / rl |
+| turn_rate_limit | 50 PWM/s | 转向输出摆率限幅（PWM 平滑） |
+| turn_deadzone | 3.0 PWM | 转向死区 |
+| rl_lpf_tau | 0.5 s | RL 航向参考低通时间常数 |
+| hover_kp / hover_vmax / hover_stop_dist | 0.30 / 0.60 / 0.30 | 悬停位置环（增益/回归速度上限/到位阈值） |
+
+# RL测试四阶段启动命令
+
+# 阶段0 纯规划练习（桨不动）：
+roslaunch a_star_planner water_test.launch use_controller:=false
+
+# 阶段1 基线（LOS + shadow + 开环）：
+roslaunch a_star_planner water_test.launch
+
+# 阶段2 速度闭环 B 趟：
+roslaunch a_star_planner water_test.launch use_pose_speed_diff:=true
+
+# 阶段3 RL 闭环第一级（终端2）：
+roslaunch a_star_planner water_test.launch guidance_mode:=rl rl_mode:=none use_pose_speed_diff:=true
+# 终端3（RL 执令）：
+roslaunch rl_local_planner rl_guidance.launch model_path:=/home/jetson/haique/little-boat-motion-control/message_ws/src/guidance/rl_local_planner/models/stage2_best_actor.pt
