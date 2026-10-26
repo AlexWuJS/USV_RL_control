@@ -32,3 +32,19 @@ rl_local_planner_training/tb/
 rl_local_planner_training/archive_rounds/
 rl_local_planner_training/viz_anim/
 rl_local_planner_training/*_install.log
+
+# 视频与图片产物（保留本地，不入库）
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.m4v
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp

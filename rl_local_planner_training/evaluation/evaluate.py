@@ -37,7 +37,8 @@ def evaluate(actor, env, n_episodes: int):
         obs, info = env.reset(seed=2000 + ep)
         done = False
         rec = dict(steps=0, traveled=0.0, min_clearance=env.sectorizer.max_range,
-                   end_reason="running", s_total=info["s_total"])
+                   end_reason="running", s_total=info["s_total"],
+                   scene=info.get("scene", "open_field"))
         prev_u, prev_t = None, None
         traj = []
         while not done:
@@ -62,9 +63,9 @@ def evaluate(actor, env, n_episodes: int):
         rec["path_efficiency"] = rec["traveled"] / max(rec["s_total"], 1e-6)
         rec["traj"] = np.array(traj)
         per_ep.append(rec)
-        print("ep %3d: %-10s steps=%3d min_clear=%.2f eff=%.2f" % (
-            ep, rec["end_reason"], rec["steps"], rec["min_clearance"],
-            rec["path_efficiency"]))
+        print("ep %3d [%s]: %-10s steps=%3d min_clear=%.2f eff=%.2f" % (
+            ep, rec["scene"], rec["end_reason"], rec["steps"],
+            rec["min_clearance"], rec["path_efficiency"]))
 
     n_success = sum(r["end_reason"] == "goal" for r in per_ep)
     n_coll = sum(r["end_reason"] == "collision" for r in per_ep)
@@ -83,6 +84,13 @@ def evaluate(actor, env, n_episodes: int):
         time_mean=float(np.mean([r["time"] for r in per_ep])),
         path_efficiency_mean=float(np.mean([r["path_efficiency"] for r in per_ep])),
     )
+    by_scene = {}
+    for r in per_ep:
+        d = by_scene.setdefault(r["scene"], dict(n=0, goal=0, collision=0))
+        d["n"] += 1
+        d["goal"] += int(r["end_reason"] == "goal")
+        d["collision"] += int(r["end_reason"] == "collision")
+    metrics["by_scene"] = by_scene
     return metrics, per_ep
 
 

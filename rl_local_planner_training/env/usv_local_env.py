@@ -24,7 +24,7 @@ from rl_common import (
 from dynamics import make_dynamics
 from .path_gen import gen_path
 from .obstacles import (Obstacle, spawn_static, spawn_moving, spawn_gates,
-                        surface_points)
+                        spawn_path_local, gen_shore_corridor, surface_points)
 
 
 class USVLocalEnv(gym.Env):
@@ -103,6 +103,9 @@ class USVLocalEnv(gym.Env):
         self._last_s = 0.0
         self._window_start_s = 0.0
         self._traveled = 0.0
+        self._scene = "open_field"
+        self._shore_pts = None
+        self._road_bbox = None
 
     # ------------------------------------------------------------------
     # Gymnasium API
@@ -112,19 +115,66 @@ class USVLocalEnv(gym.Env):
         rng = self.np_random
         ec = self.cfg
 
+        # --- 场景：开阔场 / 岸线走廊（mixed 按概率二选一） ---
+        scene = str(ec.get("scene", "open_field"))
+        if scene == "mixed":
+            scene = ("corridor" if rng.random() < float(ec.get("corridor_mix_p", 0.5))
+                     else "open_field")
+        if scene not in ("open_field", "corridor"):
+            raise ValueError("未知 scene: %r（可选 open_field/corridor/mixed）" % scene)
+        self._scene = scene
+
+        if scene == "corridor":
+            corr = gen_shore_corridor(
+                rng, ec.get("difficulty", "medium"),
+                tuple(ec.get("corridor_width_range", [8.0, 25.0])),
+                float(ec.get("corridor_path_bias", 0.35)))
+            path_pts, widths = corr.path, corr.widths
+            self._shore_pts, self._road_bbox = corr.shore_pts, corr.bbox
+        else:
+            path_pts, widths = gen_path(rng, ec.get("difficulty", "medium")), None
+            self._shore_pts, self._road_bbox = None, None
+
         self.path_features = PathFeatures(
-            gen_path(rng, ec.get("difficulty", "medium")),
+            path_pts,
             la1_dist=self.obs_builder.cfg.la1_dist,
             la2_dist=self.obs_builder.cfg.la2_dist)
 
-        # 障碍
-        self.obstacles = []
+        # --- 障碍 ---
+        # obstacle_on_path_frac：压路径障碍占比（0=旧"避让式"；1=全阻塞，避障核心场景）
+        r_range = ec.get("obstacle_radius_range", [1.0, 3.0])
+        r_ranges = ec.get("obstacle_radius_ranges", None)
         n_static = self._sample_count(ec.get("n_obstacles", 0))
         n_moving = self._sample_count(ec.get("n_moving_obstacles", 0))
         n_gates = self._sample_count(ec.get("narrow_gates", 0))
-        self.obstacles += spawn_static(rng, self.path_features.pts, n_static)
-        self.obstacles += spawn_moving(rng, self.path_features.pts, n_moving)
-        self.obstacles += spawn_gates(rng, self.path_features.pts, n_gates)
+        frac_on = float(ec.get("obstacle_on_path_frac", 0.0))
+        n_on = int(round(frac_on * n_static))
+        n_off = n_static - n_on
+        self.obstacles = []
+        pts = self.path_features.pts
+        if n_on:
+            self.obstacles += spawn_path_local(
+                rng, pts, n_on, radius_range=r_range, radius_ranges=r_ranges,
+                lat_range=(0.0, 1.5), widths=widths, existing=self.obstacles)
+        if n_off:
+            if scene == "corridor":
+                self.obstacles += spawn_path_local(
+                    rng, pts, n_off, radius_range=r_range, radius_ranges=r_ranges,
+                    lat_range=(3.0, 8.0), widths=widths, existing=self.obstacles)
+            else:
+                self.obstacles += spawn_static(
+                    rng, pts, n_off, radius_range=r_range, radius_ranges=r_ranges)
+        if n_moving:
+            if scene == "corridor":
+                xmin, xmax, ymin, ymax = self._road_bbox
+                self.obstacles += spawn_moving(
+                    rng, pts, n_moving, path_local=True, widths=widths,
+                    bx=(xmin, xmax), by=(ymin, ymax))
+            else:
+                self.obstacles += spawn_moving(rng, pts, n_moving)
+        if n_gates:
+            self.obstacles += spawn_gates(rng, pts, n_gates,
+                                          gap_range=ec.get("gate_gap_range", None))
 
         # 域随机化（每 episode 一次）
         self.dynamics.randomize(rng, ec.get("dr_ranges", None) if
@@ -152,7 +202,7 @@ class USVLocalEnv(gym.Env):
         self._traveled = 0.0
 
         obs, _, _, _, _ = self._observe()
-        return obs, {"s_total": self.path_features.s_total}
+        return obs, {"s_total": self.path_features.s_total, "scene": self._scene}
 
     def step(self, action):
         action = np.asarray(action, dtype=np.float64).reshape(-1)
@@ -226,7 +276,7 @@ class USVLocalEnv(gym.Env):
         if "end_reason" not in info:
             info["end_reason"] = "running"
         info.update(episode_steps=self._steps, traveled=self._traveled,
-                    s_total=self.path_features.s_total)
+                    s_total=self.path_features.s_total, scene=self._scene)
         return obs, float(reward), terminated, truncated, info
 
     # ------------------------------------------------------------------
@@ -234,6 +284,9 @@ class USVLocalEnv(gym.Env):
         st = self.dynamics.state
         feat = self.path_features.update_full([st.x, st.y], st.psi)
         pts_world = surface_points(self.obstacles)
+        if self._shore_pts is not None and len(self._shore_pts):
+            pts_world = (np.vstack([pts_world, self._shore_pts])
+                         if len(pts_world) else self._shore_pts)
         if len(pts_world):
             dx = pts_world[:, 0] - st.x
             dy = pts_world[:, 1] - st.y

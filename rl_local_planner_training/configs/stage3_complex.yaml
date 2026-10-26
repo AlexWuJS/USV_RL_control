@@ -1,5 +1,19 @@
-# Stage 3：复杂障碍布局 + 窄通道 + 动态障碍 + 完整域随机化（从 stage2 best 续训）
-# 【在训练机执行】python3 train/train_sac.py --config configs/stage3_complex.yaml --init-model models/stage2_best/best_model.zip
+# Stage 3b：复杂避障 —— 岸线走廊 + 窄通道 + 动态障碍 + 尺寸混合（从 3a best 续训）
+#
+# 场景构成（scene: mixed，每回合二选一）：
+#   open_field：开阔场，3~10 个障碍（半数压路径）+ 0~3 动态 + 0~2 窄门
+#   corridor  ：岸线走廊（净宽 8~25m），跟踪路径在走廊内曲折，
+#               障碍压路径/近路摆放，动态障碍在走廊 bbox 内反弹
+# 障碍尺寸混合（浮标 0.3~0.8 / 常规 1~3 / 码头·船 3~6）。
+#
+# 【在训练机执行】
+#   python3 train/train_sac.py --config configs/stage3_complex.yaml \
+#       --init-model models/stage3a/stage3_best/best_model.zip --out-dir models/stage3b
+#   python3 evaluation/evaluate.py --config configs/stage3_complex.yaml \
+#       --model models/stage3b/stage3_actor.pt --episodes 100 --plot
+#
+# 验收线：分场景统计（evaluate 输出 by_scene）——两种场景 collision=0、
+#   总 success ≥85%、speed_mean ≥1.2。达标后才可上艇影子/水试。
 stage: 3
 total_timesteps: 2000000
 seed: 2
@@ -7,12 +21,19 @@ n_envs: 8
 
 env:
   dt: 0.1
-  max_episode_steps: 600
+  max_episode_steps: 700
   dynamics: first_order
   difficulty: hard
+  scene: mixed                    # open_field | corridor | mixed
+  corridor_mix_p: 0.5             # mixed 时取走廊的概率
+  corridor_width_range: [8.0, 25.0]
+  corridor_path_bias: 0.35
   n_obstacles: [3, 10]
+  obstacle_on_path_frac: 0.5      # 半数障碍压路径
+  obstacle_radius_ranges: [[0.3, 0.8], [1.0, 3.0], [3.0, 6.0]]
   n_moving_obstacles: [0, 3]
   narrow_gates: [0, 2]
+  gate_gap_range: [3.5, 8.0]      # 窄门净宽逐门随机（旧行为为固定 4m）
   domain_randomization: true
   dr_ranges:
     tau_scale: [0.6, 1.4]
@@ -27,7 +48,7 @@ env:
   hull_radius: 0.6
   stuck_window_steps: 100
   stuck_min_progress: 0.5
-  cte_abort: 8.0
+  cte_abort: 10.0
   goal_radius: 1.5
 
   dynamics_params:

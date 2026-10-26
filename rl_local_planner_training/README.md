@@ -95,8 +95,9 @@ pip install -r requirements.txt
 # 3.【在训练机执行】契约层单测（与 NX 结果必须一致）
 python3 rl_common_tests/test_rl_common.py
 
-# 4.【在训练机执行】环境冒烟测试（1 条随机动作 episode，非训练）
+# 4.【在训练机执行】环境冒烟测试（1 条随机动作 episode，非训练）+ 避障场景测试
 python3 env/smoke_test.py
+python3 env/scene_test.py
 ```
 
 ## 训练（全部【在训练机执行】）
@@ -110,14 +111,43 @@ tensorboard --logdir tb   # 观察 ep_rew_mean / ep_len_mean / ent_coef
 python3 train/train_sac.py --config configs/stage2_static_obstacles.yaml \
     --init-model models/stage1_best/best_model.zip
 
-# Stage 3：复杂场景 + 动态障碍（从 stage2 best 续训）
+# Stage 3a：阻塞障碍绕行（从 stage2 best 续训；避障核心能力）
+python3 train/train_sac.py --config configs/stage3a_blocking.yaml \
+    --init-model models/stage2_best/best_model.zip --out-dir models/stage3a
+
+# Stage 3b：复杂场景（岸线走廊 + 窄道 + 动态障碍，从 3a best 续训）
 python3 train/train_sac.py --config configs/stage3_complex.yaml \
-    --init-model models/stage2_best/best_model.zip
+    --init-model models/stage3a/stage3_best/best_model.zip --out-dir models/stage3b
 
 # 评估（每个阶段训练完必做；指标不达标不进入下一阶段）
 python3 evaluation/evaluate.py --config configs/stage2_static_obstacles.yaml \
     --model models/stage2_actor.pt --episodes 50 --plot
 ```
+
+## 场景与避障课程（Stage 3a / 3b）
+
+Stage 2 的障碍是"避让式"摆放（障碍面距路径 ≥3m，从不挡路）。真正的避障
+（路径被挡住 → 偏离绕行 → 回归路径）从 Stage 3a 开始。场景 key（configs/env 段）：
+
+| 配置 key | 含义 | 默认 |
+|---|---|---|
+| `scene` | `open_field` / `corridor`（岸线走廊）/ `mixed`（每回合二选一） | `open_field` |
+| `obstacle_on_path_frac` | 压路径障碍占比（1=全阻塞，0=旧避让式） | 0.0 |
+| `obstacle_radius_range` | 统一障碍半径范围 m | [1.0, 3.0] |
+| `obstacle_radius_ranges` | 尺寸类列表（浮标/常规/码头），优先于上一行 | 无 |
+| `corridor_width_range` | 走廊净宽范围 m（实际净宽 = 名义 ±~1.4m） | [8, 25] |
+| `corridor_path_bias` | 跟踪路径偏离走廊中心线的比例（≤1） | 0.35 |
+| `corridor_mix_p` | `mixed` 时取走廊场景的概率 | 0.5 |
+| `gate_gap_range` | 窄门净宽逐门随机范围 m（不设 = 旧固定 4m） | 无 |
+
+场景测试（几何 + 环境布线；纯 numpy 部分任何机器可跑）：
+
+```bash
+python3 env/scene_test.py     # 摆放/走廊/扇区/尺寸类 + 环境布线
+```
+
+验收线（evaluate 输出 `by_scene` 分场景统计）：两种场景 collision=0、
+success ≥85%、speed_mean ≥1.2（防"龟速/停船等待"最优解）。达标后才可上艇影子/水试。
 
 ## 交付到 NX
 

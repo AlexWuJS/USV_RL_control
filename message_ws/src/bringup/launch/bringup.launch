@@ -6,6 +6,8 @@
     <arg name="use_rtk"         default="true"/>
     <arg name="use_lidar"       default="true"/>
     <arg name="audio_volume"    default="40"/>
+    <!-- true=正常关闭时保存建图 PCD（环湖建图用）；平时 false 省磁盘 -->
+    <arg name="save_pcd"       default="false"/>
 
     <!-- 启动机器人 -->
     <node pkg="usart" type="usart_node" name="usart" output="screen"/>
@@ -38,6 +40,7 @@
         <!-- 使用fast lio -->
         <include file="$(find fast_lio_localization)/launch/sentry_build_map.launch">
             <arg name="rviz" default="true" />
+            <arg name="save_pcd" value="$(arg save_pcd)" />
         </include> 
     </group>
 

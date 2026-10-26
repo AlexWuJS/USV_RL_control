@@ -12,6 +12,7 @@
   <node name="nmea_topic_driver_node" pkg="nmea_navsat_driver" type="nmea_topic_driver" output="screen">
     <remap from="nmea_sentence" to="nmea_sentence" /> <!-- Remap to keep the original topic name -->
     <param name="frame_id" value="gps" /> <!-- Set appropriate frame_id for NavSatFix messages -->
+    <param name="use_GNSS_time" value="true" />
     <!-- <remap from="/fix" to="/haique/robot_localization/gps/fix" />  -->
     <!-- Additional parameters specific to nmea_topic_driver if needed -->
   </node>

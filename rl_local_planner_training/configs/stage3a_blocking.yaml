@@ -1,0 +1,77 @@
+# Stage 3a：阻塞障碍绕行 —— 避障核心能力（从 stage2 best 续训）
+#
+# 背景：Stage 2 的障碍摆放为"避让式"（spawn_static，障碍面距路径 ≥3m，从不挡路），
+# 94% 成功率衡量的是"跟踪+躲旁边的东西"。本阶段专训：路径被挡住 → 偏离绕行 → 回归路径。
+#
+# 【在训练机执行】
+#   python3 train/train_sac.py --config configs/stage3a_blocking.yaml \
+#       --init-model models/stage2_best/best_model.zip --out-dir models/stage3a
+#   python3 evaluation/evaluate.py --config configs/stage3a_blocking.yaml \
+#       --model models/stage3a/stage3_actor.pt --episodes 50 --plot
+#
+# 验收线（达标才进 3b）：collision_rate=0；success ≥85%；
+#   speed_mean ≥1.2（防"龟速/停船等待"最优解）；绕行后 CTE 能收敛回来。
+stage: 3
+total_timesteps: 800000
+seed: 3
+n_envs: 8
+
+env:
+  dt: 0.1
+  max_episode_steps: 700          # 70s：绕行增加行程（stage2 的 600 步偏紧）
+  dynamics: first_order
+  difficulty: medium
+  scene: open_field               # open_field | corridor | mixed
+  n_obstacles: [1, 3]
+  obstacle_on_path_frac: 1.0      # ★ 全部压在路径上（0=旧避让式，1=全阻塞）
+  obstacle_radius_range: [1.0, 3.0]
+  n_moving_obstacles: 0
+  narrow_gates: 0
+  domain_randomization: true
+  dr_ranges:
+    tau_scale: [0.7, 1.3]
+    r_max_scale: [0.85, 1.15]
+    k_r_scale: [0.8, 1.2]
+  use_speed_envelope: false       # 训练期不启 supervisor 包络（部署端兜底）
+  control_delay_steps: [0, 1]
+  obs_noise_std: 0.01
+  sector_noise_std: 0.2
+  sector_dropout: 0.03
+  current_max: 0.1
+  hull_radius: 0.6
+  stuck_window_steps: 100         # 10s 无 0.5m 前进 → 停滞终止（防"停下等"）
+  stuck_min_progress: 0.5
+  cte_abort: 12.0                 # ★ 绕行时横偏自然变大，stage2 的 8m 会把合理绕行判失败
+  goal_radius: 1.5
+
+  dynamics_params:
+    tau_u: 0.79
+    tau_r: 0.53
+    tau_v: 0.5
+    k_r: 0.8
+    r_max: 0.6
+    v_max_phys: 2.3
+
+  reward:
+    w_progress: 4.0               # 保持 stage2 强度：绕行不亏，鼓励"绕过去"而非蹭/停
+    w_track: 1.00
+    w_heading: 0.15
+    w_smooth: 0.30
+    w_safe_speed: 0.5
+    a_lat_max: 0.5
+    obstacle: {far: 8.0, crawl: 3.0, critical: 1.5, gradient: 0.2, near: 0.5, hit: 2.0}
+    terminal: {goal: 20.0, collision: -50.0, stuck: -20.0, timeout: -20.0, cte_abort: -10.0}
+
+sac:
+  learning_rate: 3.0e-4
+  buffer_size: 500000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  train_freq: 1
+  gradient_steps: 1
+  ent_coef: auto
+  net_arch: [256, 256]
+  checkpoint_freq: 20000
+  eval_freq: 10000
+  n_eval_episodes: 20
